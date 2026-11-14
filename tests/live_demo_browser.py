@@ -98,6 +98,44 @@ try:
   background=page.locator(".order-card").first.evaluate("(el)=>getComputedStyle(el).backgroundColor")
   assert background!="rgb(255, 255, 255)", "Dark order card remained white"
   print("PASS /app?tab=orders: cards, detail, paid badge, mobile and dark mode",flush=True)
+  # Verify the ACTUAL computed Restaurant/Reservations button and panel palette
+  # under all three merchant themes; catches green CSS rules leaked after Apple blue.
+  page.evaluate("""() => {
+    const div = document.createElement('div');
+    div.className = 'suite-container';
+    div.id = 'suite-palette-probe';
+    div.innerHTML = '<button class="suite-primary">Add reservation</button>' +
+      '<button class="suite-secondary">Refresh</button>' +
+      '<div class="suite-summary"><div><strong>0</strong></div></div>' +
+      '<div class="suite-booking-filters"><label>Date<input type="date"></label></div>';
+    document.body.appendChild(div);
+  }""")
+  for theme, expected_bg, expected_text in (
+    ("apple", "rgb(0, 102, 204)", "rgb(255, 255, 255)"),
+    ("tropical", "rgb(13, 147, 107)", "rgb(255, 255, 255)"),
+    ("graphite", "rgb(168, 207, 255)", "rgb(17, 24, 32)"),
+  ):
+   page.evaluate("(theme) => document.documentElement.setAttribute('data-ez-merchant-theme',theme)",theme)
+   colors=page.evaluate("""() => {
+     const button=document.querySelector('#suite-palette-probe .suite-primary');
+     const card=document.querySelector('#suite-palette-probe .suite-summary>div');
+     const input=document.querySelector('#suite-palette-probe input');
+     return {
+      button:getComputedStyle(button).backgroundColor,
+      text:getComputedStyle(button).color,
+      card:getComputedStyle(card).backgroundColor,
+      field:getComputedStyle(input).backgroundColor
+     };
+   }""")
+   assert colors["button"]==expected_bg,(theme,colors)
+   assert colors["text"]==expected_text,(theme,colors)
+   if theme=="graphite":
+    assert colors["card"]!="rgb(255, 255, 255)",(theme,colors)
+    assert colors["field"]!="rgb(255, 255, 255)",(theme,colors)
+   else:
+    assert colors["card"]=="rgb(255, 255, 255)",(theme,colors)
+  page.locator('#suite-palette-probe').evaluate("(element)=>element.remove()")
+  print("PASS /app: restaurant accent blue/green/blue in Apple/Tropical/Graphite; dark surfaces",flush=True)
   browser.close()
   print("REQUESTS",json.dumps(requests[-45:],ensure_ascii=False),flush=True)
   print("JS ERRORS",json.dumps(errors[-20:],ensure_ascii=False),flush=True)
