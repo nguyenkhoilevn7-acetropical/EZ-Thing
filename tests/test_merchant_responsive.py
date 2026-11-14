@@ -25,7 +25,8 @@ def test_order_cards_preserve_status_actions_and_full_labels():
     cards = (STATIC / "order-cards.js").read_text(encoding="utf-8")
     styles = (STATIC / "order-cards.css").read_text(encoding="utf-8")
     html = (STATIC / "index.html").read_text(encoding="utf-8")
-    assert "window.EZOrderCards.renderList(list,{E,V,D,status,I})" in app
+    assert "window.EZOrderCards.renderList(list,{E,V,D,status,I,canMarkPaid:" in app
+    assert "canCancel:s.business.role===\'owner\'" in app
     assert "order-rows" in cards and "data-match" in cards
     assert "role='listitem'" in cards and "role='region'" in cards
     for name in ("Mã đơn", "Sản phẩm", "Giá trị", "Danh sách đơn hàng"):

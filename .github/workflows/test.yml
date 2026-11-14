@@ -16,6 +16,9 @@ jobs:
         run: |
           node --check app/static/app.js
           node --check app/static/billing-ui.js
+          node --check app/static/team-ui.js
+          node --check app/static/site-publishing-ui.js
+          node --check app/static/public-shop.js
           node --check app/static/customer.js
           node --check app/static/admin.js
           node --check app/static/reservations.js
