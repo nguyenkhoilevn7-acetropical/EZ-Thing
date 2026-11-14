@@ -45,6 +45,41 @@ try:
    assert page.locator(".customer-loading").count()==0,channel
    assert page.locator(".customer-product").count()>0 or channel=="/booking/wellness",channel
    print("PASS",channel,"title=",page.title(),flush=True)
+  # The Wellness selection widget must retain its header, hero, form and panel nodes
+  # during each service / slot / specialist change (no page-wide flash).
+  page.goto(BASE+"/booking/wellness",wait_until="domcontentloaded",timeout=15000)
+  page.locator(".booking-slot").first.wait_for(timeout=25000)
+  page.evaluate("""() => {
+    window.__wellnessStable = {
+      header: document.querySelector('.customer-header'),
+      hero: document.querySelector('.merchant-hero'),
+      date: document.querySelector('#book-date'),
+      staff: document.querySelector('#book-staff'),
+      panel: document.querySelector('#booking-right'),
+      firstService: document.querySelector('.booking-service')
+    };
+  }""")
+  assert page.locator(".booking-service").count()>=2
+  page.locator(".booking-service").last.click()
+  page.wait_for_function("""() => document.querySelector('.booking-slots')?.getAttribute('aria-busy') === 'false'
+    && document.querySelectorAll('.booking-slot').length > 0""",timeout=25000)
+  def wellness_dom_stable():
+   return page.evaluate("""() => Object.entries(window.__wellnessStable).every(([key,node]) =>
+     node === document.querySelector({
+      header:'.customer-header',hero:'.merchant-hero',date:'#book-date',
+      staff:'#book-staff',panel:'#booking-right',firstService:'.booking-service'
+     }[key]))""")
+  assert wellness_dom_stable(), "Service tap replaced storefront DOM"
+  page.locator(".booking-slot").first.click()
+  assert page.locator('.booking-slot[aria-pressed="true"]').count()==1
+  assert page.locator('[data-action="open-booking"]').is_enabled()
+  assert wellness_dom_stable(), "Time slot tap replaced storefront DOM"
+  page.locator("#book-staff").select_option(label="Minh")
+  page.wait_for_function("""() => document.querySelector('.booking-slots')?.getAttribute('aria-busy') === 'false'""",timeout=25000)
+  assert wellness_dom_stable(), "Specialist selection replaced storefront DOM"
+  assert page.locator('#book-staff').input_value() == "Minh"
+  print("PASS /booking/wellness: stable DOM on service, time and specialist changes",flush=True)
+
   # Verify the merchant order cards using the same seeded demo session.
   page.set_viewport_size({"width":1060,"height":800})
   page.goto(BASE+"/app?tab=orders",wait_until="domcontentloaded",timeout=15000)
