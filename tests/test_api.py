@@ -183,3 +183,73 @@ def test_pilot_security_headers(cli):
     assert r.headers['x-frame-options']=='DENY'
     assert "script-src 'self'" in r.headers['content-security-policy']
     assert 'camera=()' in r.headers['permissions-policy']
+
+
+def test_demo_is_explicitly_disabled_by_default(cli, monkeypatch):
+    monkeypatch.delenv('EZ_THING_ENVIRONMENT', raising=False)
+    monkeypatch.delenv('EZ_THING_DEMO_MODE', raising=False)
+    assert cli.get('/api/config').json() == {'demo_enabled': False}
+    assert post(cli, '/auth/demo', {}).status_code == 404
+    assert cli.get('/api/auth/me').status_code == 401
+    monkeypatch.setenv('EZ_THING_ENVIRONMENT', 'production')
+    monkeypatch.setenv('EZ_THING_DEMO_MODE', '1')
+    assert post(cli, '/auth/demo', {}).status_code == 404
+    monkeypatch.setenv('EZ_THING_ENVIRONMENT', 'staging')
+    monkeypatch.setenv('EZ_THING_DEMO_MODE', '0')
+    assert post(cli, '/auth/demo', {}).status_code == 404
+
+
+def test_demo_opens_without_signup_and_has_sample_data(cli, monkeypatch):
+    monkeypatch.setenv('EZ_THING_ENVIRONMENT', 'staging')
+    monkeypatch.setenv('EZ_THING_DEMO_MODE', '1')
+    assert cli.get('/api/config').json()['demo_enabled'] is True
+    resp = post(cli, '/auth/demo', {})
+    assert resp.status_code == 201, resp.text
+    assert resp.json()['demo'] is True
+    assert resp.cookies.get('ez_session')
+    assert cli.get('/api/auth/me').json()['demo'] is True
+    cs = resp.json()['csrf_token']
+    businesses = cli.get('/api/businesses').json()
+    assert {b['industry'] for b in businesses} == {'fnb','retail','online','services'}
+    fnb = next(b for b in businesses if b['industry'] == 'fnb')
+    assert fnb['subscription_status'] == 'demo'
+    bid = fnb['id']
+    products = cli.get(f'/api/businesses/{bid}/products').json()
+    assert len(products) >= 6
+    tables = cli.get(f'/api/businesses/{bid}/tables').json()
+    assert len(tables) >= 6 and any(t['occupied'] for t in tables)
+    orders = cli.get(f'/api/businesses/{bid}/orders').json()
+    assert len(orders) == 3
+    assert {o['status'] for o in orders} == {'paid', 'open'}
+    overview = cli.get(f'/api/businesses/{bid}/overview').json()
+    assert overview['paid_revenue_vnd'] > 0
+    assert overview['order_count'] == 3
+    assert len(cli.get(f'/api/businesses/{bid}/insights').json()['top_products']) >= 1
+    assert post(cli, f'/businesses/{bid}/customers', {'name':'Chặn CSRF'}).status_code == 403
+    created = post(cli, f'/businesses/{bid}/customers', {'name':'Khách tự tạo'}, cs)
+    assert created.status_code == 201, created.text
+    assert created.json()['name'] == 'Khách tự tạo'
+
+
+def test_demo_tenants_cannot_access_other_demo_or_real_user_data(cli, monkeypatch):
+    monkeypatch.setenv('EZ_THING_ENVIRONMENT', 'staging')
+    monkeypatch.setenv('EZ_THING_DEMO_MODE', '1')
+    csrf_real = signup(cli, 'real')
+    real_bid = business(cli, csrf_real)['id']
+    first = TestClient(app)
+    second = TestClient(app)
+    try:
+        a = post(first, '/auth/demo', {})
+        b = post(second, '/auth/demo', {})
+        assert a.status_code == 201, a.text
+        assert b.status_code == 201, b.text
+        first_bid = first.get('/api/businesses').json()[0]['id']
+        second_bid = second.get('/api/businesses').json()[0]['id']
+        assert first_bid != second_bid
+        assert first.get(f'/api/businesses/{second_bid}/products').status_code == 404
+        assert second.get(f'/api/businesses/{first_bid}/orders').status_code == 404
+        assert first.get(f'/api/businesses/{real_bid}/customers').status_code == 404
+        assert cli.get(f'/api/businesses/{first_bid}/orders').status_code == 404
+    finally:
+        first.close()
+        second.close()
