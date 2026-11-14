@@ -13,4 +13,4 @@ jobs:
       - run: pip install -r requirements-dev.txt
       - run: pytest -q
       - name: Check frontend JS syntax
-        run: node --check app/static/app.js
+        run: |\n          node --check app/static/app.js\n          node --check app/static/customer.js\n          node --check app/static/admin.js\n          node --check app/static/sw.js
