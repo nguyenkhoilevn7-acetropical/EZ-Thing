@@ -32,7 +32,8 @@ def test_alembic_adds_team_and_site_schema_without_touching_business_rows(tmp_pa
         assert inspector.has_table("team_invitations")
         assert inspector.has_table("public_storefronts")
         version=conn.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
-        assert version=="20261114_02"
+        assert version=="20261114_03"
+        assert inspector.has_table("public_order_requests")
         assert inspector.has_table("auth_email_verifications")
         assert conn.execute(text("SELECT name FROM businesses WHERE id='biz-1'")).scalar_one()=="My shop"
         assert conn.execute(text("SELECT email FROM users WHERE id='user-1'")).scalar_one()=="owner@test.invalid"
