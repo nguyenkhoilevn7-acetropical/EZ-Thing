@@ -514,3 +514,65 @@ def test_super_admin_server_side_allowlist_and_demo_exclusion(cli,monkeypatch):
         demo_client(another,monkeypatch)
         assert another.get('/api/admin/summary').status_code==403
     finally:another.close()
+
+def test_preview_v04_flow_categories_and_public_contract(cli, monkeypatch):
+    """All customer UIs receive the matching backend business capabilities."""
+    demo_client(cli, monkeypatch)
+    channels = {'cafe':'table_order','mart':'in_store_hold',
+                'online':'internal_delivery','wellness':'appointment'}
+    for channel, kind in channels.items():
+        response = cli.get('/api/preview/' + channel)
+        assert response.status_code == 200, response.text
+        data = response.json()
+        assert data['demo'] is True
+        assert data['flow']['kind'] == kind
+        assert data['flow']['payment_enabled'] is False
+        assert set(data['categories']) == {p['category'] for p in data['products']}
+        assert len(data['categories']) >= 2
+        assert all(set(p).isdisjoint({'stock','cost_vnd','business_id'}) for p in data['products'])
+        assert 'phone' not in str(data) and 'address' not in str(data)
+    assert cli.get('/api/preview/wellness').json()['flow']['duration_minutes'] == 60
+    assert cli.get('/api/preview/online').json()['flow']['carrier_connected'] is False
+    assert cli.get('/api/preview/cafe').json()['flow']['requires_table'] is True
+
+
+def test_preview_quote_server_matches_checkout_without_side_effects(cli, monkeypatch):
+    csrf = demo_client(cli, monkeypatch)
+    site = cli.get('/api/preview/cafe').json()
+    first, second = site['products'][:2]
+    biz = next(x for x in cli.get('/api/businesses').json() if x['industry'] == 'fnb')
+    before = len(cli.get(f"/api/businesses/{biz['id']}/orders").json())
+    lines = [{'product_id':first['id'],'quantity':2},
+             {'product_id':second['id'],'quantity':1}]
+    assert post(cli, '/preview/cafe/quote', {'lines':lines}).status_code == 403
+    quote_response = post(cli, '/preview/cafe/quote', {'lines':lines}, csrf)
+    assert quote_response.status_code == 200, quote_response.text
+    quote = quote_response.json()
+    expected = 2*first['price_vnd'] + second['price_vnd']
+    assert quote['total_vnd'] == expected
+    assert quote['currency'] == 'VND'
+    assert quote['is_estimate'] is True
+    assert quote['payment_enabled'] is False
+    assert len(quote['lines']) == 2
+    assert all('cost_vnd' not in line and 'stock' not in line for line in quote['lines'])
+    assert len(cli.get(f"/api/businesses/{biz['id']}/orders").json()) == before
+    payload = {'request_id':'v04-quote-order-test','customer_name':'Khách bản thử',
+               'table_id':site['tables'][0]['id'], 'lines':lines}
+    checkout = post(cli, '/preview/cafe/checkout', payload, csrf)
+    assert checkout.status_code == 201, checkout.text
+    assert checkout.json()['total_vnd'] == quote['total_vnd']
+
+
+def test_preview_quote_enforces_tenant_stock_and_per_item_limits(cli, monkeypatch):
+    csrf = demo_client(cli, monkeypatch)
+    cafe = cli.get('/api/preview/cafe').json()
+    online = cli.get('/api/preview/online').json()
+    product = cafe['products'][0]
+    quote_path = '/preview/cafe/quote'
+    assert post(cli, quote_path, {'lines':[{'product_id':online['products'][0]['id'],
+                                            'quantity':1}]}, csrf).status_code == 404
+    assert post(cli, quote_path, {'lines':[{'product_id':product['id'],'quantity':6},
+                                            {'product_id':product['id'],'quantity':6}]}, csrf).status_code == 422
+    assert post(cli, quote_path, {'lines':[]}, csrf).status_code == 422
+    assert post(cli, quote_path, {'lines':[{'product_id':product['id'],'quantity':11}]}, csrf).status_code == 422
+    assert post(cli, '/preview/wellness/quote', {'lines':[{'product_id':product['id'],'quantity':1}]}, csrf).status_code == 404
