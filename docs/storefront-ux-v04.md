@@ -70,12 +70,12 @@ Contract source of truth:
 
 ## Verification
 
-\`\`\`sh
+```sh
 python -m pytest -q
 node --check app/static/app.js
 node --check app/static/customer.js
 node --check app/static/admin.js
 node --check app/static/sw.js
-\`\`\`
+```
 
 Review PR → green CI → inspect staging /api/health + four guest flows and merchant workflows → manual deploy staging only. Production requires separate owner sign-off.
