@@ -33,3 +33,6 @@
  .site-home .site-header .site-brand.ez-site-brand .ez-logo-word{font-size:20px;margin-left:-5px}
  .site-home .site-header .ez-site-brand{flex-shrink:0}
 }
+
+/* Super Admin intentionally runs on a dark navigation surface. */
+.admin-ez-logo .ez-mark-dark,.admin-ez-loader .ez-mark-dark{display:block}
