@@ -1,0 +1,94 @@
+/* EZ Thing v0.4 Merchant UI. 
+   Same design family as customer storefronts, isolated to /app.
+   No workflow/auth/API behavior changes. */
+:root{
+ --bg:#f6f9f6;--paper:#fff;--ink:#1c3329;--muted:#728778;
+ --line:#e6eee7;--green:#187f5e;--green2:#2dbb89;--mint:#e8f5ec;
+ --shadow:0 12px 34px #234b2e0b;--radius:20px
+}
+body{background:radial-gradient(circle at 100% 0,#d9efe24d,transparent 34%),#f7f9f6;overflow-x:hidden}
+.app{isolation:isolate}
+.sidebar{width:var(--sidebar);background:#fff;border-right:1px solid #e8eee8;box-shadow:5px 0 25px #36563c06}
+.sidebar .wordmark{letter-spacing:-.055em}
+.sidebar .brand-symbol{background:#183f2f;box-shadow:0 6px 15px #1b604b21}
+.side-caption{color:#94a79a;letter-spacing:.14em}
+.side-link{height:45px;border-radius:13px;color:#708578;font-size:12px;font-weight:800;gap:12px}
+.side-link:hover{background:#eff7f1;color:#206447}
+.side-link.active{background:#e7f5eb;color:#146d4e;box-shadow:inset 0 0 0 1px #d5e9dc}
+.side-link.active:before{content:'';height:22px;width:3px;background:#1b9670;border-radius:5px;margin-left:-10px}
+.business-switch{padding:11px;border-color:#e5eee7;box-shadow:0 5px 16px #1e543410;border-radius:15px}
+.b-avatar{background:linear-gradient(135deg,#205c43,#3bbf81)}
+.merchant-customer-link{background:#e9f6ed;color:#17694b;border:1px solid #d9eadc;border-radius:13px}
+.main{background:transparent}
+.topbar{height:90px;background:#ffffffb0;backdrop-filter:blur(12px);border-bottom:1px solid #e9efea;position:sticky;top:0;z-index:8}
+.topbar-left .eyebrow{font-size:10px;letter-spacing:.11em;text-transform:uppercase;color:#91a69a}
+.topbar-left h1{font:850 26px/1.2 Manrope,'DM Sans',sans-serif;letter-spacing:-.06em;color:#213c2e}
+.topbar-right .iconbtn{box-shadow:0 3px 14px #143c2d07}
+.avatar{background:linear-gradient(135deg,#bce6cd,#e7f7dd)}
+.content{padding-top:27px}
+.dashboard-welcome{background:linear-gradient(112deg,#184a36,#237a55 67%,#83b996 135%);border-radius:26px;box-shadow:0 18px 45px #1e674b29;min-height:215px}
+.dashboard-welcome:before{right:11%;top:-160px;width:310px;height:310px;border:45px solid #ffffff0c}
+.dashboard-welcome h2{font:850 27px/1.16 Manrope,'DM Sans',sans-serif;letter-spacing:-.055em}
+.dashboard-welcome .btn{color:#1b6c4e;border-radius:13px;font-size:12px}
+.dashboard-welcome p{color:#d6f1dc}
+.surface{border-color:#e6eee9;box-shadow:0 10px 28px #3158380c}
+.pad{padding:23px}
+.kpi-grid{gap:16px}
+.kpi{min-height:145px;border-radius:19px;transition:transform .2s,box-shadow .2s}
+.kpi:hover{transform:translateY(-2px);box-shadow:0 14px 30px #31583815}
+.kpi h3{font:850 29px Manrope,'DM Sans',sans-serif;letter-spacing:-.065em;margin:18px 0 3px}
+.kpi .kpi-top{font-size:11px}
+.kpi .kpi-icon{height:43px;width:43px;border-radius:13px;background:#e7f4ea;color:#22845e}
+.section-header h2,.panel-title h3{font-family:Manrope,'DM Sans',sans-serif;letter-spacing:-.045em}
+.section-header h2{font-size:21px}
+.btn{border-radius:13px;font-weight:850;min-height:43px}
+.btn:not(.secondary):not(.ghost):not(.danger){box-shadow:0 5px 13px #146e4a18}
+.btn.secondary{background:#fff;border-color:#e1ebe3}
+.surface .panel-title{padding-bottom:12px;border-bottom:1px solid #edf2ed}
+.product-card{border-radius:20px;transition:transform .2s,box-shadow .2s}
+.product-card:hover{transform:translateY(-2px);box-shadow:0 16px 35px #244a3317}
+.product-visual{width:63px;height:63px;border-radius:16px;background:linear-gradient(135deg,#e9f5ee,#d6e9dd);font-size:28px}
+.product-main h3{font-size:14px;letter-spacing:-.025em}
+.product-footer strong{font-size:18px}
+.table-tile{box-shadow:0 5px 18px #173d3209;border-color:#e5eee7}
+.table-tile:hover{box-shadow:0 13px 24px #173d3212}
+.table-tile.occupied{background:#fffbf5}
+.customer-card{border-radius:19px}
+.task-item,.feature-row,.insight-item{border-color:#e6eee8;border-radius:14px}
+.data-table th{color:#7b9585;font-size:10px}
+.data-table tr:hover td{background:#f6fbf7}
+.filter-btn{padding:10px 15px;color:#657d6e}
+.filter-btn.active{background:#e5f4ea;color:#146d4d;border-color:#d3e9d9}
+input,select,textarea{border-color:#dee9df;border-radius:12px}
+input:focus,select:focus,textarea:focus{border-color:#47a880;box-shadow:0 0 0 4px #e6f7ea}
+.setup-card,.auth-card{color:#213d2c}
+.setup-card{box-shadow:0 20px 65px #1f613c13}
+.industry-choice,.plan-choice{transition:transform .2s,border-color .2s,box-shadow .2s}
+.industry-choice:hover,.plan-choice:hover{transform:translateY(-2px)}
+.dialog{border-radius:25px;box-shadow:0 36px 90px #061b1052;max-height:88dvh;overscroll-behavior:contain}
+.overlay{backdrop-filter:blur(9px);background:#122d248c}
+.close-btn{background:#f1f6f2;border-radius:11px}
+.toast{border-radius:14px}
+.demo-ribbon{background:#fef5dd;color:#8d651c;border-bottom:1px solid #f6e6c1}
+@media(max-width:840px){.content{padding-top:20px}.topbar{height:78px}}
+@media(max-width:650px){
+ .topbar{height:75px;padding:0 17px;position:sticky;top:0;z-index:8}
+ .topbar-left h1{font-size:20px}
+ .content{padding:12px 13px 118px}
+ .dashboard-welcome{padding:24px;min-height:185px;border-radius:21px}
+ .dashboard-welcome h2{font-size:23px}
+ .kpi-grid{gap:10px}
+ .kpi{padding:15px;min-height:116px;border-radius:16px}
+ .kpi h3{font-size:22px;margin-top:11px}
+ .kpi .kpi-icon{width:34px;height:34px;border-radius:11px}
+ .surface{border-radius:18px}
+ .pad{padding:17px}
+ .product-card{padding:17px}
+ .mobile-nav{background:#ffffffec;box-shadow:0 -9px 25px #24422f12;z-index:25}
+ .mobile-nav button.active{color:#197a56}
+ .dialog{max-height:88dvh;border-radius:23px 23px 0 0}
+ .overlay{z-index:60}
+}
+@media(prefers-reduced-motion:reduce){
+ .kpi,.product-card,.industry-choice,.plan-choice,.table-tile{transition:none!important}
+}
