@@ -14,7 +14,8 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 from fastapi import Depends, FastAPI, HTTPException, Request, Response
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import func, select, update
 from sqlalchemy.exc import IntegrityError
@@ -22,6 +23,7 @@ from sqlalchemy.orm import Session
 
 from .catalog import INDUSTRIES, PLANS, ROADMAP, FEATURES, recommend
 from .demo import demo_enabled, is_demo_user, seed_demo
+from .i18n import INDUSTRIES_EN, RECOMMENDATION_EN, selected_language, translate_error
 from .database import Base, db_session, engine
 from .models import (AuditEvent, Branch, Business, Customer, DiningTable, Membership,
                      Product, SaleOrder, SaleOrderItem, SessionToken, StockMovement, User, now)
@@ -39,6 +41,9 @@ app.mount("/assets", StaticFiles(directory=ASSETS), name="assets")
 async def security_headers(request: Request, call_next):
     response = await call_next(request)
     response.headers["X-Content-Type-Options"] = "nosniff"
+    if request.url.path.startswith("/api/"):
+        response.headers["Content-Language"] = selected_language(request)
+        response.headers["Vary"] = "Accept-Language, Cookie"
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
@@ -48,6 +53,15 @@ async def security_headers(request: Request, call_next):
         "connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'"
     )
     return response
+
+
+@app.exception_handler(StarletteHTTPException)
+async def localized_http_errors(request: Request, exc: StarletteHTTPException):
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"detail": translate_error(exc.detail, selected_language(request))},
+        headers=exc.headers,
+    )
 
 
 def new_id():
@@ -124,8 +138,18 @@ def health():
 
 
 @app.get("/api/catalog")
-def catalog():
-    return {"plans": PLANS, "features": FEATURES, "industries": INDUSTRIES, "roadmap": ROADMAP}
+def catalog(request: Request):
+    lang = selected_language(request)
+    features = FEATURES if lang == "vi" else {code: (labels[1], labels[1]) for code, labels in FEATURES.items()}
+    industries = INDUSTRIES if lang == "vi" else INDUSTRIES_EN
+    return {"plans": PLANS, "features": features, "industries": industries,
+            "roadmap": ROADMAP, "language": lang, "supported_languages": ["vi", "en"]}
+
+
+@app.get("/api/languages")
+def languages(request: Request):
+    return {"current": selected_language(request), "supported": ["vi", "en"],
+            "default": "vi"}
 
 
 # Staging-only, best-effort throttle. Production must use a shared rate limiter.
@@ -214,9 +238,12 @@ def logout(response: Response, user=Depends(current_user), db: Session = Depends
 
 
 @app.post("/api/onboarding/recommend")
-def onboard(body: OnboardAnswers):
+def onboard(body: OnboardAnswers, request: Request):
     """Deterministic recommendation (not a generative AI service)."""
-    return recommend(body.industry, body.need_tables, body.need_inventory, body.need_insights, body.need_branches)
+    result = recommend(body.industry, body.need_tables, body.need_inventory, body.need_insights, body.need_branches)
+    if selected_language(request) == "en":
+        result["reason"] = RECOMMENDATION_EN
+    return result
 
 
 @app.post("/api/businesses", status_code=201)
