@@ -204,3 +204,14 @@ def test_only_owner_can_manage_billing_and_other_tenant_denied(cli):
         member.role = "staff"
         db.commit()
     assert cli.get(f"/api/businesses/{bid}/billing").status_code == 403
+
+
+def test_same_account_cannot_restart_seven_day_trial(cli):
+    csrf = signup(cli)
+    first = create_business(cli, csrf, "retail")
+    second = create_business(cli, csrf, "online")
+    assert first["subscription_status"] == "trialing"
+    assert second["subscription_status"] == "trial_expired"
+    assert second["billing_required"] is True
+    assert cli.get(f"/api/businesses/{second['id']}/products").status_code == 402
+    assert cli.get(f"/api/businesses/{first['id']}/products").status_code == 200
