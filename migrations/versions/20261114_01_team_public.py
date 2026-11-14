@@ -39,14 +39,14 @@ def upgrade():
             "public_storefronts",
             sa.Column("business_id", sa.String(36),
                       sa.ForeignKey("businesses.id", ondelete="CASCADE"), primary_key=True),
-            sa.Column("slug", sa.String(60), nullable=False, unique=True),
+            sa.Column("slug", sa.String(60), nullable=False),
             sa.Column("published", sa.Boolean(), nullable=False),
             sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         )
     inspector = inspect(connection)
     if not any(i["name"] == "ix_public_storefronts_slug" for i in
                inspector.get_indexes("public_storefronts")):
-        op.create_index("ix_public_storefronts_slug", "public_storefronts", ["slug"])
+        op.create_index("ix_public_storefronts_slug", "public_storefronts", ["slug"], unique=True)
 
 def downgrade():
     raise RuntimeError("Automatic destructive schema rollback is disabled")
