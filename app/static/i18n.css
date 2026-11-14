@@ -1,0 +1,35 @@
+/* Shared language selector: available on marketing, customer, merchant and admin pages. */
+.ez-language-switch{
+  position:relative;z-index:90;display:inline-flex;align-items:center;gap:2px;
+  flex-shrink:0;padding:3px;border:1px solid #d9dce0;border-radius:99px;
+  background:rgba(255,255,255,.95);box-shadow:0 2px 8px #0000000a;
+  line-height:1;
+}
+.ez-language-switch button{
+  appearance:none;-webkit-appearance:none;min-width:31px;height:28px;padding:0 7px;
+  background:transparent;border:0;border-radius:99px;font:700 11px/1 system-ui,-apple-system,sans-serif;
+  color:#5d6269;cursor:pointer;transition:background .2s ease,color .2s ease;
+}
+.ez-language-switch button.active{background:#111318;color:#fff}
+.ez-language-switch button:focus-visible{outline:2px solid #0071e3;outline-offset:2px}
+.ez-language-switch button:hover:not(.active){background:#f0f1f3}
+.ez-language-switch.ez-language-floating{
+  position:fixed;top:15px;right:18px;bottom:auto;background:#fffffff5;
+  box-shadow:0 7px 28px #10131d24;
+}
+.site-home .site-header-actions .ez-language-switch{margin-left:0}
+body:has(#customer-root) .customer-h-actions .ez-language-switch{
+  border-color:#e3e3e7;background:#fffffff2;padding:3px
+}
+body:has(#root) .topbar-right .ez-language-switch{margin-right:6px}
+body:has(#admin-root) .top-actions .ez-language-switch{margin-left:8px}
+@media(max-width:700px){
+  body:has(#customer-root) .customer-brand strong{display:none}
+  body:has(#customer-root) .customer-h-actions{gap:3px}
+  .site-home .site-header-actions .ez-language-switch{position:fixed;right:12px;bottom:18px;top:auto;z-index:100}
+  body:has(#customer-root) .ez-language-switch{position:fixed;right:12px;bottom:88px;top:auto;z-index:85;box-shadow:0 7px 26px #0002}
+  body:has(#root) .topbar-right .ez-language-switch{position:fixed;right:12px;bottom:85px;top:auto;z-index:85;box-shadow:0 7px 26px #0002}
+  body:has(#admin-root) .top-actions .ez-language-switch{position:fixed;right:12px;bottom:85px;top:auto;z-index:85;box-shadow:0 7px 26px #0002}
+  .ez-language-switch.ez-language-floating{top:12px;right:12px;bottom:auto}
+}
+@media(prefers-reduced-motion:reduce){.ez-language-switch button{transition:none}}
