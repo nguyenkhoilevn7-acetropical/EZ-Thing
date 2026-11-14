@@ -76,7 +76,16 @@ def test_private_by_default_then_owner_publishes_real_catalog():
 
         payload={"request_id":"public-lead-000001","name":"Khách hàng","phone":"0901234567",
                  "message":"Xin báo giá sản phẩm","product_id":product.json()["id"]}
-        result=stranger.post(route+"/inquiries",json=payload)
+        # Proxy terminates TLS; canonical public HTTPS origin is approved.
+        os.environ["EZ_THING_PUBLIC_BASE_URL"] = "https://ez-thing-staging.onrender.com"
+        try:
+            blocked=stranger.post(route+"/inquiries",json=payload,
+                headers={"Origin":"https://attacker.invalid"})
+            assert blocked.status_code==403
+            result=stranger.post(route+"/inquiries",json=payload,
+                headers={"Origin":"https://ez-thing-staging.onrender.com"})
+        finally:
+            os.environ.pop("EZ_THING_PUBLIC_BASE_URL",None)
         assert result.status_code==201,result.text
         repeated=stranger.post(route+"/inquiries",json=payload)
         assert repeated.status_code==201
