@@ -962,7 +962,9 @@ function makeSwitcher(){
 }
 function refreshSwitcher(){
   const compact=window.matchMedia('(max-width:700px)').matches;
-  const target=(compact?document.body:document.querySelector('.site-header-actions,.customer-h-actions,.topbar-right,.top-actions,.auth-card,.auth-side,.auth-main,.reservation-nav'))||document.body;
+  // Customer mobile: use the opened hamburger menu, not a floating control over product cards.
+  const mobileCustomerNav=compact?document.querySelector('body:has(#customer-root) .customer-primary-nav'):null;
+  const target=mobileCustomerNav||(compact?document.body:document.querySelector('.site-header-actions,.customer-h-actions,.topbar-right,.top-actions,.auth-card,.auth-side,.auth-main,.reservation-nav'))||document.body;
   let box=document.querySelector('.ez-language-switch');
   if(!box)box=makeSwitcher();
   if(box.parentElement!==target)target.appendChild(box);

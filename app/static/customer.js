@@ -175,7 +175,13 @@ function catalogHTML(){
 }
 function refreshCatalog(){
  const content=document.getElementById('section-main');
- if(content)content.innerHTML=catalogHTML();
+ // Filtering replaces the catalog DOM. Preserve horizontal category position.
+ const categoryScroll=content?.querySelector('.category-bar')?.scrollLeft||0;
+ if(content){
+  content.innerHTML=catalogHTML();
+  const nextBar=content.querySelector('.category-bar');
+  if(nextBar)nextBar.scrollLeft=categoryScroll;
+ }
  document.querySelector('.cart-bar')?.remove();
  root.insertAdjacentHTML('beforeend',cartBar());
  const hdr=document.querySelector('.cart-count-top');
@@ -218,7 +224,12 @@ root.addEventListener('input',e=>{if(e.target.id==='customer-search'){st.search=
 root.addEventListener('change',e=>{if(e.target.id==='book-date'){st.date=e.target.value;st.pendingId=null;slots()}if(e.target.id==='book-staff'){st.assignee=e.target.value;st.pendingId=null;slots()}});
 document.addEventListener('click',e=>{const el=e.target.closest('[data-action]');if(!el){if(e.target.matches('[data-overlay]'))close();return}e.preventDefault();const {action,value}=el.dataset;
  if(action==='retry-demo'){location.reload();return}if(action==='close'){close();return}if(action==='toggle-menu'){const h=document.querySelector('.customer-header');setMobileMenuOpen(!h?.classList.contains('mobile-open'));return}if(action==='search'){document.getElementById('section-main')?.scrollIntoView({behavior:'smooth'});document.getElementById('customer-search')?.focus({preventScroll:true});return}if(action==='shop-scroll'){document.getElementById('section-main')?.scrollIntoView({behavior:'smooth'});return}if(action==='book-scroll'){document.getElementById('booking-right')?.scrollIntoView({behavior:'smooth'});return}
- if(action==='category'){st.filter=value;refreshCatalog();return}if(action==='add'||action==='increase'){if(!st.products.some(x=>x.id===value&&x.available))return;st.cart[value]=Math.min(10,(st.cart[value]||0)+1);st.pendingId=null;refreshCatalog();if(action==='increase')openCart();else toast('Đã thêm vào giỏ hàng');return}
+ if(action==='category'){
+  st.filter=value;refreshCatalog();
+  // Keep the selected pill in view without jumping the page vertically.
+  document.querySelector('.category-bar .chip.active')?.scrollIntoView({block:'nearest',inline:'nearest'});
+  return;
+ }if(action==='add'||action==='increase'){if(!st.products.some(x=>x.id===value&&x.available))return;st.cart[value]=Math.min(10,(st.cart[value]||0)+1);st.pendingId=null;refreshCatalog();if(action==='increase')openCart();else toast('Đã thêm vào giỏ hàng');return}
  if(action==='decrease'){if(st.cart[value]){st.cart[value]--;if(!st.cart[value])delete st.cart[value];st.pendingId=null;refreshCatalog();if(cartQty())openCart();else close()}return}
  if(action==='open-cart'){openCart();return}if(action==='service'){st.service=value;st.pendingId=null;slots();return}if(action==='slot'){st.slot=value;const y=window.scrollY;layout();window.scrollTo(0,y);return}if(action==='open-booking'){bookingForm();return}
 });
