@@ -87,7 +87,7 @@ const industryFeatures={fnb:['kitchen','kitchen'],retail:['inventory','stock_led
 const activeIndustry=()=>industryFeatures[s.business?.industry]||[];
 const menuItems=()=>s.business?.billing_required?navItems.filter(([id])=>id==='billing'):navItems.filter(([id])=>id==='reservations'?(s.business?.industry==='fnb'&&has('tables')):!(['tables','insights','kitchen','inventory','delivery','appointments'].includes(id))||(id==='tables'?has('tables'):id==='insights'?has('insights'):id===activeIndustry()[0]&&has(activeIndustry()[1])));
 const has=name=>Boolean(s.business?.active_modules?.includes(name));
-function appFrame(){const b=s.business;window.EZMerchantTheme?.setBusiness(b.id);const nav=menuItems();const storefront={fnb:'/menu/cafe',retail:'/store/mart',online:'/store/online',services:'/booking/wellness'}[b.industry];const brand=s.cache.storefront?.branding;root.innerHTML=`<div class="app" style="--merchant-brand-accent:${E(brand?.accent_color||'#147D64')}"><aside class="sidebar"><a class="merchant-home-link" href="/" title="EZ Thing trang chủ">${logo(brand)}</a><div class="side-caption">MERCHANT BACK-OFFICE</div><nav class="side-nav">${nav.map(([id,ico,name])=>`<button class="side-link ${s.tab===id?'active':''}" data-action="tab" data-value="${id}" title="${E(name)}" aria-label="${E(name)}">${I(ico)} <span class="side-label">${E(name)}</span></button>`).join('')}</nav><div class="sidebar-bottom">${s.demo?`<a class="merchant-customer-link" href="${storefront}" target="_self" aria-label="Xem frontend khách hàng" title="Xem frontend khách hàng">${I('globe','sm')} Xem frontend khách hàng ↗</a>`:''}<div class="help">${I('sparkle')}<strong>Thiết lập thông minh</strong><small>Cấu hình dựa trên ngành nghề và gói dịch vụ.</small></div><button class="business-switch" data-action="switch-business" style="width:calc(100% - 10px);background:#fff;text-align:left"><span class="b-avatar">${E((b.name||'E')[0].toUpperCase())}</span><span class="b-meta" style="flex:1"><strong>${E(b.name)}</strong><span>${E(b.plan)} • Pilot</span></span>${I('chevron','sm')}</button></div></aside>
+function appFrame(){const b=s.business;window.EZMerchantTheme?.setBusiness(b.id);const nav=menuItems();const storefront={fnb:'/menu/cafe',retail:'/store/mart',online:'/store/online',services:'/booking/wellness'}[b.industry];const brand=s.cache.storefront?.branding;root.innerHTML=`<div class="app" style="--merchant-brand-accent:${E(brand?.accent_color||'#147D64')}"><aside class="sidebar"><a class="merchant-home-link" href="/" title="EZ Thing trang chủ">${logo(brand)}</a><div class="side-caption">MERCHANT BACK-OFFICE</div><nav class="side-nav">${nav.map(([id,ico,name])=>`<button class="side-link ${s.tab===id?'active':''}" data-action="tab" data-value="${id}" title="${E(name)}" aria-label="${E(name)}">${I(ico)} <span class="side-label">${E(name)}</span></button>`).join('')}</nav><div class="sidebar-bottom">${s.demo?`<a class="merchant-customer-link" href="${storefront}" target="_self" aria-label="Xem frontend khách hàng" title="Xem frontend khách hàng">${I('globe','sm')} Xem frontend khách hàng ↗</a>`:''}<div class="help">${I('sparkle')}<strong>Thiết lập thông minh</strong><small>Cấu hình dựa trên ngành nghề và gói dịch vụ.</small></div><button class="business-switch" data-action="switch-business" style="width:calc(100% - 10px);background:#fff;text-align:left"><span class="b-avatar">${E((b.name||'E')[0].toUpperCase())}</span><span class="b-meta" style="flex:1"><strong>${E(b.name)}</strong><span>${E(b.plan)} • ${E(b.subscription_status||'Pilot')}</span></span>${I('chevron','sm')}</button></div></aside>
  <main class="main">${s.demo?`<div class="demo-ribbon">🧪 Chế độ DEMO • Toàn bộ dữ liệu chỉ để thử nghiệm</div>`:''}<div id="offline-banner" class="offline-banner hide">Mất kết nối. Chỉ xem được giao diện đã lưu, không thể tạo đơn khi offline.</div><header class="topbar"><div class="topbar-left"><div class="eyebrow"><span class="merchant-brand-dot" aria-hidden="true"></span>${E(b.name)} <span style="padding:0 5px">/</span> ${E(b.plan)}</div><h1 id="page-title">${E(navItems.find(x=>x[0]===s.tab)?.[2]||'Tổng quan')}</h1></div><div class="topbar-right">${window.EZMerchantTheme?.pickerMarkup()||''}<span class="pill green">${I('check','sm')} ${s.demo?'DEMO BACK-OFFICE':'BACK-OFFICE'}</span>${s.demo?`<a class="merchant-preview-link" href="${storefront}">Xem trang khách ↗</a>`:''}<button class="iconbtn" title="Chuyển doanh nghiệp" data-action="switch-business">${I('store')}</button><button class="avatar" data-action="profile" title="Tài khoản">${E(s.user?.name?.[0]?.toUpperCase()||'E')}</button></div></header><section class="content" id="page-content"><div class="app-skeleton"></div></section></main>
  <nav class="mobile-nav">${[['overview','home','Tổng quan'],['orders','orders','Đơn hàng'],['products','box','Sản phẩm'],[activeIndustry()[0]||'customers',s.business.industry==='fnb'?'coffee':s.business.industry==='retail'?'warehouse':s.business.industry==='online'?'globe':'calendar',s.business.industry==='fnb'?'Bếp':s.business.industry==='retail'?'Kho':s.business.industry==='online'?'Giao hàng':'Lịch hẹn'],['settings','menu','Thêm']].map(([id,ico,label])=>`<button data-action="tab" data-value="${id}" class="${s.tab===id?'active':''}">${I(ico)}<span>${label}</span></button>`).join('')}</nav></div>`;setOnline();renderTab()}
 function setOnline(){const el=document.getElementById('offline-banner');if(el)el.classList.toggle('hide',navigator.onLine)}
@@ -204,11 +204,27 @@ async function handleAction(act,val,button){try{
  else if(act==='choose-plan'){s.answers.selected_plan=val;setup()}
  else if(act==='setup-back'){if(s.setupStep===1){await api('/auth/logout',{method:'POST'});s.user=null;s.csrf=null;auth()}else{s.setupStep--;setup()}}
  else if(act==='setup-next'){if(s.setupStep===1){let name=document.getElementById('biz-name')?.value?.trim()||'';if(name.length<2){toast('Vui lòng nhập tên doanh nghiệp',true);return}s.answers.name=name;}if(s.setupStep===2){s.recommendation=await api('/onboarding/recommend',{method:'POST',body:JSON.stringify(s.answers)});s.answers.selected_plan=s.recommendation.recommended_plan}if(s.setupStep<3){s.setupStep++;setup();return}const b=await api('/businesses',{method:'POST',body:JSON.stringify(s.answers)});s.businesses.push(b);s.business=b;s.tab='overview';await refresh();appFrame();toast('Đã tạo không gian làm việc')}
- else if(act==='tab'){if(val==='orders')s.cache.orderDashboard=null;s.tab=val;history.pushState(null,'','/app?tab='+encodeURIComponent(val));appFrame();window.scrollTo(0,0)}
+ else if(act==='tab'){
+ if(s.business?.billing_required&&val!=='billing')return;
+ if(val==='orders')s.cache.orderDashboard=null;
+ s.tab=val;history.pushState(null,'','/app?tab='+encodeURIComponent(val));appFrame();window.scrollTo(0,0)
+}
  else if(act==='industry-new')newIndustryWork()
  else if(act==='industry-next'){const [id,status]=val.split('|');await api(`/businesses/${s.business.id}/industry/${activeIndustry()[0]}/${id}/status`,{method:'POST',body:JSON.stringify({status})});await refresh();toast('Đã cập nhật trạng thái')}
  else if(act==='industry-cancel'){modal('Hủy lịch hẹn',`<p class="muted">Anh/chị có chắc chắn muốn hủy lịch này? Thao tác sẽ mở lại khung giờ cho khách khác.</p><div class="modal-footer"><button class="btn secondary" data-action="close-modal">Quay lại</button><button class="btn" data-action="industry-cancel-confirm" data-value="${E(val)}">Xác nhận hủy</button></div>`)}
  else if(act==='industry-cancel-confirm'){await api(`/businesses/${s.business.id}/industry/appointments/${val}/status`,{method:'POST',body:JSON.stringify({status:'cancelled'})});closeModal();await refresh();toast('Đã hủy lịch')}
+ else if(act==='billing-pay'){
+  const channel=document.getElementById('billing-channel')?.value||'card';
+  const result=await api('/businesses/'+encodeURIComponent(s.business.id)+'/billing/checkout',
+    {method:'POST',body:JSON.stringify({plan:val,channel})});
+  const url=new URL(result.redirect_url);
+  if(url.origin!=='https://sandbox.vnpayment.vn'||url.pathname!=='/paymentv2/vpcpay.html')
+    throw Error('Địa chỉ thanh toán không hợp lệ');
+  window.location.assign(url.href);
+ }
+ else if(act==='billing-card-info'){
+   modal('Thêm thẻ / Add card','<p>💳 Thẻ chỉ được nhập trên trang thanh toán bảo mật VNPAY sau khi chọn gói. EZ Thing không lưu số thẻ hay CVV.</p><p class="muted">Chức năng lưu thẻ cần merchant được cấp API token hóa riêng từ VNPAY; hiện chưa kích hoạt.</p><div class="modal-footer"><button class="btn" data-action="close-modal">Đóng</button></div>');
+ }
  else if(act==='new-order')newOrder()
  else if(act==='new-product')newProduct()
  else if(act==='new-table')newTable()
@@ -226,7 +242,13 @@ async function handleAction(act,val,button){try{
  else if(act==='switch-business')switchBusiness()
  else if(act==='profile')account()
  else if(act==='new-business'){closeModal();s.answers={name:'',industry:'fnb',need_tables:true,need_inventory:true,need_insights:true,need_branches:false,description:'',selected_plan:'PLUS'};s.setupStep=1;setup()}
- else if(act==='select-business'){const b=s.businesses.find(x=>x.id===val);if(!b)return;s.business=b;s.tab='overview';restaurantSuite?.invalidate();closeModal();s.cache={};history.replaceState(null,'','/app');await refresh();appFrame()}
+ else if(act==='select-business'){const b=s.businesses.find(x=>x.id===val);if(!b)return;
+ s.business=b;s.tab=b.billing_required?'billing':'overview';
+ restaurantSuite?.invalidate();closeModal();s.cache={};
+ history.replaceState(null,'','/app?tab='+s.tab);
+ if(b.billing_required){s.cache.billing=await api('/businesses/'+encodeURIComponent(b.id)+'/billing');appFrame()}
+ else{await refresh();appFrame()}
+}
  else if(act==='logout'){const wasDemo=s.demo;await api('/auth/logout',{method:'POST'});closeModal();s.user=null;s.csrf=null;s.demo=false;s.business=null;s.businesses=[];s.cache={};s.authMode='login';if(wasDemo){await start()}else{auth();toast('Đã đăng xuất')}}
  else if(act==='add-line'){const wrap=document.getElementById('order-lines');if(wrap){wrap.insertAdjacentHTML('beforeend',s.newOrderRow());updateOrderTotal()}}
  else if(act==='remove-line'){const lines=document.querySelectorAll('#order-lines .order-line');if(lines.length>1){button.closest('.order-line')?.remove();updateOrderTotal()}else toast('Đơn phải có ít nhất một sản phẩm',true)}
