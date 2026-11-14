@@ -5,6 +5,7 @@ No customer order, payment or inventory change occurs from guest enquiries.
 """
 from __future__ import annotations
 import hashlib
+import os
 import re
 import secrets
 import uuid
@@ -166,8 +167,15 @@ def public_inquiry(slug: str, body: ContactRequest, request: Request,
     b = valid_public(db, slug)
     # Origin control is a CSRF hardening layer; rate limiting handles scripts.
     origin = request.headers.get("origin")
-    if origin and origin != str(request.base_url).rstrip("/"):
-        raise HTTPException(403, "Yêu cầu không đúng nguồn")
+    if origin:
+        # Render's TLS proxy may provide an internal HTTP base_url.
+        # Trust only the configured canonical public origin or ASGI origin.
+        trusted = {str(request.base_url).rstrip("/")}
+        canonical = os.getenv("EZ_THING_PUBLIC_BASE_URL", "").rstrip("/")
+        if canonical.startswith("https://") and "/" not in canonical[8:]:
+            trusted.add(canonical)
+        if origin not in trusted:
+            raise HTTPException(403, "Yêu cầu không đúng nguồn")
     fingerprint = hashlib.sha256(body.model_dump_json().encode()).hexdigest()
     ref = hashlib.sha256((b.id + "|public-inquiry|" + body.request_id).encode()).hexdigest()[:36]
     existing = db.scalar(select(IndustryWorkItem).where(
@@ -184,7 +192,7 @@ def public_inquiry(slug: str, body: ContactRequest, request: Request,
         raise HTTPException(404, "Sản phẩm không tồn tại")
 
     peer = request.client.host if request.client else "unknown"
-    salt = __import__("os").environ.get("EZ_THING_RATE_LIMIT_SALT", "ezthing-pilot-v1")
+    salt = os.environ.get("EZ_THING_RATE_LIMIT_SALT", "ezthing-pilot-v1")
     hashed_peer = hashlib.sha256((salt + "|site|" + b.id + "|" + peer).encode()).hexdigest()
     guard = db.scalar(select(LoginFailure).where(
         LoginFailure.identity_hash == hashed_peer).with_for_update())
