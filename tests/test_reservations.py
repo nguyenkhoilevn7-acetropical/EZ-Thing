@@ -82,7 +82,7 @@ def test_public_booking_auto_assignment_idempotency_conflict_and_status(client, 
     assert write(client, '/preview/cafe/reservations', wrong, csrf).status_code == 409
     conflict = body(req='request-000002', party=6, start=slot(11))
     assert write(client, '/preview/cafe/reservations', conflict, csrf).status_code == 409
-    other_day = body(req='request-000003', party=6, start=slot(12))
+    other_day = body(req='request-000003', party=6, start=slot(13))
     assert write(client, '/preview/cafe/reservations', other_day, csrf).status_code == 201
     biz = next(x for x in client.get('/api/businesses').json() if x['industry'] == 'fnb')
     listing = client.get(f'/api/businesses/{biz["id"]}/reservations')

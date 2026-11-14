@@ -301,21 +301,6 @@ def customer_book(body: ReservationCreate, user=Depends(current_user),
     return create_reservation(db, b, body, user[0].id, "demo")
 
 
-@router.get("/preview/cafe/reservations/{rid}")
-def public_reservation(rid: str, user=Depends(current_user),
-                       db: Session = Depends(db_session)):
-    b = preview_scope(db, user, "cafe")
-    rec = db.scalar(select(IndustryWorkItem).where(
-        IndustryWorkItem.business_id == b.id, IndustryWorkItem.kind == "reservations",
-        IndustryWorkItem.id == rid,
-        IndustryWorkItem.details["source"].as_string() == "demo"))
-    if not rec:
-        fail(404, "Không tìm thấy lượt đặt của bạn")
-    r = reservation_out(rec)
-    return {k: r[k] for k in ("id", "status", "party_size", "scheduled_at", "table_label",
-                               "customer_name")}
-
-
 @router.get("/businesses/{bid}/reservations/contact")
 def merchant_contact(bid: str, user=Depends(current_user),
                      db: Session = Depends(db_session)):
@@ -339,6 +324,21 @@ def save_contact(bid: str, body: ContactUpdate, user=Depends(current_user),
 @router.get("/preview/cafe/reservations/contact")
 def public_contact(user=Depends(current_user), db: Session = Depends(db_session)):
     return contact_of(preview_scope(db, user, "cafe"))
+
+
+@router.get("/preview/cafe/reservations/{rid}")
+def public_reservation(rid: str, user=Depends(current_user),
+                       db: Session = Depends(db_session)):
+    b = preview_scope(db, user, "cafe")
+    rec = db.scalar(select(IndustryWorkItem).where(
+        IndustryWorkItem.business_id == b.id, IndustryWorkItem.kind == "reservations",
+        IndustryWorkItem.id == rid,
+        IndustryWorkItem.details["source"].as_string() == "demo"))
+    if not rec:
+        fail(404, "Không tìm thấy lượt đặt của bạn")
+    r = reservation_out(rec)
+    return {k: r[k] for k in ("id", "status", "party_size", "scheduled_at", "table_label",
+                               "customer_name")}
 
 
 @router.post("/preview/cafe/inquiries", status_code=201)
