@@ -437,7 +437,7 @@ async function afterAuth(){
  appFrame();
 }
 async function start(){
- const rawVerifyToken=new URLSearchParams(location.search).get('verify');
+ const rawVerifyToken=new URLSearchParams(location.hash.slice(1)).get('verify')||new URLSearchParams(location.search).get('verify');
  const wantsVerification=!!rawVerifyToken;
  if(wantsVerification){
    // Clear token from history immediately so no later navigation/reload leaks it.
