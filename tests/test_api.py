@@ -234,17 +234,17 @@ def test_demo_opens_without_signup_and_has_sample_data(cli, monkeypatch):
 def test_demo_tenants_cannot_access_other_demo_or_real_user_data(cli, monkeypatch):
     monkeypatch.setenv('EZ_THING_ENVIRONMENT', 'staging')
     monkeypatch.setenv('EZ_THING_DEMO_MODE', '1')
-    csrf_real = signup(cli, 'real')
-    real_bid = business(cli, csrf_real)['id']
+    csrf_real = signup(cli,'real')
+    real_bid = business(cli,csrf_real)['id']
     first = TestClient(app)
     second = TestClient(app)
     try:
-        a = post(first, '/auth/demo', {})
-        b = post(second, '/auth/demo', {})
+        a=post(first,'/auth/demo',{})
+        b=post(second,'/auth/demo',{})
         assert a.status_code == 201, a.text
         assert b.status_code == 201, b.text
-        first_bid = first.get('/api/businesses').json()[0]['id']
-        second_bid = second.get('/api/businesses').json()[0]['id']
+        first_bid=first.get('/api/businesses').json()[0]['id']
+        second_bid=second.get('/api/businesses').json()[0]['id']
         assert first_bid != second_bid
         assert first.get(f'/api/businesses/{second_bid}/products').status_code == 404
         assert second.get(f'/api/businesses/{first_bid}/orders').status_code == 404
@@ -253,3 +253,88 @@ def test_demo_tenants_cannot_access_other_demo_or_real_user_data(cli, monkeypatc
     finally:
         first.close()
         second.close()
+
+# Industry-specific workflows: all operations are server-enforced and tenant-scoped.
+def test_kitchen_ticket_order_flow_and_isolation(cli):
+    csrf=signup(cli);bid=business(cli,csrf,industry='fnb')['id'];pid=product(cli,bid,csrf)['id']
+    oid=order(cli,bid,pid,csrf).json()['id'];path=f'/businesses/{bid}/industry/kitchen'
+    ticket=post(cli,path,{'order_id':oid},csrf)
+    assert ticket.status_code==201,ticket.text
+    tid=ticket.json()['id']
+    assert post(cli,path,{'order_id':oid},csrf).json()['id']==tid
+    assert post(cli,path+'/'+tid+'/status',{'status':'served'},csrf).status_code==409
+    for next_state in ('preparing','ready','served'):
+        result=post(cli,path+'/'+tid+'/status',{'status':next_state},csrf)
+        assert result.status_code==200,result.text
+        assert result.json()['status']==next_state
+    assert len(cli.get('/api'+path).json())==1
+    other=business(cli,csrf,industry='fnb')['id']
+    assert cli.get(f'/api/businesses/{other}/industry/kitchen').json()==[]
+    assert post(cli,f'/businesses/{other}/industry/kitchen',{'order_id':oid},csrf).status_code==404
+    assert post(cli,f'/businesses/{other}/industry/kitchen/{tid}/status',{'status':'ready'},csrf).status_code==404
+
+
+def test_retail_stock_ledger_is_read_only_and_branch_scoped(cli):
+    csrf=signup(cli);bid=business(cli,csrf,industry='retail')['id'];p=product(cli,bid,csrf,stock=11)
+    path=f'/businesses/{bid}/industry/inventory'
+    assert post(cli,path,{},csrf).status_code==405
+    assert post(cli,f'/businesses/{bid}/products/{p["id"]}/stock',{'delta':4,'reason':'Nhập hàng'},csrf).status_code==200
+    entries=cli.get('/api'+path).json()
+    assert {x['delta'] for x in entries}=={11,4}
+    assert all(x['product_name']=='Cà phê' for x in entries)
+    other=business(cli,csrf,industry='retail')['id']
+    assert cli.get(f'/api/businesses/{other}/industry/inventory').json()==[]
+    assert cli.get(f'/api/businesses/{bid}/industry/delivery').status_code==404
+
+
+def test_online_fulfillment_requires_customer_delivery_address(cli):
+    csrf=signup(cli);bid=business(cli,csrf,industry='online')['id'];pid=product(cli,bid,csrf)['id']
+    o=order(cli,bid,pid,csrf).json();path=f'/businesses/{bid}/industry/delivery'
+    assert post(cli,path,{'order_id':o['id']},csrf).status_code==422
+    c=post(cli,f'/businesses/{bid}/customers',{'name':'Khách online','address':'123 Demo Street'},csrf).json()
+    oid=order(cli,bid,pid,csrf,key='online-orders-00002',customer=c['id']).json()['id']
+    ticket=post(cli,path,{'order_id':oid,'carrier':'Giao nội bộ','tracking_number':'TEST-123'},csrf)
+    assert ticket.status_code==201,ticket.text
+    tid=ticket.json()['id']
+    assert ticket.json()['details']['tracking_number']=='TEST-123'
+    assert post(cli,path+'/'+tid+'/status',{'status':'delivered'},csrf).status_code==409
+    for state in ('packed','shipped','delivered'):
+        assert post(cli,path+'/'+tid+'/status',{'status':state},csrf).status_code==200
+    assert cli.get('/api'+path).json()[0]['status']=='delivered'
+
+
+def test_appointment_staff_conflict_and_cancellation(cli):
+    from datetime import datetime, timedelta, timezone
+    csrf=signup(cli);bid=business(cli,csrf,industry='services')['id']
+    p=post(cli,f'/businesses/{bid}/products',{'name':'Massage','sku':'MS001','price_vnd':150000,'track_stock':False},csrf).json()
+    c=post(cli,f'/businesses/{bid}/customers',{'name':'Khách wellness'},csrf).json()
+    path=f'/businesses/{bid}/industry/appointments'
+    dt=(datetime.now(timezone.utc)+timedelta(days=1)).replace(second=0,microsecond=0)
+    body={'product_id':p['id'],'customer_id':c['id'],'assignee':'Lan',
+          'start_at':dt.isoformat(),'duration_minutes':60}
+    x=post(cli,path,body,csrf);assert x.status_code==201,x.text
+    wrong={**body,'start_at':(dt+timedelta(minutes=30)).isoformat()}
+    assert post(cli,path,wrong,csrf).status_code==409
+    assert post(cli,path,{**wrong,'assignee':'Mai'},csrf).status_code==201
+    id_=x.json()['id']
+    assert post(cli,path+'/'+id_+'/status',{'status':'completed'},csrf).status_code==409
+    assert post(cli,path+'/'+id_+'/status',{'status':'cancelled'},csrf).status_code==200
+    assert post(cli,path,wrong,csrf).status_code==201
+    other=business(cli,csrf,industry='services')['id']
+    assert post(cli,f'/businesses/{other}/industry/appointments',body,csrf).status_code==404
+
+
+def test_industry_workflow_requires_csrf_correct_type_and_module(cli):
+    csrf=signup(cli);b=business(cli,csrf,industry='services')['id']
+    assert post(cli,f'/businesses/{b}/industry/appointments',{'note':'Hello'}).status_code==403
+    assert cli.get(f'/api/businesses/{b}/industry/kitchen').status_code==404
+    assert post(cli,f'/businesses/{b}/industry/kitchen',{},csrf).status_code==404
+    assert cli.get(f'/api/businesses/{b}/industry/appointments').status_code==200
+
+
+def test_vertical_feature_catalog_industry_defaults(cli):
+    csrf=signup(cli)
+    for industry,flag in [('fnb','kitchen'),('retail','stock_ledger'),('online','fulfillment'),('services','appointments')]:
+        b=business(cli,csrf,industry=industry,plan='BASIC')
+        assert flag in b['active_modules']
+        assert set(b['active_modules']).isdisjoint(set(['kitchen','stock_ledger','fulfillment','appointments'])-{flag})

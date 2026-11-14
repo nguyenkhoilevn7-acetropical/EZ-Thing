@@ -1,7 +1,7 @@
-"""Isolated, disposable demonstration workspaces for STAGING ONLY.
+"""Isolated, disposable demonstration workspaces for the public STAGING UI.
 
-Each visitor receives their own account and tenants, never access to another
-visitor's tenant or to any existing customer's records.
+Each visitor receives their own tenant. No existing customer data is selected, copied,
+or modified. This feature must be explicitly enabled by BOTH environment guards.
 """
 import os
 import secrets
@@ -66,23 +66,23 @@ SEEDS = (
 
 
 def seed_demo(db) -> User:
-    """Seed 4 business types with example data in one database transaction.
+    """Create one standalone user + 4 tenants and example data in one DB transaction.
 
-    Caller owns the commit/rollback through issue_session, so a failure never
-    creates a half-initialized visitor account or a partial tenant.
+    The caller owns commit/rollback, so a failed seed can never leave a half-built
+    demonstration account or a session with access to an incomplete workspace.
     """
     u = User(id=id_(), email=f"guest-{uuid.uuid4().hex}@{DEMO_DOMAIN}",
              name="Khách trải nghiệm", password_hash=digest_password(secrets.token_urlsafe(32)))
     db.add(u)
     db.flush()
-
     for spec in SEEDS:
         biz_id, branch_id = id_(), id_()
-        active = [x for x in PLANS["PRO"]["features"] if x != "tables" or spec["industry"] == "fnb"]
+        industry_only = {"kitchen":"fnb", "stock_ledger":"retail", "fulfillment":"online", "appointments":"services", "tables":"fnb"}
+        active = [x for x in PLANS["PRO"]["features"] if x not in industry_only or industry_only[x] == spec["industry"]]
         db.add(Business(id=biz_id, name=spec["business"], industry=spec["industry"],
                         plan="PRO", requested_plan="PRO", subscription_status="demo",
                         active_modules=active, setup={"demo": True}))
-        db.flush()
+        db.flush()  # FK parent must exist before branch/member inserts (SQLite + Postgres).
         db.add(Membership(id=id_(), business_id=biz_id, user_id=u.id, role="owner"))
         db.add(Branch(id=branch_id, business_id=biz_id, name="Chi nhánh chính"))
         db.flush()
@@ -98,20 +98,20 @@ def seed_demo(db) -> User:
         for name, sku, price, cost, stock in spec["products"]:
             track = spec["industry"] != "services"
             product = Product(id=id_(), business_id=biz_id, name=name, sku=sku,
-                              category=spec["category"], price_vnd=price, cost_vnd=cost,
-                              stock=stock, track_stock=track)
+                              category=spec["category"], price_vnd=price,
+                              cost_vnd=cost, stock=stock, track_stock=track)
             db.add(product)
             sample_products.append(product)
 
         table_ids = []
         for label, seats in spec["tables"]:
-            table = DiningTable(id=id_(), business_id=biz_id, branch_id=branch_id,
-                                label=label, seats=seats)
+            table = DiningTable(id=id_(), business_id=biz_id,
+                                branch_id=branch_id, label=label, seats=seats)
             db.add(table)
             table_ids.append(table.id)
         db.flush()
 
-        # Two paid + one open order for visible dashboard and report examples.
+        # Two paid orders and one open order for visible KPIs, reports and tables.
         for index in range(3):
             p = sample_products[index % len(sample_products)]
             qty = index + 1
@@ -126,12 +126,14 @@ def seed_demo(db) -> User:
             db.add(order)
             db.flush()
             db.add(SaleOrderItem(id=id_(), business_id=biz_id, order_id=order.id,
-                                 product_id=p.id, product_name=p.name, quantity=qty,
-                                 unit_price_vnd=p.price_vnd, total_vnd=p.price_vnd * qty))
+                                 product_id=p.id, product_name=p.name,
+                                 quantity=qty, unit_price_vnd=p.price_vnd,
+                                 total_vnd=p.price_vnd * qty))
             if p.track_stock:
                 p.stock -= qty
-                db.add(StockMovement(id=id_(), business_id=biz_id, product_id=p.id,
-                                     delta=-qty, reason="sale", ref=order.id))
+                db.add(StockMovement(id=id_(), business_id=biz_id,
+                                     product_id=p.id, delta=-qty,
+                                     reason="sale", ref=order.id))
         db.add(AuditEvent(id=id_(), business_id=biz_id, actor_id=u.id,
                           action="demo.seeded", payload='{"sample_data": true}'))
     db.flush()
