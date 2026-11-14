@@ -5,6 +5,24 @@
 (() => {
 'use strict';
 const entries = [
+/* New trial and subscription copy, before legacy translation entries. */
+["Dùng thử 7 ngày", "Start 7-day trial"],
+["Dùng thử miễn phí 7 ngày", "Start a free 7-day trial"],
+["Đăng ký thử miễn phí 7 ngày", "Start a free 7-day trial"],
+["Thử miễn phí 7 ngày", "Try 7 days free"],
+["Bắt đầu dùng thử 7 ngày", "Start 7-day free trial"],
+["Gói & thanh toán", "Plans & billing"],
+["Thanh toán", "Billing"],
+["7 ngày trải nghiệm. Không cần thẻ 💳", "7 days free. No card required 💳"],
+["Không cần chọn gói trước", "No upfront plan selection"],
+["Không tự động trừ tiền", "No automatic charges"],
+["Nhắc ngày hết hạn tại trang quản lý", "Trial countdown in your dashboard"],
+["Dữ liệu được giữ nguyên khi trial hết hạn", "Your data is retained after the trial"],
+["Tạo tài khoản, dùng thử miễn phí 7 ngày. Chọn gói và thanh toán sau, không cần nhập thẻ.", "Create an account and try free for 7 days. Choose and pay for a plan later; no card required."],
+["7 ngày dùng thử còn lại", "Trial days remaining"],
+["Xem gói", "View plans"],
+["Gói & thanh toán", "Plans & billing"],
+
 /* Additional audited public, booking and portal translations. */
 ["Chào mừng trở lại 👋","Welcome back 👋"],
 ["Bắt đầu kinh doanh thông minh","Start running your business smarter"],
