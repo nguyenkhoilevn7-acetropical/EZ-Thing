@@ -70,7 +70,7 @@ function header(){
  const menu=navMap[channel].map(([name,href])=>`<a href="${href}">${E(name)}</a>`).join('');
  return `<div class="visitor-banner">TRẢI NGHIỆM DEMO • KHÔNG THANH TOÁN HOẶC GIAO HÀNG THẬT</div>
  <header class="customer-header" id="top">
-   <a class="customer-brand" href="/" aria-label="Trang chủ EZ Thing">EZ Thing ${brand?`<strong>${brand}</strong>`:''}</a>
+   <a class="customer-brand" href="/" aria-label="Trang chủ EZ Thing">${st.business?.branding?E(st.business.branding.display_name):`EZ Thing ${brand?`<strong>${brand}</strong>`:""}`}</a>
    <nav class="customer-primary-nav" aria-label="Danh mục trang">${menu}</nav>
    <div class="customer-h-actions">
      ${channel==='cafe'?'<a href="/reserve/cafe" class="book-now-link">Đặt bàn</a>':''}
@@ -80,11 +80,15 @@ function header(){
  </header>`;
 }
 function hero(){
- return `<section class="merchant-hero kind-${info.industry}" aria-label="${E(info.label)}">
+ const custom=st.business?.branding;
+ const headline=custom?.hero_title||custom?.display_name||info.hero;
+ const label=custom?.display_name||info.label;
+ const subtitle=custom?.description||info.sub;
+ return `<section class="merchant-hero kind-${info.industry}" aria-label="${E(label)}">
   <div class="merchant-copy">
-   <span class="merchant-tag">${E(info.label)}</span>
-   <h1>${E(info.hero).replace(/\n/g,'<br>')}</h1>
-   <p>${E(info.sub)}</p>
+   <span class="merchant-tag">${E(label)}</span>
+   <h1>${E(headline).replace(/\n/g,'<br>')}</h1>
+   <p>${E(subtitle)}</p>
    <div class="hero-actions-shop">
     <button class="hero-cta" type="button" data-action="${channel==='wellness'?'book-scroll':'shop-scroll'}">${channel==='wellness'?'Đặt lịch ngay':channel==='cafe'?'Đặt ngay':'Mua sắm ngay'} <span aria-hidden="true">→</span></button>
     <a class="hero-cta secondary" href="#${channel==='wellness'?'featured':channel==='cafe'?'section-main':'featured'}">${channel==='wellness'?'Khám phá dịch vụ':channel==='cafe'?'Xem thực đơn':'Khám phá danh mục'}</a>
@@ -131,6 +135,11 @@ function categoryPromo(){
 function layout(){
  document.body.dataset.storefront=channel;
  root.innerHTML=header()+`<main class="customer-main">${hero()}${benefitsHTML()}${categoryPromo()}<section class="merchant-content" id="section-main">${channel==='wellness'?bookingHTML():catalogHTML()}</section><section id="offers" class="demo-explainer">Đây là bản trải nghiệm giao diện. Hiện chưa có chương trình khuyến mãi hay giao dịch thanh toán thực tế. Sản phẩm, giá và lịch hẹn DEMO lấy từ hệ thống thử nghiệm riêng.</section></main><footer id="about" class="flow-footer">Giao diện trải nghiệm được xây dựng bởi <a href="/">EZ Thing</a> · Chỉ sử dụng dữ liệu DEMO · Không xử lý đơn hàng thật. <a href="/app">Khu quản lý cửa hàng</a></footer>`+cartBar();
+ const custom=st.business?.branding;
+ if(custom){
+  const heroEl=root.querySelector('.merchant-hero');
+  if(heroEl){heroEl.classList.add('custom-branded');heroEl.style.setProperty('--customer-banner','url("'+custom.banner_image+'")');heroEl.style.setProperty('--customer-accent',custom.accent_color||'#147D64')}
+ }
 }
 
 function cartQty(){return Object.values(st.cart).reduce((n,x)=>n+x,0)}
