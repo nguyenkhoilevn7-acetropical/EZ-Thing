@@ -33,3 +33,13 @@ def test_backend_quote_and_checkout_share_authoritative_rules():
     assert 'def preview_order_status(' in public
     assert 'def preview_appointment_status(' in public
     assert 'FLOWS = {' in public
+
+
+def test_merchant_dashboard_shares_v04_design_without_customer_leaks():
+    html = (STATIC / "index.html").read_text(encoding="utf-8")
+    css = (STATIC / "merchant-v04.css").read_text(encoding="utf-8")
+    assert '/assets/styles.css' in html
+    assert '/assets/merchant-v04.css' in html
+    assert '/assets/customer-v04.css' not in html
+    assert '.sidebar' in css and '.mobile-nav' in css and '.dashboard-welcome' in css
+    assert '@media(max-width:650px)' in css
