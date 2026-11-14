@@ -21,17 +21,25 @@ def test_merchant_adaptive_styles_loaded_after_main_css():
 
 
 def test_order_cards_preserve_status_actions_and_full_labels():
-    js = (STATIC / "app.js").read_text(encoding="utf-8")
-    assert "order-table-wrap" in js and "orders-table" in js
-    assert 'role="region" aria-label="Danh sách đơn hàng"' in js
-    for label in ("Mã đơn", "Sản phẩm", "Thời gian", "Giá trị", "Trạng thái", "Thao tác"):
-        assert f'data-label-vi="{label}"' in js
-    for label in ("Order ID", "Products", "Time", "Amount", "Status", "Action"):
-        assert f'data-label-en="{label}"' in js
-    assert "data-action=\"confirm-paid\"" in js
-    assert "data-action=\"new-order\"" in js
-    assert "function ordersTab()" in js
-    assert "function tablesTab()" in js
+    app = (STATIC / "app.js").read_text(encoding="utf-8")
+    cards = (STATIC / "order-cards.js").read_text(encoding="utf-8")
+    styles = (STATIC / "order-cards.css").read_text(encoding="utf-8")
+    html = (STATIC / "index.html").read_text(encoding="utf-8")
+    assert "window.EZOrderCards.renderList(list,{E,V,D,status,I})" in app
+    assert "order-rows" in cards and "data-match" in cards
+    assert "role='listitem'" in cards and "role='region'" in cards
+    for name in ("Mã đơn", "Sản phẩm", "Giá trị", "Danh sách đơn hàng"):
+        assert name in cards
+    for action in ("order-detail", "confirm-paid", "cancel-order"):
+        assert "data-action='" + action + "'" in cards
+    assert "o.status === 'open'" in cards
+    assert "order-card-list" in styles and "@container ez-order-cards" in styles
+    assert 'data-ez-merchant-theme="graphite"' in styles
+    assert html.index("order-cards.js") < html.index("/assets/app.js")
+    assert html.index("merchant-palette-refinement.css") < html.index("order-cards.css")
+    assert "data-action=\"new-order\"" in app
+    assert "function ordersTab()" in app
+    assert "function tablesTab()" in app
 
 
 def test_tablet_navigation_keeps_accessible_names():
