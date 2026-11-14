@@ -25,4 +25,11 @@ def test_mark_and_thing_are_not_duplicated_in_public_header():
     html = (STATIC / "public.html").read_text(encoding="utf-8")
     assert html.count('class="site-brand ez-site-brand"') == 2
     assert html.count('class="ez-logo-word">Thing</span>') == 2
-    assert html.count('src="/assets/icons/ez-mark-light.svg?v=approved-original-03"') == 2
+    assert html.count('src="/assets/icons/ez-mark-light.svg?v=black-e-04"') == 2
+
+
+def test_light_mark_uses_black_e_variant_distinct_from_dark_mark():
+    light = (STATIC / "icons" / "ez-mark-light.svg").read_bytes()
+    dark = (STATIC / "icons" / "ez-mark-dark.svg").read_bytes()
+    assert light != dark
+    assert b"data:image/png;base64," in light
