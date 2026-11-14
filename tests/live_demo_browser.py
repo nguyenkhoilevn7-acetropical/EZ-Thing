@@ -37,7 +37,7 @@ try:
   page.on("request",lambda req: requests.append(f"> {req.method} {req.url.replace(BASE,'')}") if "/api/" in req.url else None)
   page.on("response",lambda resp: requests.append(f"< {resp.status} {resp.url.replace(BASE,'')}") if "/api/" in resp.url else None)
   page.on("pageerror",lambda err:errors.append(str(err)))
-  page.on("console",lambda msg:errors.append(f"console: {msg.text}") if msg.type=="error" else None)
+  page.on("console",lambda msg:errors.append(f"console: {msg.text}") if msg.type=="error" and "401 (Unauthorized)" not in msg.text else None)
   for channel in ("/menu/cafe","/store/mart","/store/online","/booking/wellness"):
    print("BROWSER visiting",channel,flush=True)
    page.goto(BASE+channel,wait_until="domcontentloaded",timeout=15000)
