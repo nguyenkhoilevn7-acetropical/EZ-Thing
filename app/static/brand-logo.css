@@ -46,3 +46,23 @@
 
 /* Super Admin intentionally runs on a dark navigation surface. */
 .admin-ez-logo .ez-mark-dark,.admin-ez-loader .ez-mark-dark{display:block}
+
+/* Approved 2026 EZ Thing minimalist, flat, font-independent brand lockup. */
+.ez-full-logo{display:block;width:158px;height:auto;max-width:100%;object-fit:contain;flex:0 0 auto}
+.ez-full-logo-dark{display:none}
+.site-home .site-header .site-brand.ez-site-brand .ez-full-logo{width:150px;height:auto;max-height:40px}
+.site-home .site-footer .site-brand.ez-site-brand .ez-full-logo{width:145px;height:auto}
+.wordmark.ez-wordmark .ez-full-logo{width:155px;height:auto;max-width:100%}
+:root[data-ez-merchant-theme="graphite"] .ez-wordmark .ez-full-logo-light{display:none}
+:root[data-ez-merchant-theme="graphite"] .ez-wordmark .ez-full-logo-dark{display:block}
+.ez-loader-logo .ez-full-logo{width:185px;height:auto}
+.admin-ez-logo .ez-full-logo-dark{display:block;width:155px;height:auto}
+.admin-ez-loader .ez-full-logo-dark{display:block;width:190px;height:auto}
+.customer-loading .ez-full-logo{width:135px;height:auto}
+@media(max-width:700px){
+ .site-home .site-header .site-brand.ez-site-brand .ez-full-logo{width:clamp(94px,27vw,128px);max-height:34px}
+ .site-home .site-header .site-brand.ez-site-brand{gap:0;flex-shrink:0}
+}
+@media(max-width:370px){
+ .site-home .site-header .site-brand.ez-site-brand .ez-full-logo{width:clamp(90px,26vw,104px)}
+}
