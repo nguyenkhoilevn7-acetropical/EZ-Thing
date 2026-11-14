@@ -132,3 +132,26 @@ def test_non_owner_cannot_change_other_members_storefront():
         assert patch(cli, bid, owner_token, {"display_name": "Hacked"}).status_code == 403
         assert cli.get(f"/preview/site/{bid}").status_code == 403
         assert cli.get(f"/api/businesses/{bid}/storefront-preview").status_code == 403
+
+
+def test_demo_customer_frontend_uses_its_own_saved_brand(monkeypatch):
+    monkeypatch.setenv("EZ_THING_ENVIRONMENT", "staging")
+    monkeypatch.setenv("EZ_THING_DEMO_MODE", "1")
+    with TestClient(app) as cli:
+        guest = cli.post("/api/auth/demo", json={})
+        assert guest.status_code == 201, guest.text
+        csrf = guest.json()["csrf_token"]
+        businesses = cli.get("/api/businesses").json()
+        cafe = next(b for b in businesses if b["industry"] == "fnb")
+        saved = patch(cli, cafe["id"], csrf, {
+            "display_name": "Tropical Garden",
+            "description": "Freshly roasted coffee",
+            "banner_preset": "coffee",
+        })
+        assert saved.status_code == 200
+        customer = cli.get("/api/preview/cafe")
+        assert customer.status_code == 200
+        branding = customer.json()["business"]["branding"]
+        assert branding["display_name"] == "Tropical Garden"
+        assert branding["banner_preset"] == "coffee"
+        assert customer.json()["business"]["name"] == "Tropical Garden"
