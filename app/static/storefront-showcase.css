@@ -228,3 +228,65 @@ body:has(#customer-root) .kind-online .merchant-copy h1{font-size:clamp(50px,5vw
 @media(prefers-reduced-motion:reduce){
  body:has(#customer-root) *{animation-duration:.01ms!important;transition-duration:.01ms!important;scroll-behavior:auto!important}
 }
+
+/* Responsive storefront navigation and readable hero (tablet/desktop).
+   Avoid flex overflow: the full nav must collapse before labels collide. */
+body:has(#customer-root) .customer-primary-nav a[href="/reserve/cafe"]{display:none}
+@media (min-width:721px) {
+ body:has(#customer-root) .merchant-copy{
+  width:min(570px,calc(100% - 90px));
+  max-width:570px;
+ }
+ body:has(#customer-root) .merchant-copy p{max-width:100%;color:#555b64}
+ body:has(#customer-root) .merchant-hero::after{
+  background:linear-gradient(90deg,#f5f5f6 0%,rgba(245,245,246,.99) 27%,rgba(245,245,246,.95) 43%,rgba(245,245,246,.7) 56%,rgba(245,245,246,.05) 79%,transparent 100%);
+ }
+}
+@media (min-width:721px) and (max-width:1280px) {
+ body:has(#customer-root) .customer-header{padding:0 clamp(18px,3vw,30px)}
+ body:has(#customer-root) .customer-primary-nav{
+  display:none;position:absolute;top:calc(100% + 9px);right:0;left:auto;
+  width:min(350px,calc(100vw - 34px));max-height:calc(100dvh - 100px);
+  overflow-y:auto;z-index:60;padding:10px 18px;
+  border:1px solid #e7e8ec;border-radius:20px;
+  background:rgba(255,255,255,.98);box-shadow:0 16px 44px #11182724;
+  flex-direction:column;align-items:stretch;justify-content:flex-start;gap:0;
+ }
+ body:has(#customer-root) .customer-header.mobile-open .customer-primary-nav{display:flex}
+ body:has(#customer-root) .customer-primary-nav a,
+ body:has(#customer-root) .customer-primary-nav a[href="/reserve/cafe"]{
+  display:block;white-space:normal;font-size:14px;font-weight:550;
+  padding:14px 8px;border-bottom:1px solid #f0f0f3;
+ }
+ body:has(#customer-root) .customer-primary-nav a:last-child{border-bottom:0}
+ body:has(#customer-root) .menu-toggle{display:inline-flex!important}
+ body:has(#customer-root) .customer-h-actions{flex-shrink:0;gap:7px}
+ body:has(#customer-root) .customer-brand{flex-shrink:0}
+ body:has(#customer-root) .merchant-copy{margin-left:max(4.5vw,28px)}
+ body:has(#customer-root) .merchant-copy h1{font-size:clamp(36px,4.6vw,58px)}
+ body:has(#customer-root) .catalog-top{flex-direction:column;align-items:flex-start;gap:16px}
+ body:has(#customer-root) .catalog-top .search-wrap{width:min(470px,100%);min-width:0}
+ body:has(#customer-root) .merchant-content{padding-top:46px}
+}
+@media (min-width:721px) and (max-width:960px) {
+ body:has(#customer-root) .shop-benefits{
+  grid-template-columns:repeat(2,minmax(0,1fr));gap:22px 28px;
+  padding:30px 16px;
+ }
+ body:has(#customer-root) .shop-benefits .benefit{gap:12px}
+ body:has(#customer-root) .shop-benefits .benefit strong{font-size:13px}
+ body:has(#customer-root) .shop-benefits .benefit small{font-size:11px}
+}
+@media (max-width:720px) {
+ body:has(#customer-root) .customer-primary-nav a[href="/reserve/cafe"]{display:block}
+ body:has(#customer-root) .customer-primary-nav{max-height:calc(100dvh - 105px);overflow-y:auto}
+ body:has(#customer-root) .merchant-copy{width:100%;max-width:none;min-width:0}
+ body:has(#customer-root) .merchant-copy h1{overflow-wrap:break-word}
+ body:has(#customer-root) .merchant-copy p{max-width:100%;color:#565b64}
+}
+@media (max-width:420px) {
+ /* The reservation remains available in the opened menu on narrow phones. */
+ body:has(#customer-root) .customer-h-actions > .book-now-link{display:none}
+ body:has(#customer-root) .customer-h-actions{gap:0}
+ body:has(#customer-root) .customer-header{padding-inline:10px}
+}
