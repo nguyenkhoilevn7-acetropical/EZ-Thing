@@ -71,6 +71,9 @@ def preview_business(db: Session, user, channel: str):
 
 def preview_scope(db, user, channel):
     b = preview_business(db, user, channel)
+    from .platform_admin import is_business_blocked
+    if is_business_blocked(db, b.id):
+        fail(403, "Doanh nghiệp đang bị tạm khóa")
     return b
 
 

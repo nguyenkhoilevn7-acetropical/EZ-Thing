@@ -502,15 +502,20 @@ def test_booking_preview_available_slots_conflicts_and_replay(cli,monkeypatch):
     assert any(x['id']==first.json()['id'] for x in appointments)
 
 
-def test_super_admin_server_side_allowlist_and_demo_exclusion(cli,monkeypatch):
+def test_super_admin_server_side_allowlist_and_demo_exclusion(cli, monkeypatch):
     csrf=signup(cli,'platform-owner')
+    secret='test-superadmin-second-secret-at-least-32-characters'
     monkeypatch.setenv('EZ_THING_SUPERADMIN_EMAILS','platform-owner@example.com')
+    monkeypatch.setenv('EZ_THING_ADMIN_ACCESS_KEY',secret)
+    assert cli.get('/api/admin/summary').status_code == 403
+    assert cli.get('/api/admin/session').json()['unlocked'] is False
+    assert post(cli,'/admin/unlock',{'access_key':secret},csrf).status_code == 200
     resp=cli.get('/api/admin/summary')
-    assert resp.status_code==200,resp.text
-    assert resp.json()['mode']=='read_only_pilot'
+    assert resp.status_code == 200,resp.text
+    assert resp.json()['mode'] == 'pilot_control_plane'
     assert set(resp.json())=={'businesses','users','orders','mode'}
     another=TestClient(app)
     try:
         demo_client(another,monkeypatch)
-        assert another.get('/api/admin/summary').status_code==403
+        assert another.get('/api/admin/summary').status_code == 403
     finally:another.close()
