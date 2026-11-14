@@ -23,10 +23,12 @@ function hint(){
  note.style.marginLeft='12px';
  loading.appendChild(note);
 }
-window.addEventListener('load',()=>{
+function beginWatchdog(){
  window.setTimeout(hint,8000);
  window.setTimeout(recover,55000);
-},{once:true});
+}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',beginWatchdog,{once:true});
+else beginWatchdog();
 window.addEventListener('error',(event)=>{
  const target=event.target;
  if(target instanceof HTMLScriptElement && /\/assets\/customer\.js(?:\?|$)/.test(target.src))recover();
