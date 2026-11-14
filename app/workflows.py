@@ -110,7 +110,10 @@ def create_item(bid: str, kind: str, body: CreateWorkItem,
     if kind in ("kitchen", "delivery"):
         if not body.order_id:
             fail(422, "Vui lòng chọn đơn hàng")
-        order = db.scalar(select(SaleOrder).where(SaleOrder.id == body.order_id, SaleOrder.business_id == bid))
+        # Lock order while creating fulfillment so cancellation cannot miss a
+        # concurrently inserted pending ticket.
+        order = db.scalar(select(SaleOrder).where(
+            SaleOrder.id == body.order_id, SaleOrder.business_id == bid).with_for_update())
         if not order:
             fail(404, "Không tìm thấy đơn hàng")
         if order.status == "cancelled":
