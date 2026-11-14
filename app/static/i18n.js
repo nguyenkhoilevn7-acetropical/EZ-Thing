@@ -598,14 +598,13 @@ function translate(input){
   if(current!=='en'||!input)return input;
   const direct=translateCore(input);
   if(direct!==null)return direct;
-  // Decorative markers are separate from localized UI copy. Preserve them
-  // while translating the actual label (e.g. "✓ Tất cả quyền BASIC").
-  const marked=input.match(/^((?:[✓✔☑•◈✧◎◷◌↗↻←→+★☆✳✦🔒]\s+)+)(.+)$/u);
-  if(marked){
+  // Localize only known interface copy. Decorative checkmarks, arrows and
+  // icon markers around it must not defeat dictionary lookup or change user data.
+  const marked=input.match(/^((?:[✓✔☑•◈✧◎◷◌↗↻←→+★☆✳✦🔒]\s+)*)(.+?)(\s+[↗→←])?$/u);
+  if(marked && (marked[1] || marked[3])){
     const localized=translateCore(marked[2]);
-    if(localized!==null)return marked[1]+localized;
+    if(localized!==null)return marked[1]+localized+(marked[3]||'');
   }
-  // Dynamic counts belong to the UI, not the customer's business data.
   return input;
 }
 function translateNode(node){
