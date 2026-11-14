@@ -800,3 +800,8 @@ app.include_router(published_storefront_router)
 from .email_verification import router as email_verification_router  # noqa: E402
 Base.metadata.create_all(bind=engine)
 app.include_router(email_verification_router)
+
+# Guest carts are requests until reviewed by owner/manager. No guest payments.
+from .public_order_requests import router as public_order_requests_router  # noqa: E402
+Base.metadata.create_all(bind=engine)
+app.include_router(public_order_requests_router)
