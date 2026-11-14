@@ -239,6 +239,20 @@ async function handleAction(act,val,button){try{
  else if(act==='industry-next'){const [id,status]=val.split('|');await api(`/businesses/${s.business.id}/industry/${activeIndustry()[0]}/${id}/status`,{method:'POST',body:JSON.stringify({status})});await refresh();toast('Đã cập nhật trạng thái')}
  else if(act==='industry-cancel'){modal('Hủy lịch hẹn',`<p class="muted">Anh/chị có chắc chắn muốn hủy lịch này? Thao tác sẽ mở lại khung giờ cho khách khác.</p><div class="modal-footer"><button class="btn secondary" data-action="close-modal">Quay lại</button><button class="btn" data-action="industry-cancel-confirm" data-value="${E(val)}">Xác nhận hủy</button></div>`)}
  else if(act==='industry-cancel-confirm'){await api(`/businesses/${s.business.id}/industry/appointments/${val}/status`,{method:'POST',body:JSON.stringify({status:'cancelled'})});closeModal();await refresh();toast('Đã hủy lịch')}
+ else if(act==='billing-refresh'){
+  const bid=s.business?.id;
+  if(!bid)return;
+  const [businesses,billing]=await Promise.all([
+    api('/businesses'),api('/businesses/'+encodeURIComponent(bid)+'/billing')
+  ]);
+  s.businesses=businesses;
+  s.business=businesses.find(x=>x.id===bid)||s.business;
+  s.cache.billing=billing;
+  if(!s.business.billing_required)await loadData();
+  if(s.business.billing_required)s.tab='billing';
+  appFrame();
+  toast('Đã cập nhật trạng thái thanh toán');
+ }
  else if(act==='billing-pay'){
   const channel=document.getElementById('billing-channel')?.value||'card';
   const result=await api('/businesses/'+encodeURIComponent(s.business.id)+'/billing/checkout',
