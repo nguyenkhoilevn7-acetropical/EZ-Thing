@@ -1,0 +1,38 @@
+
+/* EZ Thing brand artwork derived from the approved EZ symbol.
+   Public branding and platform branding only; customer storefront identity remains tenant-specific. */
+.site-brand.ez-site-brand{display:inline-flex;align-items:center;gap:0;white-space:nowrap;letter-spacing:normal}
+.ez-mark{display:block;object-fit:contain;flex:none;width:74px;height:50px}
+.ez-mark-dark{display:none}
+.ez-site-brand .ez-brand-symbol{display:inline-flex;width:69px;height:49px;align-items:center;justify-content:center}
+.site-home .site-brand.ez-site-brand .ez-logo-word{
+  color:#171b1e;font-family:Manrope,Arial,sans-serif;font-size:24px;font-weight:900;
+  font-style:italic;letter-spacing:-.09em;line-height:1;white-space:nowrap;margin-left:-7px
+}
+.site-home .site-header .ez-mark{width:69px;height:47px}
+.site-home .site-footer .ez-mark{width:66px;height:44px}
+.site-home .site-footer .ez-site-brand .ez-brand-symbol{width:61px;height:45px}
+.site-home .site-footer .site-brand.ez-site-brand .ez-logo-word{font-size:22px}
+.wordmark.ez-wordmark{display:inline-flex;align-items:center;gap:0;white-space:nowrap;letter-spacing:normal}
+.wordmark.ez-wordmark .brand-symbol{background:transparent!important;color:inherit!important;border:0!important;width:67px;height:46px;display:flex;align-items:center;justify-content:center;border-radius:0!important;overflow:visible}
+.wordmark.ez-wordmark .brand-symbol .ez-mark{width:72px;height:48px;max-width:none}
+.wordmark.ez-wordmark .ez-brand-name{font-family:Manrope,Arial,sans-serif;font-size:22px;font-weight:900;font-style:italic;color:var(--ink);letter-spacing:-.07em;line-height:1}
+:root[data-ez-merchant-theme="graphite"] .ez-wordmark .ez-mark-light{display:none}
+:root[data-ez-merchant-theme="graphite"] .ez-wordmark .ez-mark-dark{display:block}
+.ez-loader-logo{display:flex;align-items:center;gap:0;color:var(--ink);font:italic 900 24px Manrope,Arial,sans-serif}
+.ez-loader-logo .ez-mark{width:92px;height:63px}
+.ez-loader-logo span{margin-left:-11px}
+.admin-ez-logo.ez-identity{display:inline-flex;align-items:center;gap:0;font-weight:900;letter-spacing:-.075em;white-space:nowrap}
+.admin-ez-logo .ez-mark{width:72px;height:49px;margin-right:-11px}
+.admin-ez-logo em{font-style:italic!important;color:inherit!important;font-size:23px}
+.admin-ez-loader .ez-mark{height:75px;width:110px}
+.customer-loading .ez-mark{width:65px;height:44px}
+@media(max-width:520px){
+ .site-home .site-header .ez-site-brand .ez-brand-symbol{width:53px;height:38px}
+ .site-home .site-header .ez-site-brand .ez-mark{width:57px;height:39px}
+ .site-home .site-header .site-brand.ez-site-brand .ez-logo-word{font-size:20px;margin-left:-5px}
+ .site-home .site-header .ez-site-brand{flex-shrink:0}
+}
+
+/* Super Admin intentionally runs on a dark navigation surface. */
+.admin-ez-logo .ez-mark-dark,.admin-ez-loader .ez-mark-dark{display:block}
