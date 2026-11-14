@@ -9,7 +9,7 @@
     "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
   }[c]));
   const V = x => new Intl.NumberFormat(lang === "en" ? "en-US" : "vi-VN").format(x) + "đ";
-  const state = { data: null, sending: false };
+  const state = { data: null, sending: false, cart: new Map(), orderRequestId: null };
   let lang = "vi";
   try { lang = localStorage.getItem("ezthing_site_lang") === "en" ? "en" : "vi"; } catch (_) {}
   const T = (vi, en) => lang === "en" ? en : vi;
@@ -31,6 +31,7 @@
     return `<button type="button" class="shop-button" data-action="${E(action)}" data-value="${E(value)}">${label}</button>`;
   }
 
+  function countItems(){return [...state.cart.values()].reduce((sum,x)=>sum+x,0);}
   function phoneHref(phone) {
     const valid = String(phone || "").replace(/[^+0-9]/g, "");
     return valid.length >= 7 ? "tel:" + valid : "";
@@ -58,6 +59,7 @@
         <button class="shop-language" type="button" data-action="switch-language" aria-label="Switch language">
           ${lang === "en" ? "🇬🇧 EN" : "🇻🇳 VI"}
         </button>
+        ${data.industry!=="services" ? button("🛒 "+T("Giỏ hàng", "Cart")+" ("+countItems()+")","cart") : ""}
         ${button(T("Liên hệ cửa hàng", "Contact store"),"contact")}
       </div></div></header>
       <main id="home" class="shop-container">
@@ -84,7 +86,8 @@
             <span class="shop-category">${E(p.category)}</span>
             <h3>${E(p.name)}</h3>
             <div class="shop-product-bottom"><strong>${V(p.price_vnd)}</strong>
-              ${p.available ? button(T("Hỏi mua", "Enquire"), "contact", p.id) :
+              ${p.available ? (data.industry==="services" ? button(T("Hỏi dịch vụ", "Enquire"), "contact", p.id)
+              : button("＋ "+T("Thêm", "Add"),"cart-add",p.id)) :
                  `<span class="shop-out">${T("Tạm hết", "Unavailable")}</span>`}
             </div></div></article>`).join("") || `<p>${T("Cửa hàng đang cập nhật danh mục.", "Catalog coming soon.")}</p>`}</div>
       </section>
@@ -104,7 +107,9 @@
         <span>${E(brand.footer_note || title)} · Powered by EZ Thing</span>
         <span>${T("Chưa tích hợp thanh toán trực tuyến", "No online checkout")}</span>
       </footer>
-      <div class="shop-mobile-cta">${button(T("Liên hệ & đặt hàng", "Contact & enquire"),"contact")}</div>
+      <div class="shop-mobile-cta">${data.industry==="services"
+        ? button(T("Liên hệ & đặt lịch", "Contact & book"),"contact")
+        : button("🛒 "+T("Xem giỏ hàng", "View cart")+" ("+countItems()+")","cart")}</div>
       <div id="shop-modal"></div>`;
   }
 
