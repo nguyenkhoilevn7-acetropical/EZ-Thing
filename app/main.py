@@ -14,7 +14,7 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 from fastapi import Depends, FastAPI, HTTPException, Request, Response
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import func, select, update
@@ -584,7 +584,7 @@ def storefront_design_page():
 
 @app.get("/app/reservations")
 def restaurant_reservation_manager():
-    return FileResponse(ASSETS / "reservation-admin.html", headers={"Cache-Control": "no-store"})
+    return RedirectResponse("/app?tab=reservations", status_code=307, headers={"Cache-Control": "no-store"})
 
 
 @app.get("/app")
@@ -631,4 +631,12 @@ app.include_router(reservations_router)
 # Private tenant-specific branded storefront editor and owner previews.
 from .storefront_brand import router as storefront_brand_router  # noqa: E402
 app.include_router(storefront_brand_router)
+
+# Tenant-scoped floorplan (existing Business.setup JSON; no migration or duplicate tables).
+from .floorplan import router as floorplan_router  # noqa: E402
+app.include_router(floorplan_router)
+
+# Server-side order KPIs and filtered history for the same existing ledger.
+from .order_dashboard import router as order_dashboard_router  # noqa: E402
+app.include_router(order_dashboard_router)
 
