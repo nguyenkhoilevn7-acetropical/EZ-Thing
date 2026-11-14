@@ -173,8 +173,10 @@ def change_status(bid: str, kind: str, item_id: str, body: NextStatus,
                   user=Depends(current_user), db: Session = Depends(db_session)):
     scope(bid, kind, user, db)
     if kind == "inventory": fail(405, "Không thể sửa lịch sử kho")
+    # Serialize status updates with order cancellation, which locks the linked
+    # pending ticket before marking it cancelled.
     item = db.scalar(select(IndustryWorkItem).where(IndustryWorkItem.id == item_id,
-                         IndustryWorkItem.business_id == bid, IndustryWorkItem.kind == kind))
+                         IndustryWorkItem.business_id == bid, IndustryWorkItem.kind == kind).with_for_update())
     if not item:
         fail(404, "Không tìm thấy công việc")
     if item.status == body.status:
