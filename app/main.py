@@ -44,13 +44,21 @@ async def security_headers(request: Request, call_next):
     if request.url.path.startswith("/api/"):
         response.headers["Content-Language"] = selected_language(request)
         response.headers["Vary"] = "Accept-Language, Cookie"
-    response.headers["X-Frame-Options"] = "DENY"
+    # Public DEMO storefronts may render in the same-origin homepage preview only.
+    # Management, authentication and API routes remain non-embeddable.
+    embed_demo = request.url.path in {
+        "/menu/cafe", "/store/mart", "/store/online", "/booking/wellness"
+    }
+    response.headers["X-Frame-Options"] = "SAMEORIGIN" if embed_demo else "DENY"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
     response.headers["Content-Security-Policy"] = (
         "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
         "font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https://images.unsplash.com; "
-        "connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'"
+        "connect-src 'self'; "
+        + ("frame-src 'self'; " if embed_demo or request.url.path == "/" else "")
+        + ("frame-ancestors 'self'; " if embed_demo else "frame-ancestors 'none'; ")
+        + "base-uri 'none'; form-action 'self'"
     )
     return response
 
