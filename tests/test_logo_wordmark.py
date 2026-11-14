@@ -4,7 +4,7 @@ from xml.etree import ElementTree as ET
 
 STATIC = Path(__file__).resolve().parents[1] / "app" / "static"
 ICON_PATH = STATIC / "icons"
-VERSION = "20261114-minimal-logo-01"
+VERSION = "20261114-minimal-logo-02"
 SVG_VERSION = "minimal-01"
 
 
@@ -43,8 +43,9 @@ def test_platform_entrypoints_are_cache_busted_and_use_new_logo():
 
 def test_mobile_sizes_and_dark_mode_are_explicit():
     css = (STATIC / "brand-logo.css").read_text(encoding="utf-8")
-    assert "width:clamp(94px,27vw,128px)" in css
-    assert "width:clamp(90px,26vw,104px)" in css
+    assert ".site-home .site-header .site-brand.ez-site-brand .ez-full-logo{width:128px" in css
+    assert "width:clamp(88px,23vw,112px)" in css
+    assert "width:clamp(84px,23vw,96px)" in css
     assert '[data-ez-merchant-theme="graphite"] .ez-wordmark .ez-full-logo-dark{display:block}' in css
     assert ".admin-ez-logo .ez-full-logo-dark{display:block" in css
     assert "margin-left:-" not in css
