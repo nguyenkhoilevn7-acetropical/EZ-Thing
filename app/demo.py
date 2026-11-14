@@ -75,6 +75,8 @@ def seed_demo(db) -> User:
              name="Khách trải nghiệm", password_hash=digest_password(secrets.token_urlsafe(32)))
     db.add(u)
     db.flush()
+    from datetime import timedelta
+    from .workflows import IndustryWorkItem  # Deferred until app startup registers the router.
     for spec in SEEDS:
         biz_id, branch_id = id_(), id_()
         industry_only = {"kitchen":"fnb", "stock_ledger":"retail", "fulfillment":"online", "appointments":"services", "tables":"fnb"}
@@ -112,6 +114,7 @@ def seed_demo(db) -> User:
         db.flush()
 
         # Two paid orders and one open order for visible KPIs, reports and tables.
+        seeded_orders = []
         for index in range(3):
             p = sample_products[index % len(sample_products)]
             qty = index + 1
@@ -125,6 +128,7 @@ def seed_demo(db) -> User:
                               paid_at=now() if paid else None)
             db.add(order)
             db.flush()
+            seeded_orders.append(order)
             db.add(SaleOrderItem(id=id_(), business_id=biz_id, order_id=order.id,
                                  product_id=p.id, product_name=p.name,
                                  quantity=qty, unit_price_vnd=p.price_vnd,
@@ -134,6 +138,27 @@ def seed_demo(db) -> User:
                 db.add(StockMovement(id=id_(), business_id=biz_id,
                                      product_id=p.id, delta=-qty,
                                      reason="sale", ref=order.id))
+        # Demonstrate a DIFFERENT operational screen for every industry.
+        if spec["industry"] in ("fnb", "online"):
+            kind = "kitchen" if spec["industry"] == "fnb" else "delivery"
+            for idx, sample in enumerate(seeded_orders[:2]):
+                status = ("pending" if idx == 0 else ("ready" if kind == "kitchen" else "packed"))
+                db.add(IndustryWorkItem(id=id_(), business_id=biz_id, kind=kind,
+                    reference_id=sample.id, customer_id=sample.customer_id,
+                    title=("Phiếu bếp • " if kind == "kitchen" else "Đơn giao • ") + sample.id[:8].upper(),
+                    status=status,
+                    details={"note": "DỮ LIỆU DEMO", **({"carrier": "Giao nội bộ", "tracking_number": "DEMO-001"} if kind == "delivery" else {})}))
+        elif spec["industry"] == "services":
+            for idx in range(2):
+                start = now() + timedelta(days=idx+1)
+                p = sample_products[idx]
+                customer = sample_customers[idx]
+                db.add(IndustryWorkItem(id=id_(), business_id=biz_id, kind="appointments",
+                    product_id=p.id, customer_id=customer.id,
+                    title=p.name + " • " + customer.name,
+                    assignee="Kỹ thuật viên A", status="scheduled" if idx == 0 else "confirmed",
+                    scheduled_at=start, ends_at=start + timedelta(minutes=60),
+                    details={"note": "DỮ LIỆU DEMO"}))
         db.add(AuditEvent(id=id_(), business_id=biz_id, actor_id=u.id,
                           action="demo.seeded", payload='{"sample_data": true}'))
     db.flush()
