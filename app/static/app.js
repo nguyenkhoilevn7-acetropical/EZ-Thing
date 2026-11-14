@@ -77,6 +77,8 @@ function auth(){root.innerHTML=`<div class="auth-layout"><section class="auth-ma
  <div class="formfield"><label>Mật khẩu</label><input type="password" name="password" minlength="${s.authMode==='signup'?10:1}" placeholder="${s.authMode==='signup'?'Ít nhất 10 ký tự':'Nhập mật khẩu'}" required autocomplete="${s.authMode==='signup'?'new-password':'current-password'}"/></div>
  <button class="btn wide" type="submit">${s.authMode==='login'?'Đăng nhập':'Bắt đầu dùng thử 7 ngày'} ${I('arrow','sm')}</button></form>
  <div class="auth-switch">${s.authMode==='login'?'Chưa có tài khoản?':'Đã có tài khoản?'} <button data-action="auth-toggle">${s.authMode==='login'?'Đăng ký ngay':'Đăng nhập'}</button></div>
+ ${s.emailVerificationNotice?`<div class="subtle center" role="status" style="margin-top:14px">${E(s.emailVerificationNotice)}</div>`:''}
+ ${s.authMode==='login'?'<div class="auth-switch"><button data-action="auth-resend-verification">Gửi lại email xác minh</button></div>':''}
  <div class="subtle center" style="margin-top:32px">🔒 Dữ liệu doanh nghiệp được phân tách theo tài khoản</div></div></section>
  <aside class="auth-visual"><div class="visual-card"><div class="visual-bar">${logo().replace('wordmark','wordmark').replace('font-size','font-size')}<div class="visual-dots"><i></i><i></i><i></i></div></div>
  <div class="visual-content"><div class="muted tiny strong" style="margin-bottom:14px">TỔNG QUAN KINH DOANH</div><div class="fake-grid"><div class="fake-kpi"><small class="muted">Doanh thu</small><b>24,8tr</b></div><div class="fake-kpi"><small class="muted">Đơn hàng</small><b>128</b></div><div class="fake-kpi"><small class="muted">Khách hàng</small><b>84</b></div></div><div class="fake-chart">${[28,45,35,69,54,80,65,95,70,100].map(i=>`<span style="height:${i}%"></span>`).join('')}</div></div></div>
@@ -240,6 +242,12 @@ function account(){modal('Tài khoản',`<div class="task-item"><span class="ava
 async function refresh(){await loadData();renderTab()}
 async function handleAction(act,val,button){try{
  if(act==='auth-toggle'){s.authMode=s.authMode==='login'?'signup':'login';auth()}
+ else if(act==='auth-resend-verification'){
+   const email=document.querySelector('#auth-form [name=email]')?.value?.trim()||'';
+   if(!email){toast('Nhập email cần xác minh trước',true);return}
+   await api('/auth/resend-verification',{method:'POST',body:JSON.stringify({email})});
+   toast('Nếu tài khoản cần xác minh, email mới sẽ được gửi.');
+ }
  else if(act==='industry'){s.answers.industry=val;setup()}
  else if(act==='answer-toggle'){s.answers[val]=!s.answers[val];setup()}
  else if(act==='choose-plan'){s.answers.selected_plan=val;setup()}
@@ -336,7 +344,19 @@ async function handleAction(act,val,button){try{
  }catch(e){toast(e.message||'Có lỗi xảy ra',true)} }
 async function handleSubmit(form){const bid=s.business?.id;const data=Object.fromEntries(new FormData(form).entries());const btn=form.querySelector('[type="submit"]');if(btn?.disabled)return; if(btn)btn.disabled=true;
  try{
- if(form.id==='auth-form'){const resp=await api('/auth/'+(s.authMode==='login'?'login':'signup'),{method:'POST',body:JSON.stringify(data)});s.user=resp;s.csrf=resp.csrf_token;await afterAuth();return}
+ if(form.id==='auth-form'){
+   const resp=await api('/auth/'+(s.authMode==='login'?'login':'signup'),{method:'POST',body:JSON.stringify(data)});
+   if(resp.verification_required){
+     s.authMode='login';
+     s.emailVerificationNotice='Đã gửi email xác minh. Mở link trong email trước khi đăng nhập.';
+     auth();
+     toast('Vui lòng kiểm tra email để kích hoạt tài khoản');
+     return;
+   }
+   s.emailVerificationNotice='';
+   s.user=resp;s.csrf=resp.csrf_token;
+   await afterAuth();return;
+ }
  if(form.id==='site-publish-form'){
    const result=await api('/businesses/'+encodeURIComponent(bid)+'/publishing',{
       method:'PUT',body:JSON.stringify({slug:data.slug.trim(),published:form.querySelector('[name=published]').checked})
@@ -394,13 +414,25 @@ async function afterAuth(){
  appFrame();
 }
 async function start(){
+ const rawVerifyToken=new URLSearchParams(location.search).get('verify');
+ const wantsVerification=!!rawVerifyToken;
+ if(wantsVerification){
+   // Clear token from history immediately so no later navigation/reload leaks it.
+   history.replaceState(null,'','/app');
+   try{
+     await api('/auth/verify-email',{method:'POST',body:JSON.stringify({token:rawVerifyToken})});
+     s.emailVerificationNotice='Email đã xác minh. Bạn có thể đăng nhập.';
+   }catch(error){
+     s.emailVerificationNotice=error.message||'Link xác minh không hợp lệ hoặc hết hạn.';
+   }
+ }
  let me;
  try{me=await api('/auth/me')}catch(e){
    if(e.status!==401){toast('Không kết nối được máy chủ: '+e.message,true);auth();return}
  }
  const wantsTrial=new URLSearchParams(location.search).get('trial')==='1';
  const wantsInvite=new URLSearchParams(location.search).has('invite');
- if(me&&me.demo&&(wantsTrial||wantsInvite)){
+ if(me&&me.demo&&(wantsTrial||wantsInvite||wantsVerification)){
    s.user=me;s.csrf=me.csrf_token;
    await api('/auth/logout',{method:'POST'});
    s.user=null;s.csrf=null;s.demo=false;s.authMode='signup';
@@ -411,13 +443,14 @@ async function start(){
  try{
    const config=await api('/config');
    s.trialEnabled=!!config.trial_enabled;
-   if(config.demo_enabled&&!wantsTrial&&!wantsInvite){
+   if(config.demo_enabled&&!wantsTrial&&!wantsInvite&&!wantsVerification){
      const guest=await api('/auth/demo',{method:'POST'});
      s.user=guest;s.csrf=guest.csrf_token;s.demo=!!guest.demo;
      await afterAuth();return;
    }
  }catch(e){toast('Không mở được chế độ demo: '+e.message,true)}
  if(wantsTrial)s.authMode='signup';
+ if(wantsVerification)s.authMode='login';
  if(new URLSearchParams(location.search).has('invite'))s.authMode='login';
  auth();
 }
