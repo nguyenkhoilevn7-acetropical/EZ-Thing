@@ -333,13 +333,15 @@ def business_create(body: CreateBusiness, user=Depends(current_user), db: Sessio
         "modules": b.active_modules,
     })
     db.commit()
-    return business_out(b, db)
+    return business_out(b, db, u.id)
 
 
-def business_out(b: Business, db: Session):
+def business_out(b: Business, db: Session, user_id: str | None = None):
     from .billing import summary
     subscription = summary(db, b)
+    from .team import role_for
     return {"id": b.id, "name": b.name, "industry": b.industry,
+            "role": role_for(db, b.id, user_id) if user_id else None,
             "plan": subscription["plan"] or "TRIAL",
             "subscription_status": subscription["status"], "active_modules": b.active_modules,
             "trial_ends_at": subscription.get("trial_ends_at"),
@@ -351,12 +353,12 @@ def business_out(b: Business, db: Session):
 @app.get("/api/businesses")
 def business_list(user=Depends(current_user), db: Session = Depends(db_session)):
     ids = db.scalars(select(Membership.business_id).where(Membership.user_id == user[0].id)).all()
-    return [business_out(b, db) for b in db.scalars(select(Business).where(Business.id.in_(ids)).order_by(Business.created_at.asc())).all()]
+    return [business_out(b, db, user[0].id) for b in db.scalars(select(Business).where(Business.id.in_(ids)).order_by(Business.created_at.asc())).all()]
 
 
 @app.get("/api/businesses/{bid}")
 def business_get(bid: str, user=Depends(current_user), db: Session = Depends(db_session)):
-    return business_out(tenant(bid, user, db), db)
+    return business_out(tenant(bid, user, db), db, user[0].id)
 
 
 @app.get("/api/businesses/{bid}/overview")
@@ -366,6 +368,8 @@ def overview(bid: str, user=Depends(current_user), db: Session = Depends(db_sess
     local_day = datetime.now(tz).date()
     since = datetime.combine(local_day, time.min, tzinfo=tz).astimezone(timezone.utc)
     until = datetime.combine(local_day + timedelta(days=1), time.min, tzinfo=tz).astimezone(timezone.utc)
+    from .team import role_for
+    can_view_revenue = role_for(db, bid, user[0].id) in ("owner", "manager")
     # All aggregate computations stay in SQL: no materialization of order history.
     count, opened, revenue, today_revenue = db.execute(select(
         func.count(SaleOrder.id),
@@ -379,7 +383,8 @@ def overview(bid: str, user=Depends(current_user), db: Session = Depends(db_sess
         ), else_=0)), 0),
     ).where(SaleOrder.business_id == bid)).one()
     return {"order_count": int(count), "open_count": int(opened or 0),
-            "paid_revenue_vnd": int(revenue), "today_revenue_vnd": int(today_revenue),
+            "paid_revenue_vnd": int(revenue) if can_view_revenue else None,
+            "today_revenue_vnd": int(today_revenue) if can_view_revenue else None,
             "product_count": db.scalar(select(func.count(Product.id)).where(Product.business_id == bid)) or 0,
             "low_stock": db.scalar(select(func.count(Product.id)).where(Product.business_id == bid,
                                               Product.track_stock.is_(True), Product.stock <= 5, Product.active.is_(True))) or 0,
@@ -395,6 +400,8 @@ def branches(bid: str, user=Depends(current_user), db: Session = Depends(db_sess
 @app.post("/api/businesses/{bid}/branches", status_code=201)
 def branch_create(bid: str, body: BranchCreate, user=Depends(current_user), db: Session = Depends(db_session)):
     b = tenant(bid, user, db); feature(b, "multi_branch")
+    from .team import allow, MANAGE_ROLES
+    allow(db, bid, user, MANAGE_ROLES)
     if (db.scalar(select(func.count(Branch.id)).where(Branch.business_id == bid)) or 0) >= PLANS[b.plan]["branches"]:
         fail(403, "Đã đạt số chi nhánh của gói")
     br = Branch(id=new_id(), business_id=bid, name=body.name.strip())
@@ -408,7 +415,10 @@ def branch_create(bid: str, body: BranchCreate, user=Depends(current_user), db: 
 @app.get("/api/businesses/{bid}/products")
 def products(bid: str, user=Depends(current_user), db: Session = Depends(db_session)):
     b = tenant(bid, user, db); feature(b, "products")
-    return [product_out(p) for p in db.scalars(select(Product).where(Product.business_id == bid).order_by(Product.created_at.desc()))]
+    from .team import role_for
+    can_view_cost = role_for(db, bid, user[0].id) in ("owner", "manager")
+    products = db.scalars(select(Product).where(Product.business_id == bid).order_by(Product.created_at.desc())).all()
+    return [{**product_out(p), **({} if can_view_cost else {"cost_vnd": None})} for p in products]
 
 
 def product_out(p):
@@ -420,6 +430,8 @@ def product_out(p):
 @app.post("/api/businesses/{bid}/products", status_code=201)
 def product_create(bid: str, body: ProductCreate, user=Depends(current_user), db: Session = Depends(db_session)):
     b = tenant(bid, user, db); feature(b, "products")
+    from .team import allow, MANAGE_ROLES
+    allow(db, bid, user, MANAGE_ROLES)
     p = Product(id=new_id(), business_id=bid, **body.model_dump())
     db.add(p)
     try:
@@ -439,6 +451,8 @@ def product_create(bid: str, body: ProductCreate, user=Depends(current_user), db
 @app.post("/api/businesses/{bid}/products/{pid}/stock")
 def stock_adjust(bid: str, pid: str, body: StockAdjust, user=Depends(current_user), db: Session = Depends(db_session)):
     b = tenant(bid, user, db); feature(b, "inventory_adjust")
+    from .team import allow, MANAGE_ROLES
+    allow(db, bid, user, MANAGE_ROLES)
     p = db.scalar(select(Product).where(Product.id == pid, Product.business_id == bid))
     if not p or not p.track_stock:
         fail(404, "Không tìm thấy sản phẩm theo dõi kho")
@@ -466,6 +480,8 @@ def customer_out(c):
 @app.post("/api/businesses/{bid}/customers", status_code=201)
 def customer_create(bid: str, body: CustomerCreate, user=Depends(current_user), db: Session = Depends(db_session)):
     tenant(bid, user, db)
+    from .team import allow, ROLES
+    allow(db, bid, user, ROLES)
     c = Customer(id=new_id(), business_id=bid, name=body.name.strip(),
                  phone=body.phone.strip(), address=body.address.strip())
     db.add(c); audit(db, bid, user[0].id, "customer.created", {"customer_id": c.id})
@@ -485,6 +501,8 @@ def tables(bid: str, user=Depends(current_user), db: Session = Depends(db_sessio
 @app.post("/api/businesses/{bid}/tables", status_code=201)
 def table_create(bid: str, body: TableCreate, user=Depends(current_user), db: Session = Depends(db_session)):
     b = tenant(bid, user, db); feature(b, "tables")
+    from .team import allow, MANAGE_ROLES
+    allow(db, bid, user, MANAGE_ROLES)
     branch = branch_for(db, bid, body.branch_id)
     table = DiningTable(id=new_id(), business_id=bid, branch_id=branch.id,
                         label=body.label.strip(), seats=body.seats)
@@ -595,6 +613,8 @@ def order_create(bid: str, body: CreateOrder, user=Depends(current_user), db: Se
 @app.post("/api/businesses/{bid}/orders/{oid}/paid")
 def order_paid(bid: str, oid: str, body: ConfirmPayment, user=Depends(current_user), db: Session = Depends(db_session)):
     b = tenant(bid, user, db); feature(b, "orders")
+    from .team import allow, MANAGE_ROLES
+    allow(db, bid, user, MANAGE_ROLES)
     # Lock before checking status: concurrent cancellation must not mark a
     # cancelled order as paid (or restore stock after a payment).
     o = db.scalar(select(SaleOrder).where(
@@ -612,6 +632,8 @@ def order_paid(bid: str, oid: str, body: ConfirmPayment, user=Depends(current_us
 @app.get("/api/businesses/{bid}/insights")
 def insights(bid: str, user=Depends(current_user), db: Session = Depends(db_session)):
     b = tenant(bid, user, db); feature(b, "insights")
+    from .team import allow, MANAGE_ROLES
+    allow(db, bid, user, MANAGE_ROLES)
     rows = db.execute(select(SaleOrderItem.product_name,
                               func.sum(SaleOrderItem.quantity).label("qty"),
                               func.sum(SaleOrderItem.total_vnd).label("total"))
@@ -631,6 +653,8 @@ def insights(bid: str, user=Depends(current_user), db: Session = Depends(db_sess
 @app.get("/api/businesses/{bid}/receivables")
 def receivables(bid: str, user=Depends(current_user), db: Session = Depends(db_session)):
     b = tenant(bid, user, db); feature(b, "insights")
+    from .team import allow, MANAGE_ROLES
+    allow(db, bid, user, MANAGE_ROLES)
     rows = db.execute(select(Customer.id, Customer.name, func.count(SaleOrder.id),
                              func.sum(SaleOrder.total_vnd))
                       .join(SaleOrder, SaleOrder.customer_id == Customer.id)
@@ -647,6 +671,8 @@ def receivables(bid: str, user=Depends(current_user), db: Session = Depends(db_s
 @app.get("/api/businesses/{bid}/audit")
 def audits(bid: str, user=Depends(current_user), db: Session = Depends(db_session)):
     b = tenant(bid, user, db)
+    from .team import owner_only
+    owner_only(db, bid, user)
     if b.plan != "PRO": fail(403, "Nhật ký quản trị chỉ dành cho Pro")
     rows = db.scalars(select(AuditEvent).where(AuditEvent.business_id == bid)
                       .order_by(AuditEvent.created_at.desc()).limit(50)).all()
@@ -739,4 +765,9 @@ app.include_router(order_lifecycle_router)
 from .billing import router as billing_router  # noqa: E402
 Base.metadata.create_all(bind=engine)  # Pilot only; replace with versioned migrations before production.
 app.include_router(billing_router)
+
+# Team invitation storage is a pilot additive table until Alembic migration.
+from .team import router as team_router  # noqa: E402
+Base.metadata.create_all(bind=engine)
+app.include_router(team_router)
 
