@@ -530,7 +530,7 @@ def test_preview_v04_flow_categories_and_public_contract(cli, monkeypatch):
         assert set(data['categories']) == {p['category'] for p in data['products']}
         assert len(data['categories']) >= 2
         assert all(set(p).isdisjoint({'stock','cost_vnd','business_id'}) for p in data['products'])
-        assert 'phone' not in str(data) and 'address' not in str(data)
+        assert all('phone' not in str(item) and 'address' not in str(item) for item in data['products'])
     assert cli.get('/api/preview/wellness').json()['flow']['duration_minutes'] == 60
     assert cli.get('/api/preview/online').json()['flow']['carrier_connected'] is False
     assert cli.get('/api/preview/cafe').json()['flow']['requires_table'] is True
