@@ -113,6 +113,8 @@ def create_item(bid: str, kind: str, body: CreateWorkItem,
         order = db.scalar(select(SaleOrder).where(SaleOrder.id == body.order_id, SaleOrder.business_id == bid))
         if not order:
             fail(404, "Không tìm thấy đơn hàng")
+        if order.status == "cancelled":
+            fail(409, "Đơn đã hủy, không thể tạo phiếu bếp hoặc giao hàng")
         old = db.scalar(select(IndustryWorkItem).where(IndustryWorkItem.business_id == bid,
                  IndustryWorkItem.kind == kind, IndustryWorkItem.reference_id == order.id))
         if old:
