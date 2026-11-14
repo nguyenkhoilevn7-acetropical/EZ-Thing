@@ -110,9 +110,14 @@ def create_item(bid: str, kind: str, body: CreateWorkItem,
     if kind in ("kitchen", "delivery"):
         if not body.order_id:
             fail(422, "Vui lòng chọn đơn hàng")
-        order = db.scalar(select(SaleOrder).where(SaleOrder.id == body.order_id, SaleOrder.business_id == bid))
+        # Lock order while creating fulfillment so cancellation cannot miss a
+        # concurrently inserted pending ticket.
+        order = db.scalar(select(SaleOrder).where(
+            SaleOrder.id == body.order_id, SaleOrder.business_id == bid).with_for_update())
         if not order:
             fail(404, "Không tìm thấy đơn hàng")
+        if order.status == "cancelled":
+            fail(409, "Đơn đã hủy, không thể tạo phiếu bếp hoặc giao hàng")
         old = db.scalar(select(IndustryWorkItem).where(IndustryWorkItem.business_id == bid,
                  IndustryWorkItem.kind == kind, IndustryWorkItem.reference_id == order.id))
         if old:
@@ -171,8 +176,10 @@ def change_status(bid: str, kind: str, item_id: str, body: NextStatus,
                   user=Depends(current_user), db: Session = Depends(db_session)):
     scope(bid, kind, user, db)
     if kind == "inventory": fail(405, "Không thể sửa lịch sử kho")
+    # Serialize status updates with order cancellation, which locks the linked
+    # pending ticket before marking it cancelled.
     item = db.scalar(select(IndustryWorkItem).where(IndustryWorkItem.id == item_id,
-                         IndustryWorkItem.business_id == bid, IndustryWorkItem.kind == kind))
+                         IndustryWorkItem.business_id == bid, IndustryWorkItem.kind == kind).with_for_update())
     if not item:
         fail(404, "Không tìm thấy công việc")
     if item.status == body.status:
