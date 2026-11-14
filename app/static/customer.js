@@ -72,14 +72,14 @@ async function api(path,options={}){
  }finally{clearTimeout(timer);}
 }
 function toast(message,bad=false){toastRoot.textContent=message;toastRoot.className='customer-toast'+(bad?' bad':'');setTimeout(()=>{toastRoot.textContent='';toastRoot.className='';},3500)}
-function blocked(message){root.innerHTML=`<header class="customer-header"><a class="customer-brand" href="/"><span class="mark">e.</span> EZ <strong>Thing</strong></a><a class="info-link" href="/app">Quản lý ↗</a></header><main class="closed-message"><span style="font-size:52px">🌿</span><h2>Trải nghiệm hiện chưa mở</h2><p>${E(message)}</p><button type="button" class="info-link" data-action="retry-demo">Thử lại ↻</button><a class="info-link" href="/">← Về trang chủ</a></main>`}
+function blocked(message){root.innerHTML=`<header class="customer-header"><a class="customer-brand" href="/" aria-label="Trang chủ EZ Thing"><img class="ez-full-logo customer-ez-logo" src="/assets/icons/ez-thing-wordmark-light.svg?v=minimal-01" alt="EZ Thing" width="1124" height="286" decoding="async"></a><a class="info-link" href="/app">Quản lý ↗</a></header><main class="closed-message"><span style="font-size:52px">🌿</span><h2>Trải nghiệm hiện chưa mở</h2><p>${E(message)}</p><button type="button" class="info-link" data-action="retry-demo">Thử lại ↻</button><a class="info-link" href="/">← Về trang chủ</a></main>`}
 
 function header(){
  const brand=channel==='cafe'?'Cafe':channel==='mart'?'Mart':channel==='online'?'Online Shop':'';
  const menu=navMap[channel].map(([name,href])=>`<a href="${href}">${E(name)}</a>`).join('');
  return `<div class="visitor-banner">TRẢI NGHIỆM DEMO • KHÔNG THANH TOÁN HOẶC GIAO HÀNG THẬT</div>
  <header class="customer-header" id="top">
-   <a class="customer-brand" href="/" aria-label="Trang chủ EZ Thing">${st.business?.branding?E(st.business.branding.display_name):`EZ Thing ${brand?`<strong>${brand}</strong>`:""}`}</a>
+   <a class="customer-brand" href="/" aria-label="Trang chủ EZ Thing">${st.business?.branding?E(st.business.branding.display_name):`<img class="ez-full-logo customer-ez-logo" src="/assets/icons/ez-thing-wordmark-light.svg?v=minimal-01" alt="EZ Thing" width="1124" height="286" decoding="async">${brand?`<strong>${brand}</strong>`:""}`}</a>
    <nav class="customer-primary-nav" id="customer-primary-nav" aria-label="Danh mục trang">${menu}</nav>
    <div class="customer-h-actions">
      ${channel==='cafe'?'<a href="/reserve/cafe" class="book-now-link">Đặt bàn</a>':''}

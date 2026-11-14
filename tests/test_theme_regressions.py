@@ -73,4 +73,4 @@ def test_public_homepage_versioned_and_no_store():
     assert 'FileResponse(ASSETS / "public.html", headers={"Cache-Control": "no-store, max-age=0"})' in main
     assert 'premium.js?v=20261114-ui-21' in public
     assert "data-ez-preview" in public and "data-preview-src" in public
-    assert "const SHELL='ezthing-shell-v5'" in sw
+    assert "const SHELL='ezthing-shell-v6'" in sw

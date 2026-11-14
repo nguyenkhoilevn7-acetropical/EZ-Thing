@@ -50,4 +50,4 @@ def test_inputs_and_translations_remain_stable():
     assert 'id="book-staff"' in source
     assert 'aria-pressed="${x===st.slot}"' in source
     assert 'aria-live="polite"' in source
-    assert 'customer.js?v=20261114-wellness-stable-01' in html
+    assert 'customer.js?v=20261115-audit-01' in html

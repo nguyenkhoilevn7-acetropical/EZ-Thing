@@ -4,7 +4,7 @@ from xml.etree import ElementTree as ET
 
 STATIC = Path(__file__).resolve().parents[1] / "app" / "static"
 ICON_PATH = STATIC / "icons"
-VERSION = "20261115-sidebar-01"
+VERSION = "20261115-audit-02"
 SVG_VERSION = "minimal-01"
 
 
@@ -90,5 +90,5 @@ def test_compact_merchant_sidebar_uses_real_ez_symbol_instead_of_cropped_wordmar
     assert ".sidebar .merchant-home-link .wordmark{display:none}" in css
     assert "display:block;width:47px;height:33px" in css
     assert '[data-ez-merchant-theme="graphite"] .sidebar .merchant-home-link .sidebar-ez-icon-dark{display:block}' in css
-    assert 'app.js?v=20261115-sidebar-01' in index
-    assert "brand-logo.css?v=20261115-sidebar-01" in index
+    assert 'app.js?v=20261115-audit-02' in index
+    assert "brand-logo.css?v=20261115-audit-02" in index
