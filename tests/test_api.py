@@ -338,3 +338,19 @@ def test_vertical_feature_catalog_industry_defaults(cli):
         b=business(cli,csrf,industry=industry,plan='BASIC')
         assert flag in b['active_modules']
         assert set(b['active_modules']).isdisjoint(set(['kitchen','stock_ledger','fulfillment','appointments'])-{flag})
+
+
+def test_demo_seed_populates_industry_screens(cli, monkeypatch):
+    monkeypatch.setenv('EZ_THING_ENVIRONMENT', 'staging')
+    monkeypatch.setenv('EZ_THING_DEMO_MODE', '1')
+    resp=post(cli, '/auth/demo', {})
+    assert resp.status_code==201,resp.text
+    businesses=cli.get('/api/businesses').json()
+    route={'fnb':'kitchen', 'retail':'inventory', 'online':'delivery', 'services':'appointments'}
+    for b in businesses:
+        data=cli.get(f"/api/businesses/{b['id']}/industry/{route[b['industry']]}")
+        assert data.status_code==200, data.text
+        assert len(data.json()) >= 2
+    for b in businesses:
+        for kind in set(route.values())-{route[b['industry']]}:
+            assert cli.get(f"/api/businesses/{b['id']}/industry/{kind}").status_code==404
