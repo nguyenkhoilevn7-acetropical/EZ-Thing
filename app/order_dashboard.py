@@ -23,7 +23,7 @@ LOCAL = ZoneInfo("Asia/Ho_Chi_Minh")
 @router.get("/api/businesses/{bid}/order-dashboard")
 def order_dashboard(
     bid: str, from_day: date | None = None, to_day: date | None = None,
-    status: Literal["all", "open", "paid"] = "all",
+    status: Literal["all", "open", "paid", "cancelled"] = "all",
     table_id: str | None = None,
     branch_id: str | None = None,
     limit: int = Query(default=200, ge=1, le=200),
@@ -56,10 +56,11 @@ def order_dashboard(
         clauses.append(SaleOrder.branch_id == branch_id)
     if table_id:
         clauses.append(SaleOrder.table_id == table_id)
-    count, opened, paid, paid_vnd = db.execute(select(
+    count, opened, paid, cancelled, paid_vnd = db.execute(select(
         func.count(SaleOrder.id),
         func.sum(case((SaleOrder.status == "open", 1), else_=0)),
         func.sum(case((SaleOrder.status == "paid", 1), else_=0)),
+        func.sum(case((SaleOrder.status == "cancelled", 1), else_=0)),
         func.sum(case((SaleOrder.status == "paid", SaleOrder.total_vnd), else_=0)),
     ).where(*clauses)).one()
     rows = db.scalars(select(SaleOrder).where(*clauses).order_by(
@@ -68,6 +69,7 @@ def order_dashboard(
         "scope": "created_at", "timezone": "Asia/Ho_Chi_Minh",
         "limit": limit, "truncated": int(count or 0) > len(rows),
         "total_count": int(count or 0), "open_count": int(opened or 0),
-        "paid_count": int(paid or 0), "paid_vnd": int(paid_vnd or 0),
+        "paid_count": int(paid or 0), "cancelled_count": int(cancelled or 0),
+        "paid_vnd": int(paid_vnd or 0),
         "orders": [order_out(db, o) for o in rows],
     }
