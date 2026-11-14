@@ -5,6 +5,16 @@
 (() => {
 'use strict';
 const entries = [
+['CỬA HÀNG ONLINE','ONLINE STORE'],['ĐẶT BÀN TRƯỚC','TABLE RESERVATIONS'],
+['Xem demo ↗','View demo ↗'],['Mở giao diện website đang xem','Open current website demo'],
+['Trình chiếu giao diện website demo thực tế','Real website demo slideshow'],
+['Chọn màn hình trình chiếu','Choose a demo screen'],
+['Xem website cafe và nhà hàng','View cafe and restaurant website'],
+['Xem website bán lẻ','View retail website'],
+['Xem website bán hàng online','View online store'],
+['Xem website spa wellness','View spa website'],
+['Xem website đặt bàn trước','View table reservations'],
+
 ['Giải pháp','Solutions'],['Cách hoạt động','How it works'],['Bảng giá','Pricing'],['Quản lý cửa hàng','Merchant app'],['Khám phá demo','Explore demo'],
 ['EZ THING • TRẢI NGHIỆM KINH DOANH MỚI','EZ THING • A NEW WAY TO DO BUSINESS'],['Kinh doanh.','Business.'],['Thật đơn giản.','Made simple.'],
 ['Bán hàng, nhận đơn và đặt lịch trong một trải nghiệm liền mạch. Mỗi ngành có công cụ riêng, nhưng đều trực quan và dễ sử dụng.','Sell, receive orders and take bookings in one seamless experience. Each industry gets the right tools, all intuitive and easy to use.'],
