@@ -33,3 +33,6 @@ body:has(#admin-root) .top-actions .ez-language-switch{margin-left:8px}
   .ez-language-switch.ez-language-floating{top:12px;right:12px;bottom:auto}
 }
 @media(prefers-reduced-motion:reduce){.ez-language-switch button{transition:none}}
+
+/* On compact screens, render the selector at document-body level, outside sticky/glass containing blocks. */
+@media(max-width:700px){.ez-language-switch.ez-language-floating{position:fixed;top:auto;bottom:calc(86px + env(safe-area-inset-bottom));right:12px;z-index:110}}

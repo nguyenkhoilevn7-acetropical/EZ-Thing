@@ -75,3 +75,11 @@ def test_broken_online_living_photo_and_fallback_handled():
     assert "photo-1493663284031-b7e3aefcae8c" not in js
     assert "storefront-fallback.svg" in js
     assert (STATIC / "storefront-fallback.svg").is_file()
+
+
+def test_language_selector_escapes_sticky_headers_on_mobile():
+    js = (STATIC / "i18n.js").read_text(encoding="utf-8")
+    css = (STATIC / "i18n.css").read_text(encoding="utf-8")
+    assert "compact?document.body" in js
+    assert "addEventListener('resize',schedule)" in js
+    assert "bottom:calc(86px + env(safe-area-inset-bottom))" in css
