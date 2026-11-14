@@ -28,11 +28,29 @@ router = APIRouter(prefix='/api/preview', tags=['Demo customer storefront'])
 CHANNELS = {'cafe':'fnb','mart':'retail','online':'online','wellness':'services'}
 SPECIALISTS = ('Linh', 'Minh', 'An')  # illustrative staff; no real staff roster
 TZ = ZoneInfo('Asia/Ho_Chi_Minh')
+# The public contract must match the actual demo workflow, not features
+# that exist in commercial reference products but have not been implemented.
+FLOWS = {
+    'cafe': {'kind':'table_order','requires_phone':False,'requires_address':False,
+             'requires_table':True,'payment_enabled':False,'real_qr_enabled':False},
+    'mart': {'kind':'in_store_hold','requires_phone':True,'requires_address':False,
+             'requires_table':False,'payment_enabled':False,'real_qr_enabled':False},
+    'online': {'kind':'internal_delivery','requires_phone':True,'requires_address':True,
+               'requires_table':False,'payment_enabled':False,'carrier_connected':False},
+    'wellness': {'kind':'appointment','requires_phone':True,'requires_address':False,
+                 'requires_table':False,'payment_enabled':False,
+                 'duration_minutes':60,'booking_window_days':21,
+                 'timezone':'Asia/Ho_Chi_Minh'},
+}
 
 
 class PublicLine(BaseModel):
     product_id: str
     quantity: int = Field(ge=1, le=10)
+
+
+class PreviewQuote(BaseModel):
+    lines: list[PublicLine] = Field(min_length=1, max_length=20)
 
 
 class PreviewCheckout(BaseModel):
@@ -88,6 +106,8 @@ def storefront(channel: str, user=Depends(current_user), db: Session=Depends(db_
                     .order_by(Product.name)).all()
     result={'business':{'name':b.name.replace(' • DEMO',''),'industry':b.industry},
             'channel':channel,'demo':True,'products':[p_output(p) for p in rows],
+            'categories':sorted({p.category for p in rows if p.category}),
+            'flow':FLOWS[channel].copy(),
             'staff':list(SPECIALISTS) if channel=='wellness' else [],'tables':[]}
     if channel=='cafe':
         t=db.scalars(select(DiningTable).where(DiningTable.business_id==b.id).order_by(DiningTable.label)).all()
@@ -97,6 +117,52 @@ def storefront(channel: str, user=Depends(current_user), db: Session=Depends(db_
 
 def fingerprint(body: BaseModel):
     return hashlib.sha256(json.dumps(body.model_dump(mode='json'),sort_keys=True,ensure_ascii=False).encode()).hexdigest()
+
+
+def resolve_preview_lines(db: Session, business: Business, lines: list[PublicLine]):
+    """One authoritative product/price/availability rule for quote and checkout.
+
+    Never return cost, stock counts, or tenant-private data to a visitor.
+    A quote is informational and does not reserve inventory.
+    """
+    quantities = defaultdict(int)
+    for line in lines:
+        quantities[line.product_id] += line.quantity
+    if sum(quantities.values()) > 30:
+        fail(422, 'Tối đa 30 sản phẩm mỗi đơn DEMO')
+    if any(qty > 10 for qty in quantities.values()):
+        fail(422, 'Tối đa 10 sản phẩm mỗi loại')
+    products = {}
+    for pid, qty in quantities.items():
+        p = db.scalar(select(Product).where(
+            Product.id == pid, Product.business_id == business.id, Product.active.is_(True)))
+        if p is None:
+            fail(404, 'Sản phẩm không thuộc cửa hàng này')
+        if p.track_stock and p.stock < qty:
+            fail(409, 'Sản phẩm hiện không đủ số lượng: ' + p.name)
+        products[pid] = p
+    total = sum(products[pid].price_vnd * qty for pid, qty in quantities.items())
+    if total > 20_000_000:
+        fail(422, 'Đơn thử nghiệm vượt giới hạn')
+    return quantities, products, total
+
+
+@router.post('/{channel}/quote')
+def preview_quote(channel: str, body: PreviewQuote,
+                  user=Depends(current_user), db: Session=Depends(db_session)):
+    if channel == 'wellness':
+        fail(404, 'Không báo giá giỏ hàng cho dịch vụ')
+    business = preview_scope(db, user, channel)
+    quantities, products, total = resolve_preview_lines(db, business, body.lines)
+    return {
+        'channel':channel, 'currency':'VND', 'demo':True,
+        'is_estimate':True, 'payment_enabled':False, 'total_vnd':total,
+        'lines':[{
+            'product_id':pid, 'name':products[pid].name,
+            'quantity':qty, 'unit_price_vnd':products[pid].price_vnd,
+            'line_total_vnd':products[pid].price_vnd * qty
+        } for pid, qty in quantities.items()]
+    }
 
 
 @router.post('/{channel}/checkout',status_code=201)
@@ -122,16 +188,7 @@ def demo_checkout(channel: str, body: PreviewCheckout,
         if channel!='cafe' or db.scalar(select(DiningTable).where(DiningTable.id==body.table_id,
                        DiningTable.business_id==b.id, DiningTable.branch_id==branch.id)) is None:
             fail(404,'Bàn không thuộc quán này')
-    quantities=defaultdict(int)
-    for ln in body.lines:quantities[ln.product_id]+=ln.quantity
-    if sum(quantities.values())>30:fail(422,'Tối đa 30 sản phẩm mỗi đơn DEMO')
-    products={}
-    for pid in quantities:
-        p=db.scalar(select(Product).where(Product.id==pid,Product.business_id==b.id,Product.active.is_(True)))
-        if not p:fail(404,'Sản phẩm không có trong gian hàng này')
-        products[pid]=p
-    total=sum(products[pid].price_vnd*qty for pid,qty in quantities.items())
-    if total>20_000_000:fail(422,'Đơn thử nghiệm vượt giới hạn')
+    quantities, products, total = resolve_preview_lines(db, b, body.lines)
     try:
         customer=Customer(id=new_id(),business_id=b.id,name=body.customer_name.strip(),
                           phone=body.phone.strip(),address=body.address.strip())
