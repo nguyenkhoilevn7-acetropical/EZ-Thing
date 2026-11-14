@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="630" viewBox="0 0 900 630" role="img" aria-label="EZ Thing — placeholder image">
+<defs>
+<linearGradient id="bg" x2="1" y2="1"><stop stop-color="#f5f3ef"/><stop offset=".52" stop-color="#eae9e7"/><stop offset="1" stop-color="#dddfe1"/></linearGradient>
+<linearGradient id="panel" x2="0" y2="1"><stop stop-color="#fcfcfc"/><stop offset="1" stop-color="#e6e8eb"/></linearGradient>
+<filter id="shade" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="17"/></filter>
+</defs>
+<rect width="900" height="630" fill="url(#bg)"/>
+<circle cx="700" cy="95" r="240" fill="#ffffff" opacity=".28"/>
+<circle cx="130" cy="540" r="260" fill="#cbc9c4" opacity=".22"/>
+<ellipse cx="456" cy="508" rx="258" ry="31" fill="#959da5" opacity=".18" filter="url(#shade)"/>
+<rect x="235" y="135" width="430" height="348" rx="28" fill="url(#panel)"/>
+<rect x="268" y="176" width="364" height="268" rx="16" fill="#f8f8f9" stroke="#d8dbdf" stroke-width="3"/>
+<rect x="311" y="289" width="278" height="119" rx="18" fill="#c7c3bb"/>
+<rect x="338" y="259" width="224" height="67" rx="19" fill="#d8d1c8"/>
+<rect x="292" y="379" width="36" height="56" rx="8" fill="#d9d4cb"/>
+<rect x="573" y="379" width="36" height="56" rx="8" fill="#d9d4cb"/>
+<circle cx="459" cy="229" r="37" fill="#eee5d9"/>
+<path d="M426 237q34-24 65 0" fill="none" stroke="#bdb7ae" stroke-width="3" stroke-linecap="round"/>
+<text x="450" y="558" text-anchor="middle" font-family="Arial, sans-serif" font-size="28" fill="#686c71" font-weight="700">EZ Thing</text>
+<text x="450" y="588" text-anchor="middle" font-family="Arial, sans-serif" font-size="15" fill="#92959a" letter-spacing="3">IMAGE PREVIEW</text>
+</svg>

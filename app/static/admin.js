@@ -17,15 +17,15 @@ let filters={businesses:{q:'',industry:'',plan:'',status:'all'},users:{q:'',stat
 let busy=false;
 let modalOpen=false;
 const h=x=>String(x??'').replace(/[&<>"']/g,x=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[x]));
-const fnum=n=>new Intl.NumberFormat('vi-VN').format(Number(n||0));
+const fnum=n=>new Intl.NumberFormat(window.EZI18N?.locale()||'vi-VN').format(Number(n||0));
 const fvnd=n=>fnum(n)+' đ';
-const fdate=x=>{if(!x)return '—';const d=new Date(x);return Number.isNaN(d.getTime())?'—':new Intl.DateTimeFormat('vi-VN',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}).format(d)};
+const fdate=x=>{if(!x)return '—';const d=new Date(x);return Number.isNaN(d.getTime())?'—':new Intl.DateTimeFormat(window.EZI18N?.locale()||'vi-VN',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}).format(d)};
 const asStatus=blocked=>`<span class="status ${blocked?'off':''}">${blocked?'Tạm khóa':'Hoạt động'}</span>`;
 const asPlan=p=>`<span class="pill ${h(p)}">${h(p||'—')}</span>`;
 const empty=(title='Chưa có dữ liệu',msg='Chưa có bản ghi nào phù hợp với bộ lọc.')=>`<div class="empty"><div class="glyph">⌁</div><strong>${h(title)}</strong><p>${h(msg)}</p></div>`;
 const toast=(msg,error=false)=>{const node=document.createElement('div');node.className='toast'+(error?' error':'');node.textContent=msg;toastArea.append(node);setTimeout(()=>node.remove(),3500)};
 async function api(path,{method='GET',body=null}={}){
- const headers={'Accept':'application/json'};
+ const headers={'Accept':'application/json','Accept-Language':window.EZI18N?.language()||'vi'};
  if(body!==null)headers['Content-Type']='application/json';
  if(method!=='GET'&&session?.csrf_token)headers['x-csrf-token']=session.csrf_token;
  let res;
