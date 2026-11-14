@@ -91,7 +91,7 @@ def verified(db: Session, user: User) -> bool:
 
 def send_verification(user: User, token: str) -> None:
     server, port, username, password, sender, base = mail_config()
-    url = base + "/app?verify=" + token
+    url = base + "/app#verify=" + token
     message = EmailMessage()
     message["From"] = sender
     message["To"] = user.email
