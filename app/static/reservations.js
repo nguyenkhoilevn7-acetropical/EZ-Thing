@@ -6,14 +6,14 @@ const uuid=()=>globalThis.crypto?.randomUUID?.()||('req-'+Date.now()+'-'+Math.ra
 const dayText=d=>{const y=d.getUTCFullYear(),m=String(d.getUTCMonth()+1).padStart(2,'0'),x=String(d.getUTCDate()).padStart(2,'0');return `${y}-${m}-${x}`;};
 const today=()=>dayText(new Date(Date.now()+7*3600000));
 const plusDays=(v,n)=>{const d=new Date(v+'T00:00:00Z');d.setUTCDate(d.getUTCDate()+n);return dayText(d);};
-const formatTime=v=>new Date(v).toLocaleString('vi-VN',{timeZone:'Asia/Ho_Chi_Minh',hour:'2-digit',minute:'2-digit'});
-const formatDate=v=>new Date(v).toLocaleString('vi-VN',{timeZone:'Asia/Ho_Chi_Minh',day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+const formatTime=v=>new Date(v).toLocaleString(window.EZI18N?.locale()||'vi-VN',{timeZone:'Asia/Ho_Chi_Minh',hour:'2-digit',minute:'2-digit'});
+const formatDate=v=>new Date(v).toLocaleString(window.EZI18N?.locale()||'vi-VN',{timeZone:'Asia/Ho_Chi_Minh',day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
 const statusText={pending:'Chờ xác nhận',confirmed:'Đã xác nhận',seated:'Khách đã nhận bàn',completed:'Hoàn tất',cancelled:'Đã hủy',no_show:'Khách không đến',new:'Mới gửi',contacted:'Đã liên hệ',closed:'Đã đóng'};
 const validPhone=v=>/^[0-9+().\s-]{8,25}$/.test(String(v||'').trim());
 const tel=v=>'tel:'+String(v||'').replace(/[^0-9+]/g,'');
 let csrf='',guestDuration=90,guestSlot='',selectedBusiness='',bookings=[],inquiries=[],contact={};
 async function api(path,method='GET',body=null){
- const o={method,credentials:'same-origin',cache:'no-store',headers:{'Content-Type':'application/json'}};
+ const o={method,credentials:'same-origin',cache:'no-store',headers:{'Content-Type':'application/json','Accept-Language':window.EZI18N?.language()||'vi'}};
  if(method!=='GET'){if(csrf)o.headers['x-csrf-token']=csrf;o.body=JSON.stringify(body??{});}
  const r=await fetch('/api'+path,o);let data;try{data=await r.json();}catch{data={detail:'Phản hồi không hợp lệ'}};
  if(!r.ok){const msg=typeof data.detail==='string'?data.detail:'Không thể thực hiện yêu cầu';const err=new Error(msg);err.status=r.status;throw err;}return data;
@@ -72,7 +72,7 @@ function showMerchant(){const all=bookings,filter=$('manager-filter').value,day=
  $('manager-inquiries').innerHTML=inquiries.length?inquiries.map(q=>`<article class="inquiry-item"><div><strong>${E(q.name)}</strong> <span class="status status-${E(q.status)}">${E(statusText[q.status]||q.status)}</span></div><p>${E(q.message)}</p><div class="booking-item-actions"><a class="secondary-button" href="${E(tel(q.phone))}">☎ ${E(q.phone)}</a>${q.status==='new'?`<button class="secondary-button" data-inquiry-status="contacted" data-inquiry-id="${E(q.id)}">Đã liên hệ</button>`:q.status==='contacted'?`<button class="secondary-button" data-inquiry-status="closed" data-inquiry-id="${E(q.id)}">Đóng yêu cầu</button>`:''}</div></article>`).join(''):'<div class="empty-block">Chưa có lời nhắn nào.</div>';
 }
 async function loadMerchant(){const bid=encodeURIComponent(selectedBusiness);const result=await Promise.all([api('/businesses/'+bid+'/reservations'),api('/businesses/'+bid+'/inquiries'),api('/businesses/'+bid+'/reservations/contact')]);bookings=result[0];inquiries=result[1];contact=result[2];const form=$('manager-contact-form');for(const name of ['phone','email','address','hours'])form.elements[name].value=contact[name]||'';showMerchant();}
-async function changeStatus(id,status){if(['cancelled','no_show'].includes(status)&&!confirm('Xác nhận chuyển trạng thái lịch đặt bàn?'))return;
+async function changeStatus(id,status){if(['cancelled','no_show'].includes(status)&&!confirm(window.EZI18N?.translate('Xác nhận chuyển trạng thái lịch đặt bàn?')||'Xác nhận chuyển trạng thái lịch đặt bàn?'))return;
  try{await api(`/businesses/${encodeURIComponent(selectedBusiness)}/reservations/${encodeURIComponent(id)}/status`,'POST',{status});await loadMerchant();toast('Đã cập nhật lịch đặt bàn');}catch(err){toast(err.message,true);}
 }
 async function changeInquiry(id,status){try{await api(`/businesses/${encodeURIComponent(selectedBusiness)}/inquiries/${encodeURIComponent(id)}/status`,'POST',{status});await loadMerchant();toast('Đã cập nhật yêu cầu');}catch(err){toast(err.message,true);}}
