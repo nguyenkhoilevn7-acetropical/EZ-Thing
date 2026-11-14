@@ -158,6 +158,12 @@
   --suite-field-bg:var(--suite-panel);
   color:var(--suite-ink);
 }
+:root[data-ez-merchant-theme="tropical"] .suite-container{
+  --suite-accent:#0d936b;
+  --suite-accent-hover:#087b5a;
+  --suite-accent-bg:#e7f7ef;
+  --suite-accent-border:#b8e4d1;
+}
 :root[data-ez-merchant-theme="graphite"] .suite-container{
   --suite-action-ink:#111820;
   --suite-field-bg:#282b34;
