@@ -35,11 +35,11 @@ const icons={
 };
 function I(name,size=''){return `<svg class="ic ${size}" viewBox="0 0 24 24" aria-hidden="true">${icons[name]||icons.box}</svg>`}
 const E=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const V=x=>new Intl.NumberFormat('vi-VN').format(Number(x)||0)+'đ';
-const D=x=>x?new Date(x).toLocaleString('vi-VN',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'—';
+const V=x=>new Intl.NumberFormat(window.EZI18N?.locale()||'vi-VN').format(Number(x)||0)+'đ';
+const D=x=>x?new Date(x).toLocaleString(window.EZI18N?.locale()||'vi-VN',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'—';
 const s={user:null,csrf:null,demo:false,businesses:[],business:null,tab:'overview',authMode:'login',setupStep:1,answers:{name:'',industry:'fnb',need_tables:true,need_inventory:true,need_insights:true,need_branches:false,description:'',selected_plan:'PLUS'},recommendation:null,cache:{},orderFilter:'all'};
 async function api(path,opt={}){
- const init={credentials:'same-origin',...opt,headers:{'Content-Type':'application/json',...(opt.headers||{})}};
+ const init={credentials:'same-origin',...opt,headers:{'Content-Type':'application/json','Accept-Language':window.EZI18N?.language()||'vi',...(opt.headers||{})}};
  if(s.csrf&&init.method&&init.method!=='GET')init.headers['x-csrf-token']=s.csrf;
  const response=await fetch('/api'+path,init);
  let data;try{data=await response.json()}catch{data={detail:'Máy chủ không phản hồi hợp lệ'}}
