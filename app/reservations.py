@@ -172,7 +172,7 @@ def free_tables(db, bid, start, end, party_size, requested_table=None):
             (requested_table is None or t.id == requested_table)]
 
 
-def availability(db, b, day, party_size, duration):
+def availability(db, b, day, party_size, duration, requested_table=None):
     day_valid(day)
     output = []
     for hour in range(8, 21):
@@ -186,7 +186,7 @@ def availability(db, b, day, party_size, duration):
                 if not isinstance(err, HTTPException):
                     raise
                 continue
-            count = len(free_tables(db, b.id, first, end, party_size))
+            count = len(free_tables(db, b.id, first, end, party_size, requested_table))
             output.append({"start_at": start.isoformat(), "available_tables": count,
                            "available": count > 0})
     return {"date": day.isoformat(), "party_size": party_size,
@@ -280,8 +280,13 @@ def update_reservation(bid: str, rid: str, body: ReservationStatus,
 @router.get("/businesses/{bid}/reservations/availability")
 def merchant_slots(bid: str, day: date = Query(...), party_size: int = Query(ge=1, le=20),
                    duration_minutes: Literal[60, 90, 120] = 90,
+                   table_id: str | None = Query(default=None, max_length=36),
                    user=Depends(current_user), db: Session = Depends(db_session)):
-    return availability(db, fnb_scope(bid, user, db), day, party_size, duration_minutes)
+    business = fnb_scope(bid, user, db)
+    if table_id and db.scalar(select(DiningTable.id).where(
+            DiningTable.business_id == bid, DiningTable.id == table_id)) is None:
+        fail(404, "Bàn không thuộc nhà hàng")
+    return availability(db, business, day, party_size, duration_minutes, table_id)
 
 
 @router.get("/preview/cafe/reservations/availability")
