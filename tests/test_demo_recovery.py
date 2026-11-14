@@ -6,7 +6,7 @@ ASSETS = Path(__file__).resolve().parents[1] / "app" / "static"
 def test_customer_demo_has_recovery_script_before_app():
     page = (ASSETS / "customer.html").read_text(encoding="utf-8")
     assert page.index("customer-watchdog.js") < page.index("customer.js?")
-    assert "customer.js?v=20261114-demo-loading-01" in page
+    assert "customer.js?v=20261114-wellness-stable-01" in page
     assert "enfix-31" in page
 
 def test_customer_api_uses_bounded_wait_and_retry():

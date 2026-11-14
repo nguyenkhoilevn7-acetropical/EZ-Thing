@@ -208,8 +208,50 @@ async function checkout(form){const submit=form.querySelector('[type=submit]');s
  success('Đã gửi yêu cầu DEMO!',channel==='cafe'?'Phiếu bếp thử nghiệm đã được tạo. Vui lòng không thanh toán.':channel==='online'?'Đơn DEMO đã chuyển vào danh sách đóng gói. Không giao hàng thật.':'Cửa hàng đã nhận yêu cầu giữ hàng thử nghiệm.',res.id,`Tổng tiền minh hoạ: ${V(res.total_vnd)}`);
  }catch(e){toast(e.message,true)}finally{submit.disabled=false}}
 function isoTomorrow(){return new Date(Date.now()+86400000).toLocaleDateString('sv-SE',{timeZone:'Asia/Ho_Chi_Minh'})}
-function bookingHTML(){const p=st.products;return `<div class="catalog-top"><div><h2>${info.section}</h2><p>Chọn dịch vụ và giờ hẹn • Không yêu cầu thanh toán</p></div><span class="chip">Lịch hẹn DEMO</span></div><div class="booking-layout"><section class="booking-panel"><h3>01. Lựa chọn dịch vụ</h3><div class="booking-services">${p.map(x=>`<button class="booking-service ${st.service===x.id?'selected':''}" data-action="service" data-value="${E(x.id)}"><span class="booking-service-emoji">${icon(x)}</span><span style="flex:1"><strong>${E(x.name)}</strong><small>Thời lượng minh họa 60 phút</small></span><span class="service-price">${V(x.price_vnd)}</span></button>`).join('')}</div><p class="booking-note">Các chuyên viên và khung giờ chỉ là dữ liệu thử nghiệm. Hệ thống kiểm tra trùng lịch ở backend.</p></section><section class="booking-panel" id="booking-right"><h3>02. Chọn ngày và thời gian</h3><div class="form-row"><label class="form-field"><span>Ngày hẹn</span><input id="book-date" type="date" value="${E(st.date)}" min="${isoTomorrow()}"></label><label class="form-field"><span>Chuyên viên</span><select id="book-staff">${st.staff.map(x=>`<option value="${E(x)}" ${x===st.assignee?'selected':''}>${E(x)}</option>`).join('')}</select></label></div><div class="booking-slots">${st.slots.map(x=>`<button data-action="slot" class="booking-slot ${x===st.slot?'selected':''}" data-value="${E(x)}">${new Date(x).toLocaleTimeString(window.EZI18N?.locale()||'vi-VN',{timeZone:'Asia/Ho_Chi_Minh',hour:'2-digit',minute:'2-digit'})}</button>`).join('')}</div>${!st.slots.length?`<p class="slot-state">${st.bookingLoading?'Đang kiểm tra lịch trống...':'Chọn dịch vụ, ngày và chuyên viên để xem giờ trống.'}</p>`:''}<button class="submit-btn" ${st.service&&st.slot?'':'disabled'} data-action="open-booking">Tiếp tục đặt lịch ↗</button><p class="fine-print">Không đặt cọc hoặc thu tiền trong bản DEMO.</p></section></div>`}
-async function slots(){if(!st.service||!st.date)return;st.slot=null;st.slots=[];st.bookingLoading=true;layout();try{const res=await api('/preview/wellness/slots?'+new URLSearchParams({product_id:st.service,day:st.date,assignee:st.assignee}));st.slots=res.slots||[];}catch(e){toast(e.message,true)}finally{st.bookingLoading=false;layout()}}
+function bookingHTML(){const p=st.products;return `<div class="catalog-top"><div><h2>${info.section}</h2><p>Chọn dịch vụ và giờ hẹn • Không yêu cầu thanh toán</p></div><span class="chip">Lịch hẹn DEMO</span></div><div class="booking-layout"><section class="booking-panel"><h3>01. Lựa chọn dịch vụ</h3><div class="booking-services">${p.map(x=>`<button type="button" class="booking-service ${st.service===x.id?'selected':''}" aria-pressed="${st.service===x.id}" data-action="service" data-value="${E(x.id)}"><span class="booking-service-emoji">${icon(x)}</span><span style="flex:1"><strong>${E(x.name)}</strong><small>Thời lượng minh họa 60 phút</small></span><span class="service-price">${V(x.price_vnd)}</span></button>`).join('')}</div><p class="booking-note">Các chuyên viên và khung giờ chỉ là dữ liệu thử nghiệm. Hệ thống kiểm tra trùng lịch ở backend.</p></section><section class="booking-panel" id="booking-right"><h3>02. Chọn ngày và thời gian</h3><div class="form-row"><label class="form-field"><span>Ngày hẹn</span><input id="book-date" type="date" value="${E(st.date)}" min="${isoTomorrow()}"></label><label class="form-field"><span>Chuyên viên</span><select id="book-staff">${st.staff.map(x=>`<option value="${E(x)}" ${x===st.assignee?'selected':''}>${E(x)}</option>`).join('')}</select></label></div><div class="booking-slots" aria-busy="${st.bookingLoading}">${st.slots.map(x=>`<button type="button" data-action="slot" class="booking-slot ${x===st.slot?'selected':''}" data-value="${E(x)}" aria-pressed="${x===st.slot}">${new Date(x).toLocaleTimeString(window.EZI18N?.locale()||'vi-VN',{timeZone:'Asia/Ho_Chi_Minh',hour:'2-digit',minute:'2-digit'})}</button>`).join('')}</div><p class="slot-state" role="status" aria-live="polite" ${st.slots.length?'hidden':''}>${st.bookingLoading?'Đang kiểm tra lịch trống...':'Chọn dịch vụ, ngày và chuyên viên để xem giờ trống.'}</p><button type="button" class="submit-btn" ${st.service&&st.slot?'':'disabled'} data-action="open-booking">Tiếp tục đặt lịch ↗</button><p class="fine-print">Không đặt cọc hoặc thu tiền trong bản DEMO.</p></section></div>`}
+// The booking widget is updated in place. Rebuilding #customer-root on every tap
+// destroyed the header, images, date picker and button focus, causing page-wide flashes.
+function updateBookingView(rebuildSlots=false){
+ if(channel!=='wellness')return;
+ const booking=root.querySelector('.booking-layout');
+ if(!booking)return;
+ booking.querySelectorAll('.booking-service').forEach(button=>{
+  const selected=button.dataset.value===st.service;
+  button.classList.toggle('selected',selected);
+  button.setAttribute('aria-pressed',String(selected));
+ });
+ const list=booking.querySelector('.booking-slots');
+ if(list){
+  list.setAttribute('aria-busy',String(st.bookingLoading));
+  if(rebuildSlots)list.innerHTML=st.slots.map(x=>`<button type="button" data-action="slot" class="booking-slot ${x===st.slot?'selected':''}" data-value="${E(x)}" aria-pressed="${x===st.slot}">${new Date(x).toLocaleTimeString(window.EZI18N?.locale()||'vi-VN',{timeZone:'Asia/Ho_Chi_Minh',hour:'2-digit',minute:'2-digit'})}</button>`).join('');
+  list.querySelectorAll('.booking-slot').forEach(button=>{
+   const selected=button.dataset.value===st.slot;
+   button.classList.toggle('selected',selected);
+   button.setAttribute('aria-pressed',String(selected));
+  });
+ }
+ const message=booking.querySelector('.slot-state');
+ if(message){
+  message.hidden=st.slots.length>0;
+  message.textContent=st.bookingLoading?'Đang kiểm tra lịch trống...':'Chọn dịch vụ, ngày và chuyên viên để xem giờ trống.';
+ }
+ const submit=booking.querySelector('[data-action="open-booking"]');
+ if(submit)submit.disabled=!(st.service&&st.slot);
+}
+let slotRequestId=0;
+async function slots(){
+ const requestId=++slotRequestId;
+ st.slot=null;st.slots=[];
+ st.bookingLoading=Boolean(st.service&&st.date);
+ updateBookingView(true);
+ if(!st.bookingLoading)return;
+ try{
+  const res=await api('/preview/wellness/slots?'+new URLSearchParams({product_id:st.service,day:st.date,assignee:st.assignee}));
+  if(requestId!==slotRequestId)return; // Ignore superseded responses from rapid selection changes.
+  st.slots=res.slots||[];
+ }catch(e){if(requestId===slotRequestId)toast(e.message,true)}
+ finally{if(requestId===slotRequestId){st.bookingLoading=false;updateBookingView(true)}}
+}
 function bookingForm(){if(!st.service||!st.slot)return;const p=st.products.find(x=>x.id===st.service);overlay.innerHTML=`<div class="customer-overlay" data-overlay><section class="customer-dialog" role="dialog" aria-modal="true" aria-label="Xác nhận lịch hẹn"><div class="dialog-head"><div><h2>Xác nhận lịch DEMO</h2><p class="dialog-sub">${E(p.name)} • ${E(st.assignee)}</p></div><button class="close-modal" data-action="close">×</button></div><div class="receipt-id">${new Date(st.slot).toLocaleString(window.EZI18N?.locale()||'vi-VN',{timeZone:'Asia/Ho_Chi_Minh',weekday:'long',day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})} · ${V(p.price_vnd)}</div><form id="booking-form"><label class="form-field"><span>Tên khách hàng *</span><input name="customer_name" required minlength="2" maxlength="100" placeholder="Họ và tên"></label><label class="form-field"><span>Số điện thoại *</span><input name="phone" required minlength="6" maxlength="30" placeholder="09xx xxx xxx"></label><label class="form-field"><span>Ghi chú (tuỳ chọn)</span><textarea name="note" maxlength="240" placeholder="Yêu cầu thêm"></textarea></label><button class="submit-btn" type="submit">Xác nhận lịch DEMO ↗</button></form><p class="fine-print">Lịch chỉ ghi vào doanh nghiệp DEMO của phiên hiện tại.</p></section></div>`;document.body.style.overflow='hidden'}
 async function book(form){const btn=form.querySelector('[type=submit]');btn.disabled=true;try{const d=Object.fromEntries(new FormData(form).entries());const body={request_id:st.pendingId||(st.pendingId=id()),product_id:st.service,customer_name:d.customer_name,phone:d.phone,assignee:st.assignee,start_at:st.slot,note:d.note||''};const res=await api('/preview/wellness/appointments',{method:'POST',body:JSON.stringify(body)});st.pendingId=null;success('Đã đặt lịch DEMO!', 'Lịch thử nghiệm đã được ghi vào quản lý Spa/Wellness. Không phát sinh đặt cọc.',res.id,st.assignee);await slots();}catch(e){toast(e.message,true)}finally{btn.disabled=false}}
 async function start(){try{const config=await api('/config');if(!config.demo_enabled){blocked('Trang xem trước theo ngành đang chỉ mở trên môi trường DEMO. Không có gian hàng công khai và chưa chấp nhận đặt hàng thật.');return}
@@ -231,7 +273,7 @@ document.addEventListener('click',e=>{const el=e.target.closest('[data-action]')
   return;
  }if(action==='add'||action==='increase'){if(!st.products.some(x=>x.id===value&&x.available))return;st.cart[value]=Math.min(10,(st.cart[value]||0)+1);st.pendingId=null;refreshCatalog();if(action==='increase')openCart();else toast('Đã thêm vào giỏ hàng');return}
  if(action==='decrease'){if(st.cart[value]){st.cart[value]--;if(!st.cart[value])delete st.cart[value];st.pendingId=null;refreshCatalog();if(cartQty())openCart();else close()}return}
- if(action==='open-cart'){openCart();return}if(action==='service'){st.service=value;st.pendingId=null;slots();return}if(action==='slot'){st.slot=value;const y=window.scrollY;layout();window.scrollTo(0,y);return}if(action==='open-booking'){bookingForm();return}
+ if(action==='open-cart'){openCart();return}if(action==='service'){if(st.service===value)return;st.service=value;st.pendingId=null;slots();return}if(action==='slot'){if(!st.slots.includes(value))return;st.slot=value;st.pendingId=null;updateBookingView();return}if(action==='open-booking'){bookingForm();return}
 });
 document.addEventListener('submit',e=>{if(e.target.id==='checkout-form'){e.preventDefault();checkout(e.target)}if(e.target.id==='booking-form'){e.preventDefault();book(e.target)}});
 function setMobileMenuOpen(open){
