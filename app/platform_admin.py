@@ -531,8 +531,10 @@ def audit_feed(user=Depends(admin_required), db: Session = Depends(db_session),
 
 @router.get("/plans")
 def plans(user=Depends(admin_required)):
+    from .storefront_brand import PLANS_BRANDING
     return {"items": [{"id": key, "name": value["name"], "price_vnd": value["price_vnd"],
-                       "branches": value["branches"], "features": value["features"]}
+                       "branches": value["branches"], "features": value["features"],
+                       "branding": PLANS_BRANDING[key]}
                       for key, value in PLANS.items()], "billing_live": False,
             "note": "Giá tham khảo. Đổi gói chỉ thay quyền truy cập pilot, không thu phí."}
 
