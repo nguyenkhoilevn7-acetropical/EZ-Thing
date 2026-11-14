@@ -81,7 +81,9 @@ def test_per_identity_login_lockout_persists_and_recovers(cli):
         "email": user["email"], "password": user["password"]
     }).status_code == 429
     with SessionLocal() as db:
-        record = db.scalar(select(LoginFailure))
+        import hashlib
+        digest = hashlib.sha256(("login:" + user["email"]).encode()).hexdigest()
+        record = db.get(LoginFailure, digest)
         assert record and record.failures == 8
         record.locked_until = now() - timedelta(minutes=20)
         record.window_started_at = now() - timedelta(minutes=20)
@@ -90,7 +92,7 @@ def test_per_identity_login_lockout_persists_and_recovers(cli):
         "email": user["email"], "password": user["password"]
     }).status_code == 200
     with SessionLocal() as db:
-        assert db.scalar(select(LoginFailure)) is None
+        assert db.get(LoginFailure, digest) is None
 
 
 def test_aggregate_dashboard_and_order_listing_are_bounded(cli):
