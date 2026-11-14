@@ -1,3 +1,5 @@
+> **PLATFORM ADMIN v0.4:** [Quản trị /admin](https://ez-thing-staging.onrender.com/admin) · [Tài liệu quản trị và bảo mật](docs/admin-console-v04.md). Staging có bản DEMO quản trị chỉ đọc. Quyền thao tác thật yêu cầu email được cấp phép + mã bảo vệ riêng (cấu hình trong Render); không cho tài khoản DEMO hoặc khách hàng truy cập.
+
 # EZ Thing — AI Business OS (pilot MVP v0.3)
 
 > **EZ Thing v0.3 — phân tách frontend (14/11/2026):** Truy cập trang giới thiệu tại [`/`](https://ez-thing-staging.onrender.com/), Merchant Back-Office tại [`/app`](https://ez-thing-staging.onrender.com/app), và 4 trang khách hàng DEMO: [`/menu/cafe`](https://ez-thing-staging.onrender.com/menu/cafe), [`/store/mart`](https://ez-thing-staging.onrender.com/store/mart), [`/store/online`](https://ez-thing-staging.onrender.com/store/online), [`/booking/wellness`](https://ez-thing-staging.onrender.com/booking/wellness). Super Admin tại `/admin` chỉ cho phép email được cấu hình server-side và hiện chỉ đọc. **Chỉ công bố các link sau khi deploy và kiểm thử LIVE thành công.**

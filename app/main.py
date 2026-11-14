@@ -31,7 +31,7 @@ from .schemas import (BranchCreate, ConfirmPayment, CreateBusiness, CreateOrder,
 from .security import check_password, digest_password, session_pair, token_hash
 
 Base.metadata.create_all(bind=engine)  # Pilot only; production must use versioned migrations.
-app = FastAPI(title="EZ Thing Business MVP", version="0.3.0", docs_url="/api/docs")
+app = FastAPI(title="EZ Thing Business MVP", version="0.4.0", docs_url="/api/docs")
 ASSETS = Path(__file__).parent / "static"
 app.mount("/assets", StaticFiles(directory=ASSETS), name="assets")
 
@@ -78,6 +78,9 @@ def current_user(request: Request, db: Session = Depends(db_session)):
     user = db.get(User, session.user_id)
     if not user:
         fail(401, "Tài khoản không hợp lệ")
+    from .platform_admin import is_user_blocked
+    if is_user_blocked(db, user.id):
+        fail(403, "Tài khoản đã bị tạm khóa")
     return user, session
 
 
@@ -89,6 +92,9 @@ def tenant(bid: str, user: tuple, db: Session) -> Business:
     business = db.get(Business, bid)
     if not business:
         fail(404, "Không tìm thấy doanh nghiệp")
+    from .platform_admin import is_business_blocked
+    if is_business_blocked(db, business.id):
+        fail(403, "Doanh nghiệp đang bị tạm khóa")
     return business
 
 
@@ -114,7 +120,7 @@ def issue_session(db: Session, response: Response, user: User):
 
 @app.get("/api/health")
 def health():
-    return {"ok": True, "version": "0.3.0"}
+    return {"ok": True, "version": "0.4.0"}
 
 
 @app.get("/api/catalog")
@@ -188,6 +194,9 @@ def login(body: Login, response: Response, db: Session = Depends(db_session)):
     u = db.scalar(select(User).where(User.email == str(body.email).lower()))
     if not u or not check_password(body.password, u.password_hash):
         fail(401, "Email hoặc mật khẩu không chính xác")
+    from .platform_admin import is_user_blocked
+    if is_user_blocked(db, u.id):
+        fail(403, "Tài khoản đã bị tạm khóa")
     return issue_session(db, response, u)
 
 
@@ -555,18 +564,6 @@ def super_admin_frontend():
     return FileResponse(ASSETS / "admin.html", headers={"Cache-Control": "no-store"})
 
 
-@app.get("/api/admin/summary")
-def super_admin_summary(user=Depends(current_user), db: Session = Depends(db_session)):
-    # Explicit server-side allowlist. A DEMO user can never become the platform admin.
-    from .demo import is_demo_user
-    allow = {x.strip().lower() for x in os.getenv("EZ_THING_SUPERADMIN_EMAILS", "").split(",") if x.strip()}
-    if is_demo_user(user[0]) or user[0].email.lower() not in allow:
-        fail(403, "Khu vực quản trị nền tảng bị giới hạn")
-    return {"businesses": db.scalar(select(func.count(Business.id))) or 0,
-            "users": db.scalar(select(func.count(User.id))) or 0,
-            "orders": db.scalar(select(func.count(SaleOrder.id))) or 0,
-            "mode": "read_only_pilot"}
-
 # Register industry workflows only after core auth/tenant dependencies are defined.
 from .workflows import IndustryWorkItem, router as industry_router  # noqa: E402
 Base.metadata.create_all(bind=engine)  # Pilot additive table; use Alembic before production.
@@ -575,3 +572,7 @@ app.include_router(industry_router)
 # Public customer preview is scoped to staging-only guest tenants.
 from .public import router as preview_router  # noqa: E402
 app.include_router(preview_router)
+# Platform control plane: safe additive pilot tables and protected API.
+from .platform_admin import router as platform_admin_router  # noqa: E402
+Base.metadata.create_all(bind=engine)  # Additive pilot only; requires Alembic for production.
+app.include_router(platform_admin_router)
