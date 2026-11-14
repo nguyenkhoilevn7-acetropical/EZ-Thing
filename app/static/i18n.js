@@ -845,6 +845,7 @@ const entries = [
 ];
 const translations=Object.fromEntries(entries);
 const patterns=[
+[/^Đơn mở (\\d+) phút$/, 'Open for $1 minutes'],
 [/^(\d+) khách$/,'$1 guests'],
 [/^(\d+) phút$/,'$1 minutes'],
 [/^(\d+) bàn phù hợp$/,'$1 suitable tables'],
