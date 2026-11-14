@@ -5,6 +5,23 @@
 (() => {
 'use strict';
 const entries = [
+["EZ Thing trang chủ","EZ Thing home"],
+["Mở menu","Open menu"],
+["Đóng menu","Close menu"],
+["Điều hướng","Navigation"],
+["Minh hoạ các ứng dụng EZ Thing","EZ Thing application preview"],
+["Xem trước website gọi món cafe","Cafe ordering website preview"],
+["Xem trước website cửa hàng bán lẻ","Retail store website preview"],
+["Xem trước website bán hàng online","Online shop website preview"],
+["Xem trước website spa wellness","Spa and wellness website preview"],
+["Xem trước website đặt bàn cafe","Cafe table booking website preview"],
+["Năng lực chính","Core capabilities"],
+["Không gian cà phê và thức uống minh họa","Illustration of a coffee and drinks experience"],
+["Khu hàng hóa bán lẻ minh họa","Retail products illustration"],
+["Trải nghiệm mua sắm minh họa","Online shopping illustration"],
+["Không gian spa và chăm sóc sức khỏe minh họa","Spa and wellness illustration"],
+["Lọc theo ngày","Filter by date"],
+["Lọc theo trạng thái","Filter by status"],
 /* Public pricing, reservation pages and reservation workflows. */
 ["NHÀ HÀNG & CAFE","RESTAURANTS & CAFES"],
 ["Đặt bàn | EZ Thing Cafe","Table reservations | EZ Thing Cafe"],
