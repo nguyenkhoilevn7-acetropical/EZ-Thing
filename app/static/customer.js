@@ -95,15 +95,31 @@ function detailHTML(product){
  <button class="submit-btn" data-action="add-detail" data-value="${E(product.id)}" ${product.available&&amount<10?'':'disabled'}>${amount?'Thêm một sản phẩm nữa':'Thêm vào giỏ'} <span>+</span></button>
  <p class="fine-print">Giá và số lượng sẽ được kiểm tra lại trên máy chủ.</p></section></div>`;
 }
+function verifyCartQuote(form){
+ const lines=Object.entries(st.cart).map(([product_id,quantity])=>({product_id,quantity}));
+ api('/preview/'+channel+'/quote',{method:'POST',body:JSON.stringify({lines})})
+ .then(q=>{
+  if(!form?.isConnected)return;
+  const price=overlay.querySelector('#server-total'),label=overlay.querySelector('#quote-status');
+  if(price)price.textContent=V(q.total_vnd);
+  if(label)label.textContent='Tổng tiền đã xác minh ✓';
+  form.querySelector('[type=submit]').disabled=false;
+ }).catch(err=>{
+  if(!form?.isConnected)return;
+  const label=overlay.querySelector('#quote-status');
+  if(label)label.textContent='Chưa xác minh được: '+err.message;
+  toast(err.message,true);
+ });
+}
 function openCart(){if(!cartQty()){toast('Hãy chọn ít nhất một sản phẩm',true);return}
  const rows=st.products.filter(x=>st.cart[x.id]);const options=st.tables.map(t=>`<option value="${E(t.id)}">${E(t.label)}</option>`).join('');
  overlay.innerHTML=`<div class="customer-overlay" data-overlay><section role="dialog" aria-modal="true" aria-label="Giỏ hàng" class="customer-dialog"><div class="dialog-head"><div><h2>${info.cart}</h2><p class="dialog-sub">Đặt hàng thử nghiệm • Không thu tiền</p></div><button class="close-modal" data-action="close" aria-label="Đóng">×</button></div>
- <div class="cart-lines">${rows.map(p=>`<div class="cart-line"><span class="cart-line-emoji">${icon(p)}</span><div class="cart-line-main"><strong>${E(p.name)}</strong><small>${V(p.price_vnd)} / sản phẩm</small></div><div class="qty-control"><button type="button" data-action="decrease" data-value="${E(p.id)}" aria-label="Giảm số lượng">−</button><b>${st.cart[p.id]}</b><button type="button" data-action="increase" data-value="${E(p.id)}" aria-label="Tăng số lượng">+</button></div></div>`).join('')}</div><div class="total-row"><span>Tạm tính từ máy chủ*</span><strong>${V(cartTotal())}</strong></div>
+ <div class="cart-lines">${rows.map(p=>`<div class="cart-line"><span class="cart-line-emoji">${icon(p)}</span><div class="cart-line-main"><strong>${E(p.name)}</strong><small>${V(p.price_vnd)} / sản phẩm</small></div><div class="qty-control"><button type="button" data-action="decrease" data-value="${E(p.id)}" aria-label="Giảm số lượng">−</button><b>${st.cart[p.id]}</b><button type="button" data-action="increase" data-value="${E(p.id)}" aria-label="Tăng số lượng">+</button></div></div>`).join('')}</div><div class="total-row"><span id="quote-status">Đang kiểm tra giá trên máy chủ…</span><strong id="server-total">${V(cartTotal())}</strong></div>
  <form id="checkout-form"><div class="form-row"><label class="form-field"><span>Tên của bạn *</span><input name="customer_name" required minlength="2" maxlength="100" placeholder="Nhập tên"></label><label class="form-field"><span>Số điện thoại ${channel==='cafe'?'(tuỳ chọn)':'*'}</span><input name="phone" ${channel==='cafe'?'':'required'} maxlength="30" placeholder="09xx xxx xxx"></label></div>
  ${channel==='cafe'?`<label class="form-field"><span>Bàn đang ngồi *</span><select name="table_id" required><option value="">Chọn bàn</option>${options}</select></label>`:channel==='online'?`<label class="form-field"><span>Địa chỉ nhận hàng *</span><input name="address" required maxlength="300" placeholder="Số nhà, đường, phường, thành phố"></label>`:''}
  <label class="form-field"><span>Ghi chú (tuỳ chọn)</span><textarea name="note" maxlength="240" placeholder="Lưu ý cho cửa hàng"></textarea></label>
- <button class="submit-btn" type="submit">${info.action} ↗</button><p class="fine-print">* Tổng tiền cuối cùng được xác nhận tại backend. Không chuyển tiền, không phát sinh giao hàng thực tế.</p></form></section></div>`;
- document.body.style.overflow='hidden';overlay.querySelector('input')?.focus();}
+ <button class="submit-btn" type="submit" disabled>${info.action} ↗</button><p class="fine-print">* Tổng tiền cuối cùng được xác nhận tại backend. Không chuyển tiền, không phát sinh giao hàng thực tế.</p></form></section></div>`;
+ document.body.style.overflow='hidden';overlay.querySelector('input')?.focus();verifyCartQuote(overlay.querySelector('#checkout-form'));}
 function close(){overlay.innerHTML='';document.body.style.overflow=''}
 function success(title,desc,code,details=''){overlay.innerHTML=`<div class="customer-overlay" data-overlay><section class="customer-dialog" role="dialog" aria-modal="true"><div class="customer-success"><div class="success-symbol">✓</div><h3>${E(title)}</h3><p>${E(desc)}</p><div class="receipt-id">Mã DEMO: <b>${E(code.slice(0,8).toUpperCase())}</b>${details?`<br><span>${E(details)}</span>`:''}</div><button class="submit-btn" data-action="close">Tiếp tục trải nghiệm</button><p class="fine-print">Anh/chị có thể xem đơn hoặc lịch hẹn trong khu quản lý DEMO.</p><a class="info-link" href="/app">Mở khu quản lý ↗</a></div></section></div>`}
 async function checkout(form){const submit=form.querySelector('[type=submit]');submit.disabled=true;
