@@ -1,7 +1,5 @@
 # EZ Thing — AI Business OS (pilot MVP v0.1)
 
-> **STAGING ĐÃ LIVE (14/11/2026):** [Mở EZ Thing](https://ez-thing-staging.onrender.com) · [Tài liệu Render + Neon](docs/staging-live-20261114.md). Đây là môi trường thử nghiệm, không nhập dữ liệu khách hàng thật. PostgreSQL riêng trên Neon Free; web/API trên Render My Workspace. Auto-deploy tắt. Không dùng Render PostgreSQL Minh Satori.
-
 **Trạng thái:** source code MVP chạy được tại môi trường local/staging độc lập. **Chưa triển khai production, chưa phải hệ thống POS thương mại hoàn chỉnh.** Tên EZ Thing là tên dự án tạm thời, chưa chốt nhãn hiệu.
 
 ## 1. Mô hình
@@ -34,6 +32,15 @@ node --check app/static/app.js
 ```
 
 > Để chạy PostgreSQL, đặt `DATABASE_URL=postgresql+psycopg://...`. Không sử dụng database Minh Satori hoặc các dự án khác. Cấu trúc bảng đang tự khởi tạo bằng `create_all` **chỉ cho pilot**; production bắt buộc có migration/versioning và quy trình backup/restore.
+
+## Staging v0.2 — quy trình riêng theo ngành (demo)
+
+Các quy trình có API thật, phân quyền theo doanh nghiệp + module, và giao diện thao tác. Tham khảo [ma trận nghiệp vụ](docs/industry-matrix.md). Hiện tại chưa tích hợp máy in bếp, đơn vị vận chuyển hay SMS thông báo lịch hẹn; các trạng thái là **thao tác nội bộ**.
+
+- **F&B:** phiếu bếp `Chờ xử lý → Đang chuẩn bị → Sẵn sàng → Đã phục vụ`.
+- **Bán lẻ:** sổ nhập/xuất tồn kho theo sản phẩm, truy vết biến động thực tế.
+- **Bán online:** `Chờ xử lý → Đã đóng gói → Đang giao → Đã giao`; đơn phải có khách hàng và địa chỉ giao.
+- **Dịch vụ:** đặt lịch theo dịch vụ, khách hàng và nhân viên; kiểm tra trùng lịch, xác nhận và hủy lịch.
 
 ## 3. Tính năng đã viết mã và được test API
 

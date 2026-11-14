@@ -2,9 +2,9 @@
 from typing import Literal
 
 PLANS = {
- "BASIC": {"name": "Basic", "price_vnd": 249000, "features": ["dashboard", "products", "orders", "tables", "inventory_basic"], "branches": 1},
- "PLUS": {"name": "Plus", "price_vnd": 499000, "features": ["dashboard", "products", "orders", "tables", "inventory_basic", "inventory_adjust", "insights"], "branches": 1},
- "PRO": {"name": "Pro", "price_vnd": 999000, "features": ["dashboard", "products", "orders", "tables", "inventory_basic", "inventory_adjust", "insights", "multi_branch"], "branches": 10},
+ "BASIC": {"name": "Basic", "price_vnd": 249000, "features": ["dashboard", "products", "orders", "tables", "inventory_basic", "kitchen", "stock_ledger", "fulfillment", "appointments"], "branches": 1},
+ "PLUS": {"name": "Plus", "price_vnd": 499000, "features": ["dashboard", "products", "orders", "tables", "inventory_basic", "inventory_adjust", "insights", "kitchen", "stock_ledger", "fulfillment", "appointments"], "branches": 1},
+ "PRO": {"name": "Pro", "price_vnd": 999000, "features": ["dashboard", "products", "orders", "tables", "inventory_basic", "inventory_adjust", "insights", "multi_branch", "kitchen", "stock_ledger", "fulfillment", "appointments"], "branches": 10},
 }
 FEATURES = {
  "dashboard": ("Tổng quan", "Dashboard"),
@@ -15,6 +15,10 @@ FEATURES = {
  "inventory_adjust": ("Điều chỉnh tồn kho", "Inventory adjustments"),
  "insights": ("Trợ lý phân tích", "Business insights"),
  "multi_branch": ("Nhiều chi nhánh", "Multi-branch"),
+ "kitchen": ("Bếp & pha chế", "Kitchen tickets"),
+ "stock_ledger": ("Sổ kho bán lẻ", "Retail stock ledger"),
+ "fulfillment": ("Đóng gói & giao hàng", "Order fulfillment"),
+ "appointments": ("Lịch hẹn dịch vụ", "Service appointments"),
 }
 INDUSTRIES = {"fnb": "Nhà hàng / Cafe", "retail": "Bán lẻ", "online": "Bán hàng online", "services": "Dịch vụ"}
 # Planned modules are never enabled just because someone chose a paid tier.
@@ -24,6 +28,7 @@ def recommend(industry: str, need_tables: bool, need_inventory: bool, need_insig
     requested = ["dashboard", "products", "orders"]
     if industry == "fnb" and need_tables:
         requested.append("tables")
+    requested.append({"fnb":"kitchen", "retail":"stock_ledger", "online":"fulfillment", "services":"appointments"}[industry])
     if need_inventory:
         requested.append("inventory_basic")
     if need_insights:

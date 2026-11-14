@@ -534,3 +534,8 @@ def sw():
 @app.get("/")
 def index():
     return FileResponse(ASSETS / "index.html")
+
+# Register industry workflows only after core auth/tenant dependencies are defined.
+from .workflows import IndustryWorkItem, router as industry_router  # noqa: E402
+Base.metadata.create_all(bind=engine)  # Pilot additive table; use Alembic before production.
+app.include_router(industry_router)
