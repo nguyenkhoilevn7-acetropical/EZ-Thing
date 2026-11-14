@@ -130,3 +130,5 @@ def test_non_owner_cannot_change_other_members_storefront():
             db.commit()
         assert cli.get(f"/api/businesses/{bid}/storefront").status_code == 200
         assert patch(cli, bid, owner_token, {"display_name": "Hacked"}).status_code == 403
+        assert cli.get(f"/preview/site/{bid}").status_code == 403
+        assert cli.get(f"/api/businesses/{bid}/storefront-preview").status_code == 403
