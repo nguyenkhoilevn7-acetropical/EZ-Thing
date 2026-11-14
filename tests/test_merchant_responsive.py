@@ -41,5 +41,5 @@ def test_tablet_navigation_keeps_accessible_names():
     assert 'title="${E(name)}"' in js
     assert 'class="side-label"' in js
     assert ".side-link .side-label{display:none}" in css
-    assert '.merchant-customer-link" href=' in js
+    assert 'class="merchant-customer-link" href=' in js
     assert "aria-label=\"Xem frontend khách hàng\"" in js
