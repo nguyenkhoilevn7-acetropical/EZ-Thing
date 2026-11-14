@@ -32,7 +32,7 @@ window.EZRestaurantSuite=function(deps){
   async function fetchAll(force){
     ensureBusiness();
     if(!st.bid)return;
-    if(st.loading)return st.loading;
+    if(st.loading&&!force)return st.loading;
     if(st.layout&&!force)return;
     const generation=++st.request;
     const prefix='/businesses/'+encodeURIComponent(st.bid);
@@ -209,6 +209,20 @@ window.EZRestaurantSuite=function(deps){
   }
   function inspectTable(id){
     const table=st.layout?.tables.find(t=>t.id===id);if(!table)return;
+    if(st.editing){
+      const editor='<form data-suite-form="table-placement" data-id="'+E(id)+'">'+
+        '<div class="formrow"><div class="formfield"><label>Khu vực</label><select name="zone_id">'+
+        st.layout.zones.map(zone=>option(zone.id,zone.name,table.placement.zone_id)).join('')+
+        '</select></div><div class="formfield"><label>Hình dạng bàn</label><select name="shape">'+
+        [['round','Tròn'],['square','Vuông'],['rectangle','Chữ nhật']].map(x=>option(x[0],x[1],table.placement.shape)).join('')+
+        '</select></div></div><div class="formrow"><div class="formfield"><label>Vị trí ngang (0–100)</label>'+
+        '<input name="x" type="number" min="5" max="95" step="1" value="'+table.placement.x+'" required></div>'+
+        '<div class="formfield"><label>Vị trí dọc (0–100)</label>'+
+        '<input name="y" type="number" min="8" max="92" step="1" value="'+table.placement.y+'" required></div></div>'+
+        '<p class="subtle">Chuyển khu vực, chọn hình dạng hoặc nhập tọa độ; sau đó nhấn Lưu sơ đồ ở màn chính.</p>'+
+        '<div class="modal-footer"><button class="btn" type="submit">Áp dụng vị trí</button></div></form>';
+      return deps.modal('Sắp xếp '+table.label,editor,true);
+    }
     const state=stateForTable(table);
     const orders=(deps.getState().cache.orders||[]).filter(o=>o.table_id===id&&o.status==='open');
     const bookings=st.bookings.filter(r=>r.table_id===id&&['pending','confirmed','seated'].includes(r.status))
@@ -332,6 +346,19 @@ window.EZRestaurantSuite=function(deps){
     }
   }
   async function submit(form){
+    if(form.dataset.suiteForm==='table-placement'){
+      const table=st.layout?.tables.find(t=>t.id===form.dataset.id);
+      if(!table)throw Error('Không tìm thấy bàn');
+      const values=Object.fromEntries(new FormData(form));
+      if(!st.layout.zones.some(z=>z.id===values.zone_id))throw Error('Khu vực không hợp lệ');
+      table.placement.zone_id=values.zone_id;
+      table.placement.shape=values.shape;
+      table.placement.x=Math.max(5,Math.min(95,Number(values.x)));
+      table.placement.y=Math.max(8,Math.min(92,Number(values.y)));
+      st.activeZone=values.zone_id;
+      st.dirty=true;deps.closeModal();draw();
+      return;
+    }
     if(form.dataset.suiteForm==='contact'){
       const body=Object.fromEntries(new FormData(form));
       body.email=body.email||null;
@@ -372,7 +399,7 @@ window.EZRestaurantSuite=function(deps){
     const type=el.dataset.suiteChange;
     if(type==='branch'){
       if(st.dirty&&!confirm('Sơ đồ chưa lưu. Chuyển chi nhánh và bỏ thay đổi?')){el.value=st.branch;return}
-      st.branch=el.value;st.layout=null;st.activeZone=null;st.editing=false;
+      st.branch=el.value;st.layout=null;st.loading=null;st.activeZone=null;st.editing=false;
       fetchAll(true).then(draw).catch(err=>deps.toast(err.message,true));
     }else if(type==='filter'){st.filter=el.value;draw()}
     else if(type==='date'){st.date=el.value;draw()}
