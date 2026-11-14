@@ -66,6 +66,30 @@
       '<div class="merchant-theme-menu" data-merchant-theme-menu role="group" aria-label="' + trigger + '" hidden>' +
       '<span class="merchant-theme-heading">' + heading + '</span>' + rows + '</div></div>';
   }
+  // Position in viewport coordinates, not relative to the trigger.
+  // On Fold/tablet the palette icon can be at the far left of the content rail.
+  function positionPicker(menu, trigger) {
+    if (!menu || !trigger || menu.hidden) return;
+    const viewportWidth = document.documentElement.clientWidth;
+    const viewportHeight = document.documentElement.clientHeight;
+    const width = menu.getBoundingClientRect().width;
+    const height = menu.getBoundingClientRect().height;
+    const button = trigger.getBoundingClientRect();
+    const left = Math.max(12, Math.min(button.right - width, viewportWidth - width - 12));
+    const below = button.bottom + 10;
+    const above = button.top - height - 10;
+    const top = below + height > viewportHeight - 12 && above >= 12
+      ? above
+      : Math.min(below, Math.max(12, viewportHeight - height - 12));
+    menu.style.left = left + 'px';
+    menu.style.top = top + 'px';
+  }
+  function repositionOpenPicker() {
+    const picker = document.querySelector('.merchant-theme-picker');
+    if (!picker) return;
+    positionPicker(picker.querySelector('[data-merchant-theme-menu]'),
+      picker.querySelector('[data-merchant-theme-toggle]'));
+  }
   function closePicker(restoreFocus) {
     const picker = document.querySelector('.merchant-theme-picker');
     if (!picker) return;
@@ -87,6 +111,7 @@
       closePicker(false);
       menu.hidden = !willOpen;
       toggle.setAttribute('aria-expanded', String(willOpen));
+      if (willOpen) positionPicker(menu, toggle);
       return;
     }
     const choice = target.closest('[data-merchant-theme-value]');
@@ -105,6 +130,10 @@
       document.querySelector('[data-merchant-theme-value]')?.focus();
     }
   });
+  window.addEventListener('resize', repositionOpenPicker, { passive: true });
+  window.addEventListener('scroll', repositionOpenPicker, { passive: true });
+  document.addEventListener('scroll', repositionOpenPicker, true);
+  window.visualViewport?.addEventListener('resize', repositionOpenPicker, { passive: true });
   document.addEventListener('ezthing:language-changed', () => {
     document.querySelectorAll('.merchant-theme-picker').forEach(picker => {
       const trigger = picker.querySelector('[data-merchant-theme-toggle]');
