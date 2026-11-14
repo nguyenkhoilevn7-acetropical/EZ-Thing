@@ -3,6 +3,8 @@ from pathlib import Path
 from alembic import command
 from alembic.config import Config
 from sqlalchemy import create_engine, inspect, text
+from sqlalchemy.orm import Session
+from app.models import User, Business
 
 from app.database import Base
 from app.main import app  # noqa: F401 - registers all tenant models
@@ -14,9 +16,12 @@ def test_alembic_adds_team_and_site_schema_without_touching_business_rows(tmp_pa
     url="sqlite:///"+str(tmp_path/"migration-test.db")
     engine=create_engine(url)
     Base.metadata.create_all(bind=engine)
+    with Session(engine) as db:
+        db.add(User(id="user-1",email="owner@test.invalid",name="Owner",password_hash="hash"))
+        db.add(Business(id="biz-1",name="My shop",industry="retail",plan="PRO",
+                        requested_plan="PRO",subscription_status="pilot"))
+        db.commit()
     with engine.begin() as conn:
-        conn.exec_driver_sql("INSERT INTO users(id,email,name,password_hash) VALUES ('user-1','owner@test.invalid','Owner','hash')")
-        conn.exec_driver_sql("INSERT INTO businesses(id,name,industry,plan,requested_plan,subscription_status) VALUES ('biz-1','My shop','retail','PRO','PRO','pilot')")
         conn.exec_driver_sql("DROP TABLE team_invitations")
         conn.exec_driver_sql("DROP TABLE public_storefronts")
     cfg=Config(str(ROOT/"alembic.ini"))
