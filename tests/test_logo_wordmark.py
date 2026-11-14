@@ -4,7 +4,7 @@ from xml.etree import ElementTree as ET
 
 STATIC = Path(__file__).resolve().parents[1] / "app" / "static"
 ICON_PATH = STATIC / "icons"
-VERSION = "20261114-minimal-logo-02"
+VERSION = "20261115-sidebar-01"
 SVG_VERSION = "minimal-01"
 
 
@@ -73,3 +73,22 @@ def test_site_favicons_and_pwa_icons_use_minimal_ez_artwork():
     assert manifest["icons"][1]["src"].endswith("ez-mark-maskable.svg?v=minimal-01")
     assert manifest["icons"][1]["purpose"] == "maskable"
     ET.parse(ICON_PATH / "ez-mark-maskable.svg")
+
+
+def test_compact_merchant_sidebar_uses_real_ez_symbol_instead_of_cropped_wordmark():
+    js = (STATIC / "app.js").read_text(encoding="utf-8")
+    css = (STATIC / "brand-logo.css").read_text(encoding="utf-8")
+    responsive = (STATIC / "merchant-responsive.css").read_text(encoding="utf-8")
+    index = (STATIC / "index.html").read_text(encoding="utf-8")
+    assert "--sidebar:82px" in responsive
+    assert 'class="sidebar-ez-icon sidebar-ez-icon-light"' in js
+    assert 'class="sidebar-ez-icon sidebar-ez-icon-dark"' in js
+    assert 'src="/assets/icons/ez-mark-light.svg?v=minimal-01"' in js
+    assert 'src="/assets/icons/ez-mark-dark.svg?v=minimal-01"' in js
+    assert "aria-label=\"EZ Thing trang chủ\"" in js
+    assert "@media(min-width:651px) and (max-width:1120px)" in css
+    assert ".sidebar .merchant-home-link .wordmark{display:none}" in css
+    assert "display:block;width:47px;height:33px" in css
+    assert '[data-ez-merchant-theme="graphite"] .sidebar .merchant-home-link .sidebar-ez-icon-dark{display:block}' in css
+    assert 'app.js?v=20261115-sidebar-01' in index
+    assert "brand-logo.css?v=20261115-sidebar-01" in index

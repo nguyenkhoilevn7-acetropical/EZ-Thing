@@ -66,3 +66,22 @@
 @media(max-width:370px){
  .site-home .site-header .site-brand.ez-site-brand .ez-full-logo{width:clamp(84px,23vw,96px)}
 }
+
+/* Merchant tablet / Fold sidebar: show the flat EZ symbol instead of clipping
+ * the full 155px wordmark inside the 82px icon rail. */
+.sidebar .merchant-home-link .sidebar-ez-icon{display:none}
+@media(min-width:651px) and (max-width:1120px){
+  .sidebar .merchant-home-link{
+    display:flex;align-items:center;justify-content:center;
+    width:100%;height:48px;min-width:0;max-width:100%;padding:0;margin:0;
+    overflow:visible;
+  }
+  .sidebar .merchant-home-link .wordmark{display:none}
+  .sidebar .merchant-home-link .sidebar-ez-icon{
+    display:block;width:47px;height:33px;max-width:100%;
+    object-fit:contain;flex:0 0 auto;
+  }
+  .sidebar .merchant-home-link .sidebar-ez-icon-dark{display:none}
+  :root[data-ez-merchant-theme="graphite"] .sidebar .merchant-home-link .sidebar-ez-icon-light{display:none}
+  :root[data-ez-merchant-theme="graphite"] .sidebar .merchant-home-link .sidebar-ez-icon-dark{display:block}
+}

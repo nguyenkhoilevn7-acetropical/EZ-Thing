@@ -140,6 +140,46 @@ try:
     assert colors["card"]=="rgb(255, 255, 255)",(theme,colors)
   page.locator('#suite-palette-probe').evaluate("(element)=>element.remove()")
   print("PASS /app: restaurant accent blue/green/blue in Apple/Tropical/Graphite; dark surfaces",flush=True)
+  # A compact Fold/tablet rail must show the centered EZ monogram, not
+  # crop a full-width EZ Thing wordmark (651..1120 CSS pixels).
+  for width in (720, 840, 1000, 1120, 1121, 1280):
+   page.set_viewport_size({"width":width,"height":800})
+   expect_compact = width <= 1120
+   page.evaluate("""theme => document.documentElement.dataset.ezMerchantTheme=theme""", "apple")
+   dims=page.evaluate("""() => {
+     const sidebar=document.querySelector('.sidebar');
+     const link=sidebar?.querySelector('.merchant-home-link');
+     const wordmark=link?.querySelector('.wordmark');
+     const small=link?.querySelector('.sidebar-ez-icon-light');
+     const box=(el)=>el?({
+       left:el.getBoundingClientRect().left,
+       right:el.getBoundingClientRect().right,
+       top:el.getBoundingClientRect().top,
+       width:el.getBoundingClientRect().width,
+       height:el.getBoundingClientRect().height,
+       display:getComputedStyle(el).display
+     }):null;
+     return {sidebar:box(sidebar),link:box(link),wordmark:box(wordmark),small:box(small)};
+   }""")
+   assert dims["sidebar"] and dims["link"],(width,dims)
+   if expect_compact:
+    assert dims["small"]["display"] != "none",(width,dims)
+    assert dims["wordmark"]["display"] == "none",(width,dims)
+    assert dims["small"]["width"] > 0,(width,dims)
+    center=(dims["small"]["left"]+dims["small"]["right"])/2
+    railcenter=(dims["sidebar"]["left"]+dims["sidebar"]["right"])/2
+    assert abs(center-railcenter) <= 2,(width,dims)
+    assert dims["small"]["left"] >= dims["sidebar"]["left"],(width,dims)
+    assert dims["small"]["right"] <= dims["sidebar"]["right"],(width,dims)
+   else:
+    assert dims["small"]["display"] == "none",(width,dims)
+    assert dims["wordmark"]["display"] != "none",(width,dims)
+  page.set_viewport_size({"width":1000,"height":800})
+  page.evaluate("""() => document.documentElement.dataset.ezMerchantTheme='graphite'""")
+  assert page.locator('.sidebar .sidebar-ez-icon-dark').is_visible(), "Graphite compact logo must be visible"
+  assert not page.locator('.sidebar .sidebar-ez-icon-light').is_visible(), "Incorrect light EZ mark in Graphite"
+  print("PASS /app: centered compact EZ icon on Fold/tablet, full wordmark on desktop, Graphite contrast",flush=True)
+
   browser.close()
   print("REQUESTS",json.dumps(requests[-45:],ensure_ascii=False),flush=True)
   print("JS ERRORS",json.dumps(errors[-20:],ensure_ascii=False),flush=True)
