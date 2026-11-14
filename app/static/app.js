@@ -245,21 +245,45 @@ async function handleSubmit(form){const bid=s.business?.id;const data=Object.fro
  else return;
  closeModal();await refresh();
  }catch(e){toast(e.message||'Không lưu được dữ liệu',true)}finally{if(btn)btn.disabled=false}}
-async function afterAuth(){s.businesses=await api('/businesses');if(!s.businesses.length){s.setupStep=1;setup();return}const current=s.businesses.find(b=>b.id===s.business?.id);s.business=current||(s.demo?s.businesses.find(b=>b.industry==='fnb'):null)||s.businesses[0];s.tab=(new URLSearchParams(location.search).get('tab')||'overview');if(!menuItems().some(x=>x[0]===s.tab))s.tab='overview';await loadData();appFrame()}
+async function afterAuth(){
+ const cfg=await api('/config');s.trialEnabled=!!cfg.trial_enabled;
+ s.businesses=await api('/businesses');
+ if(!s.businesses.length){s.setupStep=1;setup();return}
+ const current=s.businesses.find(b=>b.id===s.business?.id);
+ s.business=current||(s.demo?s.businesses.find(b=>b.industry==='fnb'):null)||s.businesses[0];
+ s.tab=new URLSearchParams(location.search).get('tab')||'overview';
+ if(s.business.billing_required){
+   s.tab='billing';s.cache={billing:await api('/businesses/'+encodeURIComponent(s.business.id)+'/billing')};
+ }else{
+   if(!menuItems().some(x=>x[0]===s.tab))s.tab='overview';
+   await loadData();
+ }
+ appFrame();
+}
 async function start(){
  let me;
  try{me=await api('/auth/me')}catch(e){
    if(e.status!==401){toast('Không kết nối được máy chủ: '+e.message,true);auth();return}
  }
+ const wantsTrial=new URLSearchParams(location.search).get('trial')==='1';
+ if(me&&wantsTrial&&me.demo){
+   s.user=me;s.csrf=me.csrf_token;
+   await api('/auth/logout',{method:'POST'});
+   s.user=null;s.csrf=null;s.demo=false;s.authMode='signup';
+   const cfg=await api('/config');s.trialEnabled=!!cfg.trial_enabled;
+   auth();return;
+ }
  if(me){s.user=me;s.csrf=me.csrf_token;s.demo=!!me.demo;await afterAuth();return}
  try{
    const config=await api('/config');
-   if(config.demo_enabled){
+   s.trialEnabled=!!config.trial_enabled;
+   if(config.demo_enabled&&!wantsTrial){
      const guest=await api('/auth/demo',{method:'POST'});
      s.user=guest;s.csrf=guest.csrf_token;s.demo=!!guest.demo;
      await afterAuth();return;
    }
  }catch(e){toast('Không mở được chế độ demo: '+e.message,true)}
+ if(wantsTrial)s.authMode='signup';
  auth();
 }
 document.addEventListener('click',e=>{const b=e.target.closest('[data-action]');if(b){e.preventDefault();handleAction(b.dataset.action,b.dataset.value||'',b)}else if(e.target.matches('[data-overlay]'))closeModal()});
