@@ -190,7 +190,10 @@ def demo_rate_limit(request: Request):
 def public_config(response: Response):
     response.headers["Cache-Control"] = "no-store"
     from .billing import trial_enabled
-    return {"demo_enabled": demo_enabled(), "trial_enabled": trial_enabled()}
+    result = {"demo_enabled": demo_enabled()}
+    if trial_enabled():
+        result["trial_enabled"] = True
+    return result
 
 
 @app.post("/api/auth/demo", status_code=201)
