@@ -116,6 +116,10 @@ try:
     ("graphite", "rgb(168, 207, 255)", "rgb(17, 24, 32)"),
   ):
    page.evaluate("(theme) => document.documentElement.setAttribute('data-ez-merchant-theme',theme)",theme)
+   # Theme transitions take 200ms. Assert the settled palette, not the old animation frame.
+   page.wait_for_function("""(expected) => getComputedStyle(
+     document.querySelector('#suite-palette-probe .suite-primary')).backgroundColor === expected""",
+     arg=expected_bg, timeout=3000)
    colors=page.evaluate("""() => {
      const button=document.querySelector('#suite-palette-probe .suite-primary');
      const card=document.querySelector('#suite-palette-probe .suite-summary>div');
