@@ -54,8 +54,11 @@ def body(req='request-000001', party=2, start=None):
 def test_booking_frontend_routes(client):
     assert client.get('/reserve/cafe').status_code == 200
     assert '/assets/reservations.js' in client.get('/reserve/cafe').text
-    assert client.get('/app/reservations').status_code == 200
-    assert '/assets/reservations.js' in client.get('/app/reservations').text
+    legacy = client.get('/app/reservations', follow_redirects=False)
+    assert legacy.status_code == 307
+    assert legacy.headers['location'] == '/app?tab=reservations'
+    assert '/assets/app.js' in client.get('/app/reservations').text
+    assert '/assets/merchant-restaurant-suite.js' in client.get('/app/reservations').text
     for a in ['/assets/reservations.js', '/assets/reservations.css']:
         assert client.get(a).status_code == 200
     assert client.get('/reserve/unknown').status_code == 404
