@@ -44,13 +44,18 @@ async def security_headers(request: Request, call_next):
     if request.url.path.startswith("/api/"):
         response.headers["Content-Language"] = selected_language(request)
         response.headers["Vary"] = "Accept-Language, Cookie"
-    response.headers["X-Frame-Options"] = "DENY"
+    # Only safe, public customer previews can be framed by the same origin.
+    # Back-office, super-admin and APIs remain non-embeddable.
+    preview_paths = {"/menu/cafe", "/store/mart", "/store/online", "/booking/wellness", "/reserve/cafe"}
+    same_origin_preview = request.url.path in preview_paths
+    response.headers["X-Frame-Options"] = "SAMEORIGIN" if same_origin_preview else "DENY"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
     response.headers["Content-Security-Policy"] = (
         "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
         "font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https://images.unsplash.com; "
-        "connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'"
+        "connect-src 'self'; " + ("frame-ancestors 'self'; " if same_origin_preview else "frame-ancestors 'none'; ") +
+        "base-uri 'none'; form-action 'self'"
     )
     return response
 
