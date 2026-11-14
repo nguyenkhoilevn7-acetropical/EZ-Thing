@@ -1,0 +1,26 @@
+/* All billing surfaces inherit merchant theme tokens; no hardcoded bright cards in dark mode. */
+.billing-head,.billing-plans,.billing-history{margin-bottom:18px}
+.billing-head h2{margin:14px 0 4px;font-size:26px}
+.billing-head-top{display:flex;justify-content:space-between;gap:20px;align-items:flex-start}
+.billing-count{padding:14px 18px;border:1px solid var(--merchant-line,var(--line,#dde2e5));border-radius:18px;min-width:116px;text-align:center;background:var(--merchant-panel-alt,var(--paper,#f9fafb))}
+.billing-count strong{display:block;font-size:30px;font-variant-numeric:tabular-nums}
+.billing-count span{display:block;font-size:12px;color:var(--muted,#6b7280)}
+.billing-meta{display:flex;flex-wrap:wrap;gap:15px 25px;margin-top:18px;font-size:13px}
+.billing-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.billing-plan{padding:20px;border:1px solid var(--merchant-line,var(--line,#dee4e5));border-radius:20px;background:var(--merchant-panel,var(--paper,#fff));min-width:0}
+.billing-plan h3{margin:18px 0 8px;font-size:23px;word-break:break-word}
+.billing-plan h3 small{font-size:12px;color:var(--muted,#737a7e)}
+.billing-plan p{min-height:40px;color:var(--muted,#626b75);font-size:13px}
+.billing-plan .btn{margin-top:13px}
+.billing-payment{display:flex;justify-content:space-between;align-items:center;gap:18px;flex-wrap:wrap;border-top:1px solid var(--merchant-line,var(--line,#dbe1e4));margin-top:22px;padding-top:20px}
+.billing-payment .subtle{margin:5px 0}
+.billing-payment select{width:min(100%,330px);min-height:43px;background:var(--merchant-panel,var(--paper,#fff));color:var(--merchant-ink,var(--ink,#20272e));border:1px solid var(--merchant-line,var(--line,#dbe1e4));border-radius:12px;padding:8px 12px}
+.billing-cards{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-top:17px}
+.billing-warning{border:1px dashed var(--merchant-line,var(--line,#a7afb5));border-radius:12px;padding:13px;font-size:13px;margin-top:18px;color:var(--muted,#626b75)}
+.billing-history .table-wrap{max-width:100%;overflow-x:auto}
+.billing-history td{overflow-wrap:anywhere}
+.billing-expired{margin:0 0 16px;padding:13px 16px;border:1px solid var(--merchant-line,var(--line,#dbe1e4));border-radius:15px;background:var(--merchant-panel,var(--paper,#fff));color:var(--merchant-ink,var(--ink,#1f2937))}
+.billing-trial-banner{display:flex;justify-content:space-between;align-items:center;gap:14px;margin-bottom:16px;padding:13px 18px;border:1px solid var(--merchant-line,var(--line,#dbe1e4));border-radius:15px;background:var(--merchant-panel,var(--paper,#fff))}
+.billing-trial-banner .btn{flex-shrink:0}
+@media(max-width:850px){.billing-grid{grid-template-columns:1fr}.billing-head-top{flex-wrap:wrap}.billing-payment{align-items:stretch}.billing-payment select{width:100%}}
+@media(max-width:430px){.billing-head,.billing-plans,.billing-history{padding:15px}.billing-plan{padding:15px}.billing-trial-banner{flex-wrap:wrap}}

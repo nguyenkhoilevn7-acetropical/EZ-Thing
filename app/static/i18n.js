@@ -5,6 +5,28 @@
 (() => {
 'use strict';
 const entries = [
+["Bắt đầu dùng thử 7 ngày miễn phí, không cần thẻ. Sau đó quyết định chọn gói. Giá hiện tại vẫn là","Start your free 7-day trial with no card required. Choose a plan later. Current prices are still"],
+["giá nghiên cứu","research estimates"],
+["; thanh toán thử nghiệm chỉ hoạt động khi cổng VNPAY được cấu hình.","; sandbox payments are available only after VNPAY is configured."],
+["* Giá nghiên cứu, không phải giá bán chính thức. Trial không tự gia hạn và không tự trừ tiền. Thanh toán hiện ở chế độ VNPAY Sandbox khi được cấu hình.","* Research prices, not official selling prices. The trial does not renew or charge automatically. Only VNPAY Sandbox test payments are available after configuration."],
+/* New trial and subscription copy, before legacy translation entries. */
+["Dùng thử 7 ngày", "Start 7-day trial"],
+["Dùng thử miễn phí 7 ngày", "Start a free 7-day trial"],
+["Đăng ký thử miễn phí 7 ngày", "Start a free 7-day trial"],
+["Thử miễn phí 7 ngày", "Try 7 days free"],
+["Bắt đầu dùng thử 7 ngày", "Start 7-day free trial"],
+["Gói & thanh toán", "Plans & billing"],
+["Thanh toán", "Billing"],
+["7 ngày trải nghiệm. Không cần thẻ 💳", "7 days free. No card required 💳"],
+["Không cần chọn gói trước", "No upfront plan selection"],
+["Không tự động trừ tiền", "No automatic charges"],
+["Nhắc ngày hết hạn tại trang quản lý", "Trial countdown in your dashboard"],
+["Dữ liệu được giữ nguyên khi trial hết hạn", "Your data is retained after the trial"],
+["Tạo tài khoản, dùng thử miễn phí 7 ngày. Chọn gói và thanh toán sau, không cần nhập thẻ.", "Create an account and try free for 7 days. Choose and pay for a plan later; no card required."],
+["7 ngày dùng thử còn lại", "Trial days remaining"],
+["Xem gói", "View plans"],
+["Gói & thanh toán", "Plans & billing"],
+
 /* Additional audited public, booking and portal translations. */
 ["Chào mừng trở lại 👋","Welcome back 👋"],
 ["Bắt đầu kinh doanh thông minh","Start running your business smarter"],

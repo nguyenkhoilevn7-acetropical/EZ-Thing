@@ -114,6 +114,8 @@ def tenant(bid: str, user: tuple, db: Session) -> Business:
     from .platform_admin import is_business_blocked
     if is_business_blocked(db, business.id):
         fail(403, "Doanh nghiệp đang bị tạm khóa")
+    from .billing import require_access
+    require_access(db, business)
     return business
 
 
@@ -187,7 +189,11 @@ def demo_rate_limit(request: Request):
 @app.get("/api/config")
 def public_config(response: Response):
     response.headers["Cache-Control"] = "no-store"
-    return {"demo_enabled": demo_enabled()}
+    from .billing import trial_enabled
+    result = {"demo_enabled": demo_enabled()}
+    if trial_enabled():
+        result["trial_enabled"] = True
+    return result
 
 
 @app.post("/api/auth/demo", status_code=201)
@@ -263,6 +269,8 @@ def business_create(body: CreateBusiness, user=Depends(current_user), db: Sessio
     active = sorted(((set(requested) | required) & allowed) | ({"inventory_adjust"} if body.need_inventory and "inventory_adjust" in allowed else set()))
     if "tables" in active and body.industry != "fnb":
         active.remove("tables")
+    from .billing import trial_enabled, start_trial, industry_modules, BillingSubscription
+    enable_trial = trial_enabled() and not is_demo_user(u)
     b = Business(id=new_id(), name=body.name.strip(), industry=body.industry, plan=plan,
                  requested_plan=plan, subscription_status="pilot", active_modules=active,
                  setup={"need_tables": body.need_tables, "need_inventory": body.need_inventory,
@@ -270,28 +278,46 @@ def business_create(body: CreateBusiness, user=Depends(current_user), db: Sessio
                         "description": body.description})
     db.add(b)
     db.flush()
+    if enable_trial:
+        # A real account gets one seven-day trial, regardless of how many
+        # businesses it creates. Additional business workspaces need a paid plan.
+        previous = db.scalar(select(BillingSubscription.business_id)
+            .join(Membership, Membership.business_id == BillingSubscription.business_id)
+            .where(Membership.user_id == u.id))
+        start_trial(db, b, u.id, days=0 if previous else 7)
+        b.active_modules = industry_modules(b, "PRO")
     db.add(Membership(id=new_id(), user_id=u.id, business_id=b.id, role="owner"))
     db.add(Branch(id=new_id(), business_id=b.id, name="Chi nhánh chính"))
-    audit(db, b.id, u.id, "business.created", {"plan": plan, "modules": active})
+    audit(db, b.id, u.id, "business.created", {
+        "subscription_status": b.subscription_status,
+        "selected_plan": None if enable_trial else plan,
+        "modules": b.active_modules,
+    })
     db.commit()
-    return business_out(b)
+    return business_out(b, db)
 
 
-def business_out(b: Business):
-    return {"id": b.id, "name": b.name, "industry": b.industry, "plan": b.plan,
-            "subscription_status": b.subscription_status, "active_modules": b.active_modules,
+def business_out(b: Business, db: Session):
+    from .billing import summary
+    subscription = summary(db, b)
+    return {"id": b.id, "name": b.name, "industry": b.industry,
+            "plan": subscription["plan"] or "TRIAL",
+            "subscription_status": subscription["status"], "active_modules": b.active_modules,
+            "trial_ends_at": subscription.get("trial_ends_at"),
+            "trial_days_remaining": subscription.get("days_remaining"),
+            "billing_required": subscription.get("requires_payment", False),
             "setup": b.setup}
 
 
 @app.get("/api/businesses")
 def business_list(user=Depends(current_user), db: Session = Depends(db_session)):
     ids = db.scalars(select(Membership.business_id).where(Membership.user_id == user[0].id)).all()
-    return [business_out(b) for b in db.scalars(select(Business).where(Business.id.in_(ids)).order_by(Business.created_at.asc())).all()]
+    return [business_out(b, db) for b in db.scalars(select(Business).where(Business.id.in_(ids)).order_by(Business.created_at.asc())).all()]
 
 
 @app.get("/api/businesses/{bid}")
 def business_get(bid: str, user=Depends(current_user), db: Session = Depends(db_session)):
-    return business_out(tenant(bid, user, db))
+    return business_out(tenant(bid, user, db), db)
 
 
 @app.get("/api/businesses/{bid}/overview")
@@ -648,4 +674,9 @@ app.include_router(order_dashboard_router)
 # Order cancellation shares the SaleOrder ledger, stock movements and existing audit log.
 from .order_lifecycle import router as order_lifecycle_router  # noqa: E402
 app.include_router(order_lifecycle_router)
+
+# Opt-in 7-day trial and VNPAY Sandbox billing; create new tables only.
+from .billing import router as billing_router  # noqa: E402
+Base.metadata.create_all(bind=engine)  # Pilot only; replace with versioned migrations before production.
+app.include_router(billing_router)
 
