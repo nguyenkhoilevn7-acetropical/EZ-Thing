@@ -137,3 +137,139 @@
  .orders-table .order-actions{min-width:0}
  .orders-table .order-actions .btn{flex:1}
 }
+
+/* Shared theme contract for the Restaurant Host Desk.
+ * Brand/navigation actions follow the merchant appearance picker.
+ * Status tags (free, pending, confirmed, seated, cancelled) retain semantic colors.
+ * No hard-coded green brand accents in the Apple Blue or Graphite themes.
+ */
+.suite-container{
+  --suite-accent:var(--merchant-accent,var(--green));
+  --suite-accent-hover:var(--merchant-accent-hover,var(--green2));
+  --suite-accent-bg:var(--merchant-accent-subtle,var(--mint));
+  --suite-accent-border:var(--merchant-accent-border,var(--green));
+  --suite-panel:var(--merchant-panel,var(--paper));
+  --suite-panel-alt:var(--merchant-panel-alt,var(--paper));
+  --suite-page:var(--merchant-page,var(--bg));
+  --suite-ink:var(--merchant-ink,var(--ink));
+  --suite-muted:var(--merchant-muted,var(--muted));
+  --suite-line:var(--merchant-line,var(--line));
+  --suite-action-ink:#fff;
+  --suite-field-bg:var(--suite-panel);
+  color:var(--suite-ink);
+}
+:root[data-ez-merchant-theme="tropical"] .suite-container{
+  --suite-accent:#0d936b;
+  --suite-accent-hover:#087b5a;
+  --suite-accent-bg:#e7f7ef;
+  --suite-accent-border:#b8e4d1;
+}
+:root[data-ez-merchant-theme="graphite"] .suite-container{
+  --suite-action-ink:#111820;
+  --suite-field-bg:#282b34;
+}
+.suite-container button{
+  background:var(--suite-panel);
+  border-color:var(--suite-line);
+  color:var(--suite-accent);
+}
+.suite-container button:hover:not(:disabled):not(.suite-primary):not(.suite-save){
+  background:var(--suite-accent-bg);
+  border-color:var(--suite-accent-border);
+}
+.suite-container .suite-primary,
+.suite-container .suite-save{
+  background:var(--suite-accent);
+  border-color:var(--suite-accent);
+  color:var(--suite-action-ink);
+}
+.suite-container .suite-primary:hover:not(:disabled),
+.suite-container .suite-save:hover:not(:disabled){
+  background:var(--suite-accent-hover);
+  border-color:var(--suite-accent-hover);
+  color:var(--suite-action-ink);
+}
+.suite-container button:focus-visible,
+.suite-container a:focus-visible,
+.suite-container input:focus-visible,
+.suite-container select:focus-visible,
+.suite-container textarea:focus-visible{
+  outline:3px solid var(--suite-accent);
+  outline-offset:2px;
+}
+.suite-container .suite-label,
+.suite-container .suite-booking-filters label,
+.suite-container .suite-two-col form label{
+  color:var(--suite-muted);
+}
+.suite-container .suite-label select,
+.suite-container .suite-booking-filters input,
+.suite-container .suite-booking-filters select,
+.suite-container .suite-two-col form input,
+.suite-container .suite-two-col form textarea{
+  background:var(--suite-field-bg);
+  border-color:var(--suite-line);
+  color:var(--suite-ink);
+}
+.suite-container :is(input,select,textarea):focus{
+  border-color:var(--suite-accent);
+  box-shadow:0 0 0 3px var(--suite-accent-bg);
+}
+.suite-container .suite-summary>div,
+.suite-container .suite-floor-card,
+.suite-container .suite-floor-help,
+.suite-container .suite-booking-item{
+  background:var(--suite-panel);
+  border-color:var(--suite-line);
+  color:var(--suite-ink);
+}
+.suite-container .suite-summary strong{color:var(--suite-ink)}
+.suite-container .suite-summary span,
+.suite-container .suite-toolbar p,
+.suite-container .suite-edit-controls span,
+.suite-container .suite-booking-meta,
+.suite-container .suite-booking-bottom>span,
+.suite-container .suite-floor-footer,
+.suite-container .suite-floor-help p,
+.suite-container .suite-inquiry p{color:var(--suite-muted)}
+.suite-container .suite-edit-controls,
+.suite-container .suite-booking-bottom,
+.suite-container .suite-inquiry,
+.suite-container .suite-detail-line{border-color:var(--suite-line)}
+.suite-container .floor-zone-tabs button.active{
+  background:var(--suite-accent);
+  border-color:var(--suite-accent);
+  color:var(--suite-action-ink);
+}
+.suite-container .floor-zone-tabs button span{
+  background:var(--suite-accent-bg);
+  color:var(--suite-accent);
+}
+.suite-container .floor-zone-tabs button.active span{
+  background:#ffffff24;
+  color:var(--suite-action-ink);
+}
+.suite-container .suite-booking-actions a,
+.suite-container .suite-inquiry a{color:var(--suite-accent)}
+/* Table/booking semantic colors intentionally remain untouched. */
+:root[data-ez-merchant-theme="graphite"] .suite-container .suite-floor-viewport,
+:root[data-ez-merchant-theme="graphite"] .suite-container .suite-floor-board{
+  background-color:var(--suite-panel-alt);
+  border-color:var(--suite-line);
+}
+:root[data-ez-merchant-theme="graphite"] .suite-container .suite-floor-board{
+  background-image:linear-gradient(#8da4c31c 1px,transparent 1px),
+                   linear-gradient(90deg,#8da4c31c 1px,transparent 1px);
+}
+:root[data-ez-merchant-theme="graphite"] .suite-container .suite-floor-title{
+  background:#282b34ee;
+  color:var(--suite-muted);
+}
+:root[data-ez-merchant-theme="graphite"] .suite-container .suite-table:not(.state-reserved):not(.state-serving){
+  background:var(--suite-panel)!important;
+  color:var(--suite-ink)!important;
+  border-color:var(--suite-line)!important;
+}
+:root[data-ez-merchant-theme="graphite"] .suite-container .suite-table:not(.state-reserved):not(.state-serving) small{
+  color:var(--suite-muted);
+}
