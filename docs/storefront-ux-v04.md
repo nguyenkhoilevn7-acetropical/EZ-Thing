@@ -24,7 +24,7 @@ This is feature-level study, not a claim that competitor designs or assets were 
 - /booking/wellness → customer appointment booking preview.
 - All customer channels share typography, mobile bottom navigation, modal patterns, search/sort/price display, and error handling; each has separate color/hero/flow/capabilities.
 - The customer header does **not** lead with operations/navigation controls. A small link to demo management remains in the informational footer for reviewer access only.
-- CSS upgrade is additive: customer-v04.css applied after customer.css. No new NPM dependencies or database migrations.
+- CSS upgrade is additive: customer-v04.css applied after customer.css. Merchant /app receives its own merchant-v04.css after styles.css for matching color, spacing, mobile sheets, KPI, sidebar, navigation and dashboard. The customer storefronts never load merchant CSS. No new NPM dependencies or database migrations.
 
 ## API contract mapping
 
@@ -43,7 +43,7 @@ This is feature-level study, not a claim that competitor designs or assets were 
 Contract source of truth:
 - Backend: app/public.py + app/demo.py.
 - Frontend: app/static/customer.js + app/static/customer-v04.css.
-- Tests: tests/test_api.py and tests/test_frontend_contract.py.
+- Tests: tests/test_api.py and tests/test_frontend_contract.py (includes merchant/customer CSS isolation).
 
 ## Manual acceptance checklist
 
