@@ -12,7 +12,7 @@ const kinds={
 };
 const info=kinds[channel];
 const st={csrf:'',business:null,products:[],tables:[],staff:[],cart:{},filter:'Tất cả',search:'',sort:'default',onlyAvailable:false,pendingId:null,slotRequestId:0,flow:null,
-       service:null,assignee:'Linh',date:'',slots:[],slot:null,bookingLoading:false,lastOrder:null};
+       service:null,assignee:'Linh',date:'',slots:[],slot:null,bookingLoading:false,lastOrder:null,lastAppointment:null};
 const E=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const V=n=>new Intl.NumberFormat('vi-VN').format(Number(n)||0)+'đ';
 const icon=p=>{const s=(p.sku+' '+p.name).toLowerCase(); if(/matcha/.test(s))return '🍵';if(/cafe|cà phê|brew/.test(s))return '☕';if(/trà đào|đào/.test(s))return '🍑';if(/cam|nước ép/.test(s))return '🍊';if(/trà vải/.test(s))return '🍹';if(/bình giữ/.test(s))return '🥤';if(/tote|túi/.test(s))return '👜';if(/sổ/.test(s))return '📓';if(/áo/.test(s))return '👕';if(/nón/.test(s))return '🧢';if(/xông/.test(s))return '♨️';if(/massage/.test(s))return '💆';if(/da/.test(s))return '🌸';return info.emoji};
@@ -121,7 +121,44 @@ function openCart(){if(!cartQty()){toast('Hãy chọn ít nhất một sản ph�
  <button class="submit-btn" type="submit" disabled>${info.action} ↗</button><p class="fine-print">* Tổng tiền cuối cùng được xác nhận tại backend. Không chuyển tiền, không phát sinh giao hàng thực tế.</p></form></section></div>`;
  document.body.style.overflow='hidden';overlay.querySelector('input')?.focus();verifyCartQuote(overlay.querySelector('#checkout-form'));}
 function close(){overlay.innerHTML='';document.body.style.overflow=''}
-function success(title,desc,code,details=''){overlay.innerHTML=`<div class="customer-overlay" data-overlay><section class="customer-dialog" role="dialog" aria-modal="true"><div class="customer-success"><div class="success-symbol">✓</div><h3>${E(title)}</h3><p>${E(desc)}</p><div class="receipt-id">Mã DEMO: <b>${E(code.slice(0,8).toUpperCase())}</b>${details?`<br><span>${E(details)}</span>`:''}</div><button class="submit-btn" data-action="close">Tiếp tục trải nghiệm</button><p class="fine-print">Anh/chị có thể xem đơn hoặc lịch hẹn trong khu quản lý DEMO.</p><a class="info-link" href="/app">Mở khu quản lý ↗</a></div></section></div>`}
+function success(title,desc,code,details=''){
+ overlay.innerHTML=`<div class="customer-overlay" data-overlay><section class="customer-dialog" role="dialog" aria-modal="true" aria-label="Xác nhận"><div class="customer-success">
+ <div class="success-symbol">✓</div><span class="eyebrow">GỬI YÊU CẦU THÀNH CÔNG</span><h3>${E(title)}</h3><p>${E(desc)}</p>
+ <div class="receipt-id">Mã DEMO: <b>${E(code.slice(0,8).toUpperCase())}</b>${details?`<br><span>${E(details)}</span>`:''}</div>
+ <button class="submit-btn" data-action="view-status">Xem tiến độ yêu cầu ↗</button>
+ <button class="status-secondary" data-action="close">Tiếp tục khám phá</button>
+ <p class="fine-print">Trạng thái DEMO có thể được cập nhật trong hệ thống quản lý thử nghiệm.</p></div></section></div>`;
+}
+function statusHTML(data){
+ const labels={
+  open:'Đã gửi yêu cầu',paid:'Đã ghi nhận thanh toán',pending:'Đang chờ xử lý',
+  preparing:'Đang chuẩn bị',ready:'Đã sẵn sàng',served:'Đã phục vụ',
+  packing:'Đang đóng gói',packed:'Đã đóng gói',shipped:'Đã chuyển giao',
+  delivered:'Đã giao',scheduled:'Đã đặt lịch',confirmed:'Đã xác nhận lịch',
+  completed:'Đã hoàn thành',cancelled:'Đã hủy'
+ };
+ const status=data.work_status||data.status||'open';
+ const display=labels[status]||'Đang cập nhật';
+ const date=data.scheduled_at?new Date(data.scheduled_at).toLocaleString('vi-VN',{timeZone:'Asia/Ho_Chi_Minh',dateStyle:'medium',timeStyle:'short'}):null;
+ return `<div class="customer-overlay" data-overlay><section class="customer-dialog" role="dialog" aria-modal="true" aria-label="Tiến độ yêu cầu">
+ <div class="dialog-head"><div><span class="eyebrow">THEO DÕI ĐƠN DEMO</span><h2>Trạng thái yêu cầu</h2><p class="dialog-sub">Cập nhật từ hệ thống vận hành</p></div><button class="close-modal" data-action="close" aria-label="Đóng">×</button></div>
+ <div class="progress-state"><div class="progress-icon">✓</div><div><small>TRẠNG THÁI HIỆN TẠI</small><strong>${E(display)}</strong><span>${E(status)}</span></div></div>
+ <div class="status-detail"><div><span>Mã tham chiếu</span><strong>${E(data.id.slice(0,8).toUpperCase())}</strong></div>
+ ${data.total_vnd!==undefined?`<div><span>Giá trị đơn DEMO</span><strong>${V(data.total_vnd)}</strong></div>`:''}
+ ${date?`<div><span>Ngày giờ hẹn</span><strong>${E(date)}</strong></div>`:''}
+ ${data.assignee?`<div><span>Chuyên viên</span><strong>${E(data.assignee)}</strong></div>`:''}</div>
+ <button class="submit-btn" data-action="view-status">Làm mới trạng thái ↻</button>
+ <p class="fine-print">Không có vận chuyển, thanh toán hoặc đặt lịch thật trong phiên này.</p></section></div>`;
+}
+async function loadStatus(){
+ const row=channel==='wellness'?st.lastAppointment:st.lastOrder;
+ if(!row?.id){toast('Chưa có yêu cầu để theo dõi',true);return}
+ const path=channel==='wellness'?'/preview/wellness/appointments/'+encodeURIComponent(row.id)+'/status':'/preview/'+channel+'/orders/'+encodeURIComponent(row.id)+'/status';
+ overlay.innerHTML='<div class="customer-overlay" data-overlay><section class="customer-dialog"><p role="status">Đang kiểm tra tiến độ từ máy chủ…</p></section></div>';
+ document.body.style.overflow='hidden';
+ try{const data=await api(path);if(!row||row!==(channel==='wellness'?st.lastAppointment:st.lastOrder))return;overlay.innerHTML=statusHTML(data)}
+ catch(e){toast(e.message,true);close()}
+}
 async function checkout(form){const submit=form.querySelector('[type=submit]');submit.disabled=true;
  try{
  const d=Object.fromEntries(new FormData(form).entries());
@@ -161,7 +198,7 @@ async function slots(){
  finally{if(request===st.slotRequestId){st.bookingLoading=false;refreshBooking()}}
 }
 function bookingForm(){if(!st.service||!st.slot)return;const p=st.products.find(x=>x.id===st.service);overlay.innerHTML=`<div class="customer-overlay" data-overlay><section class="customer-dialog" role="dialog" aria-modal="true" aria-label="Xác nhận lịch hẹn"><div class="dialog-head"><div><h2>Xác nhận lịch DEMO</h2><p class="dialog-sub">${E(p.name)} • ${E(st.assignee)}</p></div><button class="close-modal" data-action="close">×</button></div><div class="receipt-id">${new Date(st.slot).toLocaleString('vi-VN',{timeZone:'Asia/Ho_Chi_Minh',weekday:'long',day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})} · ${V(p.price_vnd)}</div><form id="booking-form"><label class="form-field"><span>Tên khách hàng *</span><input name="customer_name" required minlength="2" maxlength="100" placeholder="Họ và tên"></label><label class="form-field"><span>Số điện thoại *</span><input name="phone" required minlength="6" maxlength="30" placeholder="09xx xxx xxx"></label><label class="form-field"><span>Ghi chú (tuỳ chọn)</span><textarea name="note" maxlength="240" placeholder="Yêu cầu thêm"></textarea></label><button class="submit-btn" type="submit">Xác nhận lịch DEMO ↗</button></form><p class="fine-print">Lịch chỉ ghi vào doanh nghiệp DEMO của phiên hiện tại.</p></section></div>`;document.body.style.overflow='hidden'}
-async function book(form){const btn=form.querySelector('[type=submit]');btn.disabled=true;try{const d=Object.fromEntries(new FormData(form).entries());const body={request_id:st.pendingId||(st.pendingId=id()),product_id:st.service,customer_name:d.customer_name,phone:d.phone,assignee:st.assignee,start_at:st.slot,note:d.note||''};const res=await api('/preview/wellness/appointments',{method:'POST',body:JSON.stringify(body)});st.pendingId=null;success('Đã đặt lịch DEMO!', 'Lịch thử nghiệm đã được ghi vào quản lý Spa/Wellness. Không phát sinh đặt cọc.',res.id,st.assignee);await slots();}catch(e){toast(e.message,true)}finally{btn.disabled=false}}
+async function book(form){const btn=form.querySelector('[type=submit]');btn.disabled=true;try{const d=Object.fromEntries(new FormData(form).entries());const body={request_id:st.pendingId||(st.pendingId=id()),product_id:st.service,customer_name:d.customer_name,phone:d.phone,assignee:st.assignee,start_at:st.slot,note:d.note||''};const res=await api('/preview/wellness/appointments',{method:'POST',body:JSON.stringify(body)});st.pendingId=null;st.lastAppointment=res;success('Đã đặt lịch DEMO!', 'Lịch thử nghiệm đã được ghi vào quản lý Spa/Wellness. Không phát sinh đặt cọc.',res.id,st.assignee);await slots();}catch(e){toast(e.message,true)}finally{btn.disabled=false}}
 async function start(){try{const config=await api('/config');if(!config.demo_enabled){blocked('Trang xem trước theo ngành đang chỉ mở trên môi trường DEMO. Không có gian hàng công khai và chưa chấp nhận đặt hàng thật.');return}
  let me;try{me=await api('/auth/me')}catch(e){if(e.status!==401)throw e;}
  if(!me){me=await api('/auth/demo',{method:'POST'});}
@@ -173,7 +210,7 @@ async function start(){try{const config=await api('/config');if(!config.demo_ena
 root.addEventListener('input',e=>{if(e.target.id==='customer-search'){st.search=e.target.value;refreshCatalog()}});
 root.addEventListener('change',e=>{if(e.target.id==='customer-sort'){st.sort=e.target.value;refreshCatalog()}if(e.target.id==='only-available'){st.onlyAvailable=e.target.checked;refreshCatalog()}if(e.target.id==='book-date'){st.date=e.target.value;st.pendingId=null;slots()}if(e.target.id==='book-staff'){st.assignee=e.target.value;st.pendingId=null;slots()}});
 document.addEventListener('click',e=>{const el=e.target.closest('[data-action]');if(!el){if(e.target.matches('[data-overlay]'))close();return}e.preventDefault();const {action,value}=el.dataset;
- if(action==='close'){close();return}if(action==='book-scroll'){document.getElementById('booking-right')?.scrollIntoView({behavior:'smooth'});return}
+ if(action==='close'){close();return}if(action==='view-status'){loadStatus();return}if(action==='book-scroll'){document.getElementById('booking-right')?.scrollIntoView({behavior:'smooth'});return}
  if(action==='category'){st.filter=value;refreshCatalog();return}if(action==='clear-filter'){st.filter='Tất cả';st.search='';st.onlyAvailable=false;st.sort='default';refreshCatalog();return}if(action==='detail'){const p=st.products.find(x=>x.id===value);if(p){overlay.innerHTML=detailHTML(p);document.body.style.overflow='hidden';overlay.querySelector('.close-modal')?.focus()}return}if(action==='add-detail'){if(st.cart[value]>=10)return;st.cart[value]=(st.cart[value]||0)+1;st.pendingId=null;close();refreshCatalog();toast('Đã thêm vào giỏ hàng');return}if(action==='add'||action==='increase'){if(!st.products.some(x=>x.id===value&&x.available))return;st.cart[value]=Math.min(10,(st.cart[value]||0)+1);st.pendingId=null;refreshCatalog();if(action==='increase')openCart();else toast('Đã thêm vào giỏ hàng');return}
  if(action==='decrease'){if(st.cart[value]){st.cart[value]--;if(!st.cart[value])delete st.cart[value];st.pendingId=null;refreshCatalog();if(cartQty())openCart();else close()}return}
  if(action==='open-cart'){openCart();return}if(action==='service'){st.service=value;st.pendingId=null;slots();return}if(action==='slot'){st.slot=value;const content=document.getElementById('section-main');if(content)content.innerHTML=bookingHTML();return}if(action==='open-booking'){bookingForm();return}
