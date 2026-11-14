@@ -228,6 +228,29 @@ def demo_checkout(channel: str, body: PreviewCheckout,
     return order_out(db,o)
 
 
+@router.get('/{channel}/orders/{order_id}/status')
+def preview_order_status(channel: str, order_id: str,
+                         user=Depends(current_user), db: Session=Depends(db_session)):
+    """Minimal customer-facing progress, never merchant financial/customer records."""
+    if channel == 'wellness':
+        fail(404, 'Dùng trạng thái lịch hẹn')
+    b = preview_scope(db, user, channel)
+    order = db.scalar(select(SaleOrder).where(
+        SaleOrder.business_id == b.id, SaleOrder.id == order_id,
+        SaleOrder.idempotency_key.like('web-%')))
+    if order is None:
+        fail(404, 'Không tìm thấy đơn DEMO')
+    kind = {'cafe':'kitchen', 'online':'delivery'}.get(channel)
+    work = db.scalar(select(IndustryWorkItem).where(
+        IndustryWorkItem.business_id == b.id, IndustryWorkItem.kind == kind,
+        IndustryWorkItem.reference_id == order.id)) if kind else None
+    return {
+        'id':order.id, 'channel':channel, 'demo':True, 'status':order.status,
+        'work_status':work.status if work else None, 'work_type':kind,
+        'total_vnd':order.total_vnd, 'created_at':order.created_at.isoformat()
+    }
+
+
 @router.get('/{channel}/orders/{order_id}')
 def preview_order(channel:str,order_id:str,user=Depends(current_user),db:Session=Depends(db_session)):
     if channel=='wellness':fail(404,'Không hỗ trợ')
@@ -265,6 +288,21 @@ def available_slots(product_id:str=Query(...),day:date=Query(...),assignee:str=Q
     b=preview_scope(db,user,'wellness')
     product=db.get(Product,product_id)
     return {'slots':demo_slots(db,b,product,assignee,day),'timezone':'Asia/Ho_Chi_Minh'}
+
+
+@router.get('/wellness/appointments/{appointment_id}/status')
+def preview_appointment_status(appointment_id: str, user=Depends(current_user),
+                               db: Session=Depends(db_session)):
+    b = preview_scope(db, user, 'wellness')
+    row = db.scalar(select(IndustryWorkItem).where(
+        IndustryWorkItem.id == appointment_id, IndustryWorkItem.business_id == b.id,
+        IndustryWorkItem.kind == 'appointments'))
+    if row is None or (row.details or {}).get('source') != 'customer-demo':
+        fail(404, 'Không tìm thấy lịch hẹn DEMO')
+    return {
+        'id':row.id, 'channel':'wellness', 'demo':True, 'status':row.status,
+        'assignee':row.assignee, 'scheduled_at':row.scheduled_at.isoformat()
+    }
 
 
 @router.post('/wellness/appointments',status_code=201)
