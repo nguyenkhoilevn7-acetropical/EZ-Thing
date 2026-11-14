@@ -222,8 +222,10 @@ def enter_demo(request: Request, response: Response, db: Session = Depends(db_se
 
 
 @app.post("/api/auth/signup", status_code=201)
-def signup(body: SignUp, response: Response, db: Session = Depends(db_session)):
-    email = str(body.email).lower()
+def signup(body: SignUp, response: Response, request: Request, db: Session = Depends(db_session)):
+    from .signup_security import signup_limit
+    email = str(body.email).strip().lower()
+    signup_limit(db, request, email)
     if db.scalar(select(User).where(User.email == email)):
         fail(409, "Email đã được sử dụng")
     u = User(id=new_id(), email=email, name=body.name.strip(), password_hash=digest_password(body.password))
