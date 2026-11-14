@@ -20,7 +20,7 @@ async function run(){
     document.body.classList.add('layout-'+brand.layout_style);
     safeText('brand-name',brand.display_name);
     safeText('store-title',brand.hero_title||brand.display_name);
-    safeText('store-description',brand.description||'Trải nghiệm thương hiệu của bạn.');
+    safeText('store-description',brand.description||(window.EZI18N?.language()==='en'?'A storefront experience built around your brand.':'Trải nghiệm thương hiệu của bạn.'));
     safeText('footer-name',brand.display_name);
     safeText('footer-address',brand.address);
     safeText('footer-phone',brand.phone);
