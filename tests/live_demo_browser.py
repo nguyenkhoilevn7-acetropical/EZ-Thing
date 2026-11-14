@@ -45,6 +45,24 @@ try:
    assert page.locator(".customer-loading").count()==0,channel
    assert page.locator(".customer-product").count()>0 or channel=="/booking/wellness",channel
    print("PASS",channel,"title=",page.title(),flush=True)
+  # Verify the merchant order cards using the same seeded demo session.
+  page.set_viewport_size({"width":1060,"height":800})
+  page.goto(BASE+"/app?tab=orders",wait_until="domcontentloaded",timeout=15000)
+  page.locator(".order-card").first.wait_for(timeout=25000)
+  assert page.locator(".order-card").count()>=3, "Sample orders not displayed"
+  assert page.locator(".order-card-pay").count()>=1, "Unpaid order lost payment action"
+  assert page.locator(".order-card-status .pill.paid").count()>=1, "Blue paid badge missing"
+  assert page.locator(".order-card-cancel").count()>=1, "Cancel action missing"
+  assert page.locator(".orders-table").count()==0, "Legacy responsive table rendered"
+  page.locator(".order-card-details").first.click()
+  assert page.locator("#modal-root").inner_text().strip(), "Details dialog failed"
+  page.keyboard.press("Escape")
+  page.set_viewport_size({"width":412,"height":915})
+  assert page.locator(".order-card").first.is_visible(), "Mobile order card hidden"
+  page.evaluate("document.documentElement.setAttribute('data-ez-merchant-theme','graphite')")
+  background=page.locator(".order-card").first.evaluate("(el)=>getComputedStyle(el).backgroundColor")
+  assert background!="rgb(255, 255, 255)", "Dark order card remained white"
+  print("PASS /app?tab=orders: cards, detail, paid badge, mobile and dark mode",flush=True)
   browser.close()
   print("REQUESTS",json.dumps(requests[-45:],ensure_ascii=False),flush=True)
   print("JS ERRORS",json.dumps(errors[-20:],ensure_ascii=False),flush=True)
