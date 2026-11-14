@@ -11,7 +11,7 @@ const kinds={
  wellness:{industry:'services',label:'EZ THING SPA & WELLNESS',hero:'Thư giãn trọn vẹn,\ntái tạo năng lượng.',emoji:'🌿',sub:'Không gian chăm sóc sức khỏe và sắc đẹp hiện đại, giúp bạn cân bằng thân – tâm – trí.',section:'Đặt lịch trải nghiệm',cart:'Đặt lịch DEMO',action:'Xác nhận lịch DEMO'}
 };
 const navMap={
- cafe:[['Trang chủ','#top'],['Thực đơn','#section-main'],['Đặt hàng','#section-main'],['Ưu đãi','#offers'],['Về chúng tôi','#about']],
+ cafe:[['Trang chủ','#top'],['Đặt bàn','/reserve/cafe'],['Thực đơn','#section-main'],['Đặt hàng','#section-main'],['Ưu đãi','#offers'],['Về chúng tôi','#about']],
  mart:[['Sản phẩm','#section-main'],['Danh mục','#featured'],['Khuyến mãi','#offers'],['Cửa hàng','#section-main'],['Về EZ Thing','#about']],
  online:[['Online Shop','#top'],['Danh mục','#featured'],['Ưu đãi','#offers'],['Hỗ trợ','#about']],
  wellness:[['Spa & Wellness','#top'],['Dịch vụ','#featured'],['Đặt lịch','#booking-right'],['Ưu đãi','#offers'],['Về chúng tôi','#about']]
@@ -73,6 +73,7 @@ function header(){
    <a class="customer-brand" href="/" aria-label="Trang chủ EZ Thing">EZ Thing ${brand?`<strong>${brand}</strong>`:''}</a>
    <nav class="customer-primary-nav" aria-label="Danh mục trang">${menu}</nav>
    <div class="customer-h-actions">
+     ${channel==='cafe'?'<a href="/reserve/cafe" class="book-now-link">Đặt bàn</a>':''}
      ${channel!=='wellness'?`<button type="button" data-action="search" aria-label="Tìm sản phẩm">${svgIcon('search')}</button><button type="button" class="cart-toggle" data-action="open-cart" aria-label="Mở giỏ hàng">${svgIcon('bag')}<span class="cart-count-top">${cartQty()}</span></button>`:`<button type="button" class="book-now-link" data-action="book-scroll">Đặt lịch ngay</button>`}
      <button type="button" class="menu-toggle" data-action="toggle-menu" aria-label="Mở menu điều hướng" aria-expanded="false">${svgIcon('menu')}</button>
    </div>

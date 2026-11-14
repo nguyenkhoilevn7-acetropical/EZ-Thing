@@ -31,7 +31,7 @@ from .schemas import (BranchCreate, ConfirmPayment, CreateBusiness, CreateOrder,
 from .security import check_password, digest_password, session_pair, token_hash
 
 Base.metadata.create_all(bind=engine)  # Pilot only; production must use versioned migrations.
-app = FastAPI(title="EZ Thing Business MVP", version="0.4.0", docs_url="/api/docs")
+app = FastAPI(title="EZ Thing Business MVP", version="0.5.0", docs_url="/api/docs")
 ASSETS = Path(__file__).parent / "static"
 app.mount("/assets", StaticFiles(directory=ASSETS), name="assets")
 
@@ -120,7 +120,7 @@ def issue_session(db: Session, response: Response, user: User):
 
 @app.get("/api/health")
 def health():
-    return {"ok": True, "version": "0.4.0"}
+    return {"ok": True, "version": "0.5.0"}
 
 
 @app.get("/api/catalog")
@@ -545,10 +545,20 @@ def index():
     return FileResponse(ASSETS / "public.html")
 
 
+@app.get("/app/reservations")
+def restaurant_reservation_manager():
+    return FileResponse(ASSETS / "reservation-admin.html", headers={"Cache-Control": "no-store"})
+
+
 @app.get("/app")
 @app.get("/app/{path:path}")
 def merchant_app(path: str = ""):
     return FileResponse(ASSETS / "index.html", headers={"Cache-Control": "no-store"})
+
+
+@app.get("/reserve/cafe")
+def public_restaurant_reservation():
+    return FileResponse(ASSETS / "reservation-public.html", headers={"Cache-Control": "no-store"})
 
 
 @app.get("/menu/cafe")
@@ -576,3 +586,7 @@ app.include_router(preview_router)
 from .platform_admin import router as platform_admin_router  # noqa: E402
 Base.metadata.create_all(bind=engine)  # Additive pilot only; requires Alembic for production.
 app.include_router(platform_admin_router)
+
+# Scoped restaurant table booking and customer contact requests.
+from .reservations import router as reservations_router  # noqa: E402
+app.include_router(reservations_router)
