@@ -572,6 +572,11 @@ def index():
     return FileResponse(ASSETS / "public.html")
 
 
+@app.get("/app/storefront-design")
+def storefront_design_page():
+    return FileResponse(ASSETS / "brand-editor.html", headers={"Cache-Control": "no-store"})
+
+
 @app.get("/app/reservations")
 def restaurant_reservation_manager():
     return FileResponse(ASSETS / "reservation-admin.html", headers={"Cache-Control": "no-store"})
