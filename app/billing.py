@@ -75,13 +75,13 @@ def trial_enabled() -> bool:
     return os.getenv("EZ_THING_TRIAL_ENABLED", "0") == "1"
 
 
-def start_trial(db: Session, b: Business, owner_id: str):
+def start_trial(db: Session, b: Business, owner_id: str, days: int = TRIAL_DAYS):
     if not trial_enabled():
         return
     date = now()
     db.add(BillingSubscription(
         business_id=b.id, owner_user_id=owner_id, trial_started_at=date,
-        trial_ends_at=date + timedelta(days=TRIAL_DAYS), active_plan=None,
+        trial_ends_at=date + timedelta(days=days), active_plan=None,
     ))
     b.subscription_status = "trial"
     b.plan = "PRO"       # Temporary full module access, NOT a purchased plan.
