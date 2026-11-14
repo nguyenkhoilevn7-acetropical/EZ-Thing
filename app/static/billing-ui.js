@@ -81,7 +81,11 @@
                "VNPAY Sandbox test payments only — do not use real cards.")}</p>`}
       </section>
       <section class="surface pad billing-history">
-        <div class="panel-title"><h3>${t("Lịch sử giao dịch", "Payment history")}</h3></div>
+        <div class="panel-title"><h3>${t("Lịch sử giao dịch", "Payment history")}</h3>
+          <button type="button" class="btn secondary sm" data-action="billing-refresh">
+            ↻ ${t("Kiểm tra thanh toán", "Refresh payment status")}
+          </button>
+        </div>
         ${rows.length ? `<div class="table-wrap"><table class="data-table"><thead>
           <tr><th>${t("Mã giao dịch", "Reference")}</th><th>${t("Gói", "Plan")}</th>
           <th>${t("Số tiền", "Amount")}</th><th>${t("Trạng thái", "Status")}</th></tr></thead><tbody>

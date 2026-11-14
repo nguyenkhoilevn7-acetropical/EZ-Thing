@@ -77,7 +77,11 @@ class DiningTable(Base):
 
 class SaleOrder(Base):
     __tablename__ = "sale_orders"
-    __table_args__ = (UniqueConstraint("business_id", "idempotency_key"), Index("ix_orders_biz_created", "business_id", "created_at"))
+    __table_args__ = (
+        UniqueConstraint("business_id", "idempotency_key"),
+        Index("ix_orders_biz_created", "business_id", "created_at"),
+        Index("ix_orders_biz_status_paid_at", "business_id", "status", "paid_at"),
+    )
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
     business_id: Mapped[str] = mapped_column(ForeignKey("businesses.id", ondelete="CASCADE"), index=True)
     branch_id: Mapped[str] = mapped_column(ForeignKey("branches.id"))
@@ -93,6 +97,7 @@ class SaleOrder(Base):
 
 class SaleOrderItem(Base):
     __tablename__ = "sale_order_items"
+    __table_args__ = (Index("ix_order_items_biz_order", "business_id", "order_id"),)
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
     business_id: Mapped[str] = mapped_column(ForeignKey("businesses.id", ondelete="CASCADE"), index=True)
     order_id: Mapped[str] = mapped_column(ForeignKey("sale_orders.id", ondelete="CASCADE"))
@@ -104,6 +109,7 @@ class SaleOrderItem(Base):
 
 class StockMovement(Base):
     __tablename__ = "stock_movements"
+    __table_args__ = (Index("ix_stock_movements_biz_ref", "business_id", "ref"),)
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
     business_id: Mapped[str] = mapped_column(ForeignKey("businesses.id", ondelete="CASCADE"), index=True)
     product_id: Mapped[str] = mapped_column(ForeignKey("products.id"))
@@ -130,3 +136,15 @@ class Customer(Base):
     phone: Mapped[str] = mapped_column(String(30), default="")
     address: Mapped[str] = mapped_column(String(300), default="")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+
+
+class LoginFailure(Base):
+    """Persistent per-identity login throttling, shared across app instances.
+
+    The key is SHA-256 of the normalized email; no plaintext PII is stored.
+    """
+    __tablename__ = "auth_login_failures"
+    identity_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
+    failures: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    window_started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now, nullable=False)
+    locked_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

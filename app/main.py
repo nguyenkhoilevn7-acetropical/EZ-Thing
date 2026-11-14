@@ -9,7 +9,7 @@ from collections import deque
 from threading import Lock
 import uuid
 from collections import defaultdict
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta, time
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -17,7 +17,7 @@ from fastapi import Depends, FastAPI, HTTPException, Request, Response
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from fastapi.staticfiles import StaticFiles
-from sqlalchemy import func, select, update
+from sqlalchemy import case, func, select, update, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -26,7 +26,7 @@ from .demo import demo_enabled, is_demo_user, seed_demo
 from .i18n import INDUSTRIES_EN, RECOMMENDATION_EN, selected_language, translate_error
 from .database import Base, db_session, engine
 from .models import (AuditEvent, Branch, Business, Customer, DiningTable, Membership,
-                     Product, SaleOrder, SaleOrderItem, SessionToken, StockMovement, User, now)
+                     Product, SaleOrder, SaleOrderItem, SessionToken, StockMovement, User, LoginFailure, now)
 from .schemas import (BranchCreate, ConfirmPayment, CreateBusiness, CreateOrder,
                       CustomerCreate, Login, OnboardAnswers, ProductCreate, SignUp,
                       StockAdjust, TableCreate)
@@ -141,7 +141,19 @@ def issue_session(db: Session, response: Response, user: User):
 
 @app.get("/api/health")
 def health():
-    return {"ok": True, "version": "0.5.0"}
+    """Cheap liveness probe; does not expose infrastructure details."""
+    return {"ok": True, "version": "0.5.1"}
+
+
+@app.get("/api/ready")
+def ready(db: Session = Depends(db_session)):
+    """Database-backed readiness for deploy validation and monitoring."""
+    from sqlalchemy.exc import SQLAlchemyError
+    try:
+        db.execute(text("SELECT 1")).scalar_one()
+    except SQLAlchemyError:
+        raise HTTPException(status_code=503, detail="Database unavailable")
+    return {"ok": True, "database": "ready"}
 
 
 @app.get("/api/catalog")
@@ -226,12 +238,39 @@ def signup(body: SignUp, response: Response, db: Session = Depends(db_session)):
 
 @app.post("/api/auth/login")
 def login(body: Login, response: Response, db: Session = Depends(db_session)):
-    u = db.scalar(select(User).where(User.email == str(body.email).lower()))
-    if not u or not check_password(body.password, u.password_hash):
-        fail(401, "Email hoặc mật khẩu không chính xác")
+    """Limit password attempts per normalized email across workers (DB-backed)."""
     from .platform_admin import is_user_blocked
+    identity = str(body.email).strip().lower()
+    digest = hashlib.sha256(("login:" + identity).encode("utf-8")).hexdigest()
+    attempt = db.scalar(select(LoginFailure).where(
+        LoginFailure.identity_hash == digest).with_for_update())
+    timestamp = now()
+    def utc(v):
+        return v.replace(tzinfo=timezone.utc) if v and v.tzinfo is None else v
+    if attempt and utc(attempt.locked_until) and utc(attempt.locked_until) > timestamp:
+        fail(429, "Quá nhiều lần đăng nhập thất bại. Thử lại sau 15 phút.")
+    u = db.scalar(select(User).where(User.email == identity))
+    if not u or not check_password(body.password, u.password_hash):
+        if not attempt:
+            attempt = LoginFailure(identity_hash=digest, failures=0, window_started_at=timestamp)
+            db.add(attempt)
+        if utc(attempt.window_started_at) < timestamp - timedelta(minutes=15):
+            attempt.failures = 0
+            attempt.window_started_at = timestamp
+            attempt.locked_until = None
+        attempt.failures += 1
+        if attempt.failures >= 8:
+            attempt.locked_until = timestamp + timedelta(minutes=15)
+        try:
+            db.commit()
+        except IntegrityError:
+            # Concurrent first wrong attempts may race on unique identity key.
+            db.rollback()
+        fail(401, "Email hoặc mật khẩu không chính xác")
     if is_user_blocked(db, u.id):
         fail(403, "Tài khoản đã bị tạm khóa")
+    if attempt:
+        db.delete(attempt)
     return issue_session(db, response, u)
 
 
@@ -323,13 +362,24 @@ def business_get(bid: str, user=Depends(current_user), db: Session = Depends(db_
 @app.get("/api/businesses/{bid}/overview")
 def overview(bid: str, user=Depends(current_user), db: Session = Depends(db_session)):
     b = tenant(bid, user, db); feature(b, "dashboard")
-    orders = db.scalars(select(SaleOrder).where(SaleOrder.business_id == bid)).all()
     tz = ZoneInfo("Asia/Ho_Chi_Minh")
-    today = datetime.now(tz).date()
-    paid = [o for o in orders if o.status == "paid"]
-    return {"order_count": len(orders), "open_count": len([o for o in orders if o.status == "open"]),
-            "paid_revenue_vnd": sum(o.total_vnd for o in paid),
-            "today_revenue_vnd": sum(o.total_vnd for o in paid if o.paid_at and (o.paid_at.replace(tzinfo=timezone.utc) if o.paid_at.tzinfo is None else o.paid_at).astimezone(tz).date() == today),
+    local_day = datetime.now(tz).date()
+    since = datetime.combine(local_day, time.min, tzinfo=tz).astimezone(timezone.utc)
+    until = datetime.combine(local_day + timedelta(days=1), time.min, tzinfo=tz).astimezone(timezone.utc)
+    # All aggregate computations stay in SQL: no materialization of order history.
+    count, opened, revenue, today_revenue = db.execute(select(
+        func.count(SaleOrder.id),
+        func.sum(case((SaleOrder.status == "open", 1), else_=0)),
+        func.coalesce(func.sum(case(
+            (SaleOrder.status == "paid", SaleOrder.total_vnd), else_=0)), 0),
+        func.coalesce(func.sum(case((
+            (SaleOrder.status == "paid") &
+            (SaleOrder.paid_at >= since) &
+            (SaleOrder.paid_at < until), SaleOrder.total_vnd
+        ), else_=0)), 0),
+    ).where(SaleOrder.business_id == bid)).one()
+    return {"order_count": int(count), "open_count": int(opened or 0),
+            "paid_revenue_vnd": int(revenue), "today_revenue_vnd": int(today_revenue),
             "product_count": db.scalar(select(func.count(Product.id)).where(Product.business_id == bid)) or 0,
             "low_stock": db.scalar(select(func.count(Product.id)).where(Product.business_id == bid,
                                               Product.track_stock.is_(True), Product.stock <= 5, Product.active.is_(True))) or 0,
@@ -454,9 +504,10 @@ def branch_for(db, bid, branch_id):
     return br
 
 
-def order_out(db, o):
-    items = db.scalars(select(SaleOrderItem).where(SaleOrderItem.order_id == o.id,
-                                                  SaleOrderItem.business_id == o.business_id)).all()
+def order_out(db, o, items=None):
+    if items is None:
+        items = db.scalars(select(SaleOrderItem).where(SaleOrderItem.order_id == o.id,
+                                                      SaleOrderItem.business_id == o.business_id)).all()
     return {"id": o.id, "branch_id": o.branch_id, "table_id": o.table_id,
             "customer_id": o.customer_id, "status": o.status, "total_vnd": o.total_vnd,
             "note": o.note, "created_at": o.created_at.isoformat(),
@@ -471,7 +522,16 @@ def orders(bid: str, user=Depends(current_user), db: Session = Depends(db_sessio
     b = tenant(bid, user, db); feature(b, "orders")
     rows = db.scalars(select(SaleOrder).where(SaleOrder.business_id == bid)
                       .order_by(SaleOrder.created_at.desc()).limit(100)).all()
-    return [order_out(db, o) for o in rows]
+    if not rows:
+        return []
+    # One bounded query for order lines instead of one SELECT per order.
+    items = db.scalars(select(SaleOrderItem).where(
+        SaleOrderItem.business_id == bid,
+        SaleOrderItem.order_id.in_([o.id for o in rows]))).all()
+    by_order = defaultdict(list)
+    for item in items:
+        by_order[item.order_id].append(item)
+    return [order_out(db, o, items=by_order[o.id]) for o in rows]
 
 
 @app.post("/api/businesses/{bid}/orders", status_code=201)
