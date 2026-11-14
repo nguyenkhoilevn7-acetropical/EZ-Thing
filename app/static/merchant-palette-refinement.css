@@ -1,0 +1,250 @@
+/* Shared merchant palette corrections.
+   This file is deliberately LAST after base, theme and responsive CSS.
+   Semantic status (paid/overdue/low stock) keeps green/amber/red. */
+:root[data-ez-merchant-theme="apple"]{
+  --merchant-accent:#0066cc;--merchant-accent-hover:#0055b3;
+  --merchant-accent-subtle:#eaf3ff;--merchant-accent-border:#bcdafa;
+  --merchant-panel:#fff;--merchant-panel-alt:#f5f5f7;
+  --merchant-page:#f5f5f7;--merchant-ink:#1d1d1f;
+  --merchant-muted:#61616a;--merchant-line:#e5e5e7;
+}
+:root[data-ez-merchant-theme="graphite"]{
+  color-scheme:dark;
+  --merchant-accent:#a8cfff;--merchant-accent-hover:#c4dfff;
+  --merchant-accent-subtle:#213653;--merchant-accent-border:#43638e;
+  --merchant-panel:#1d1f25;--merchant-panel-alt:#272a33;
+  --merchant-page:#111216;--merchant-ink:#f5f5f7;
+  --merchant-muted:#b7b9c3;--merchant-line:#3e424e;
+}
+:root:is([data-ez-merchant-theme="apple"],[data-ez-merchant-theme="graphite"]) body,
+:root:is([data-ez-merchant-theme="apple"],[data-ez-merchant-theme="graphite"]) .app,
+:root:is([data-ez-merchant-theme="apple"],[data-ez-merchant-theme="graphite"]) .main,
+:root:is([data-ez-merchant-theme="apple"],[data-ez-merchant-theme="graphite"]) .content{
+  background:var(--merchant-page);color:var(--merchant-ink);
+}
+:root:is([data-ez-merchant-theme="apple"],[data-ez-merchant-theme="graphite"]) .surface{
+  background:var(--merchant-panel);border-color:var(--merchant-line);color:var(--merchant-ink);
+}
+:root:is([data-ez-merchant-theme="apple"],[data-ez-merchant-theme="graphite"]) .btn.secondary{
+  background:var(--merchant-panel);border-color:var(--merchant-line);color:var(--merchant-ink);
+}
+:root:is([data-ez-merchant-theme="apple"],[data-ez-merchant-theme="graphite"]) .btn.secondary:hover:not(:disabled),
+:root:is([data-ez-merchant-theme="apple"],[data-ez-merchant-theme="graphite"]) .btn.ghost:hover:not(:disabled){
+  background:var(--merchant-accent-subtle);color:var(--merchant-accent);
+}
+:root:is([data-ez-merchant-theme="apple"],[data-ez-merchant-theme="graphite"]) .btn.ghost{
+  background:transparent;color:var(--merchant-accent);
+}
+:root[data-ez-merchant-theme="apple"] .btn:not(.secondary):not(.ghost):not(.danger):hover:not(:disabled){
+  background:var(--merchant-accent-hover);color:#fff;
+}
+:root[data-ez-merchant-theme="graphite"] .btn:not(.secondary):not(.ghost):not(.danger){
+  background:#91bfff;color:#111820;
+}
+:root[data-ez-merchant-theme="graphite"] .btn:not(.secondary):not(.ghost):not(.danger):hover:not(:disabled){
+  background:#c4dfff;color:#111820;
+}
+:root:is([data-ez-merchant-theme="apple"],[data-ez-merchant-theme="graphite"]) input:focus,
+:root:is([data-ez-merchant-theme="apple"],[data-ez-merchant-theme="graphite"]) select:focus,
+:root:is([data-ez-merchant-theme="apple"],[data-ez-merchant-theme="graphite"]) textarea:focus{
+  border-color:var(--merchant-accent);box-shadow:0 0 0 3px var(--merchant-accent-subtle);outline-color:var(--merchant-accent);
+}
+:root:is([data-ez-merchant-theme="apple"],[data-ez-merchant-theme="graphite"]) button:focus-visible,
+:root:is([data-ez-merchant-theme="apple"],[data-ez-merchant-theme="graphite"]) a:focus-visible{
+  outline:3px solid var(--merchant-accent);outline-offset:3px;
+}
+:root:is([data-ez-merchant-theme="apple"],[data-ez-merchant-theme="graphite"]) .kpi .kpi-icon:not(.orange):not(.red):not(.blue),
+:root:is([data-ez-merchant-theme="apple"],[data-ez-merchant-theme="graphite"]) .task-item .task-icon,
+:root:is([data-ez-merchant-theme="apple"],[data-ez-merchant-theme="graphite"]) .table-tile:not(.occupied) .table-symbol,
+:root:is([data-ez-merchant-theme="apple"],[data-ez-merchant-theme="graphite"]) .mini-avatar,
+:root:is([data-ez-merchant-theme="apple"],[data-ez-merchant-theme="graphite"]) .empty .empty-icon,
+:root:is([data-ez-merchant-theme="apple"],[data-ez-merchant-theme="graphite"]) .industry-choice .choice-icon{
+  color:var(--merchant-accent);background:var(--merchant-accent-subtle);
+}
+:root:is([data-ez-merchant-theme="apple"],[data-ez-merchant-theme="graphite"]) .b-avatar,
+:root:is([data-ez-merchant-theme="apple"],[data-ez-merchant-theme="graphite"]) .avatar{
+  background:var(--merchant-accent-subtle)!important;color:var(--merchant-accent);
+  border:1px solid var(--merchant-accent-border);
+}
+:root:is([data-ez-merchant-theme="apple"],[data-ez-merchant-theme="graphite"]) .filter-btn{
+  background:var(--merchant-panel);color:var(--merchant-muted);border-color:var(--merchant-line);
+}
+:root:is([data-ez-merchant-theme="apple"],[data-ez-merchant-theme="graphite"]) .filter-btn.active{
+  background:var(--merchant-accent-subtle)!important;color:var(--merchant-accent);
+  border-color:var(--merchant-accent-border);
+}
+:root:is([data-ez-merchant-theme="apple"],[data-ez-merchant-theme="graphite"]) .switch.on{
+  background:var(--merchant-accent);
+}
+:root:is([data-ez-merchant-theme="apple"],[data-ez-merchant-theme="graphite"]) .industry-choice:hover,
+:root:is([data-ez-merchant-theme="apple"],[data-ez-merchant-theme="graphite"]) .industry-choice.active,
+:root:is([data-ez-merchant-theme="apple"],[data-ez-merchant-theme="graphite"]) .plan-choice.selected{
+  background:var(--merchant-accent-subtle)!important;border-color:var(--merchant-accent);
+}
+:root:is([data-ez-merchant-theme="apple"],[data-ez-merchant-theme="graphite"]) .product-visual{
+  background:var(--merchant-accent-subtle);
+}
+:root:is([data-ez-merchant-theme="apple"],[data-ez-merchant-theme="graphite"]) .app-skeleton{
+  background:linear-gradient(90deg,var(--merchant-panel-alt) 20%,var(--merchant-panel) 50%,var(--merchant-panel-alt) 80%);
+  background-size:200% 100%;
+}
+:root[data-ez-merchant-theme="apple"] .merchant-customer-link{
+  background:var(--merchant-accent-subtle);color:var(--merchant-accent);
+}
+:root[data-ez-merchant-theme="apple"] .sidebar-bottom .help{
+  background:var(--merchant-panel-alt);
+}
+:root[data-ez-merchant-theme="apple"] .data-table tr:hover td{
+  background:var(--merchant-accent-subtle);
+}
+
+/* Dark mode: ALL neutral surfaces dark, including responsive table cards.
+   Explicitly reset hard-coded white in base and tablet styles. */
+:root[data-ez-merchant-theme="graphite"] .sidebar,
+:root[data-ez-merchant-theme="graphite"] .merchant-theme-menu,
+:root[data-ez-merchant-theme="graphite"] .merchant-theme-trigger,
+:root[data-ez-merchant-theme="graphite"] .surface,
+:root[data-ez-merchant-theme="graphite"] .pad,
+:root[data-ez-merchant-theme="graphite"] .kpi,
+:root[data-ez-merchant-theme="graphite"] .task-item,
+:root[data-ez-merchant-theme="graphite"] .product-card,
+:root[data-ez-merchant-theme="graphite"] .customer-card,
+:root[data-ez-merchant-theme="graphite"] .feature-row,
+:root[data-ez-merchant-theme="graphite"] .insight-item,
+:root[data-ez-merchant-theme="graphite"] .table-tile,
+:root[data-ez-merchant-theme="graphite"] .order-table-wrap,
+:root[data-ez-merchant-theme="graphite"] .orders-table tbody tr,
+:root[data-ez-merchant-theme="graphite"] .orders-table tbody tr:hover,
+:root[data-ez-merchant-theme="graphite"] .dialog,
+:root[data-ez-merchant-theme="graphite"] .setup-card,
+:root[data-ez-merchant-theme="graphite"] .plan-choice,
+:root[data-ez-merchant-theme="graphite"] .industry-choice,
+:root[data-ez-merchant-theme="graphite"] .visual-card,
+:root[data-ez-merchant-theme="graphite"] .visual-bar,
+:root[data-ez-merchant-theme="graphite"] .visual-float,
+:root[data-ez-merchant-theme="graphite"] .auth-card,
+:root[data-ez-merchant-theme="graphite"] .merchant-theme-choice{
+  background-color:var(--merchant-panel)!important;
+  color:var(--merchant-ink);border-color:var(--merchant-line);
+}
+:root[data-ez-merchant-theme="graphite"] .merchant-theme-choice[aria-pressed="true"]{
+  background:var(--merchant-accent-subtle)!important;
+  border-color:var(--merchant-accent-border);
+}
+:root[data-ez-merchant-theme="graphite"] .merchant-theme-choice:hover,
+:root[data-ez-merchant-theme="graphite"] .task-item:hover{
+  background:var(--merchant-panel-alt)!important;
+}
+:root[data-ez-merchant-theme="graphite"] .orders-table tbody td:nth-child(2),
+:root[data-ez-merchant-theme="graphite"] .summary-line,
+:root[data-ez-merchant-theme="graphite"] .fake-kpi,
+:root[data-ez-merchant-theme="graphite"] .fake-chart,
+:root[data-ez-merchant-theme="graphite"] .sidebar-bottom .help,
+:root[data-ez-merchant-theme="graphite"] .product-visual,
+:root[data-ez-merchant-theme="graphite"] .merchant-customer-link{
+  background:var(--merchant-panel-alt)!important;color:var(--merchant-ink);
+}
+:root[data-ez-merchant-theme="graphite"] .merchant-customer-link,
+:root[data-ez-merchant-theme="graphite"] .merchant-preview-link{color:var(--merchant-accent)}
+:root[data-ez-merchant-theme="graphite"] .data-table th,
+:root[data-ez-merchant-theme="graphite"] .data-table td,
+:root[data-ez-merchant-theme="graphite"] .product-footer,
+:root[data-ez-merchant-theme="graphite"] .divider,
+:root[data-ez-merchant-theme="graphite"] .task-item,
+:root[data-ez-merchant-theme="graphite"] .feature-row{border-color:var(--merchant-line)}
+:root[data-ez-merchant-theme="graphite"] .data-table tr:hover td{
+  background:var(--merchant-panel-alt)!important;
+}
+:root[data-ez-merchant-theme="graphite"] .data-table td,
+:root[data-ez-merchant-theme="graphite"] .table-name,
+:root[data-ez-merchant-theme="graphite"] .product-footer strong,
+:root[data-ez-merchant-theme="graphite"] .task-item strong,
+:root[data-ez-merchant-theme="graphite"] .panel-title h3,
+:root[data-ez-merchant-theme="graphite"] .section-header h2,
+:root[data-ez-merchant-theme="graphite"] .kpi h3,
+:root[data-ez-merchant-theme="graphite"] .dialog h2{
+  color:var(--merchant-ink);
+}
+:root[data-ez-merchant-theme="graphite"] .muted,
+:root[data-ez-merchant-theme="graphite"] .subtle,
+:root[data-ez-merchant-theme="graphite"] .kpi .kpi-top,
+:root[data-ez-merchant-theme="graphite"] .kpi p,
+:root[data-ez-merchant-theme="graphite"] .data-table th,
+:root[data-ez-merchant-theme="graphite"] .empty p,
+:root[data-ez-merchant-theme="graphite"] .task-item p,
+:root[data-ez-merchant-theme="graphite"] .customer-card p,
+:root[data-ez-merchant-theme="graphite"] .product-main p,
+:root[data-ez-merchant-theme="graphite"] .table-tile small,
+:root[data-ez-merchant-theme="graphite"] .merchant-theme-choice small,
+:root[data-ez-merchant-theme="graphite"] .orders-table tbody td::before,
+:root[data-ez-merchant-theme="graphite"] .side-caption,
+:root[data-ez-merchant-theme="graphite"] .b-meta span,
+:root[data-ez-merchant-theme="graphite"] .merchant-theme-heading{
+  color:var(--merchant-muted);
+}
+:root[data-ez-merchant-theme="graphite"] label,
+:root[data-ez-merchant-theme="graphite"] .setup-card .intro,
+:root[data-ez-merchant-theme="graphite"] .plan-choice .plan-feature{
+  color:#d0d2db;
+}
+:root[data-ez-merchant-theme="graphite"] .search input,
+:root[data-ez-merchant-theme="graphite"] .order-line input,
+:root[data-ez-merchant-theme="graphite"] input,
+:root[data-ez-merchant-theme="graphite"] select,
+:root[data-ez-merchant-theme="graphite"] textarea{
+  background-color:#282b34!important;color:#f5f5f7!important;
+  border-color:#505461;
+}
+:root[data-ez-merchant-theme="graphite"] input::placeholder,
+:root[data-ez-merchant-theme="graphite"] textarea::placeholder{
+  color:#b2b5c1;opacity:1;
+}
+:root[data-ez-merchant-theme="graphite"] .table-tile.occupied{
+  background:#31291e!important;border-color:#695330;color:#f8ebd2;
+}
+:root[data-ez-merchant-theme="graphite"] .table-tile.occupied .table-symbol{
+  background:#49371d;color:#ffda96;
+}
+:root[data-ez-merchant-theme="graphite"] .table-tile.occupied small{color:#f0d6ad}
+:root[data-ez-merchant-theme="graphite"] .merchant-theme-trigger:hover,
+:root[data-ez-merchant-theme="graphite"] .iconbtn:hover{
+  background:var(--merchant-accent-subtle)!important;
+}
+:root[data-ez-merchant-theme="graphite"] .mobile-nav{
+  background:#1d1f25f2;border-color:var(--merchant-line);
+}
+:root[data-ez-merchant-theme="graphite"] .mobile-nav button.active{color:var(--merchant-accent)}
+:root[data-ez-merchant-theme="graphite"] .visual-card,
+:root[data-ez-merchant-theme="graphite"] .visual-bar{border-color:var(--merchant-line)}
+:root[data-ez-merchant-theme="graphite"] .fake-chart span{background:linear-gradient(#91bfff,#3b638f)}
+:root[data-ez-merchant-theme="graphite"] .visual-float small,
+:root[data-ez-merchant-theme="graphite"] .visual-copy p{color:#bfc7d5}
+:root[data-ez-merchant-theme="graphite"] .auth-visual{
+  background:linear-gradient(135deg,#192537,#101216);
+}
+:root[data-ez-merchant-theme="graphite"] .dialog .close-btn{
+  color:#d8dbe3;background:#333743!important;
+}
+:root[data-ez-merchant-theme="graphite"] .dialog .close-btn:hover{background:#3b4353!important}
+
+/* Keep semantic outcome colors legible across dark, rather than turning paid status blue. */
+:root[data-ez-merchant-theme="graphite"] .pill.green{
+  color:#99efbc;background:#1c382d;border-color:#3c674f;
+}
+:root[data-ez-merchant-theme="graphite"] .pill.yellow{
+  color:#ffe1a8;background:#40321b;border-color:#69512b;
+}
+:root[data-ez-merchant-theme="graphite"] .pill.red{
+  color:#ffb8b2;background:#422529;border-color:#744247;
+}
+:root[data-ez-merchant-theme="graphite"] .pill.blue{
+  color:#c6d7ff;background:#233453;border-color:#3e587e;
+}
+/* Mobile/tablet split tables inherit dark background AFTER merchant-responsive.css. */
+@media(max-width:1250px){
+  :root[data-ez-merchant-theme="graphite"] .orders-table tbody tr,
+  :root[data-ez-merchant-theme="graphite"] .orders-table tbody tr:hover{
+    background:var(--merchant-panel)!important;
+    border:1px solid var(--merchant-line);
+  }
+}
