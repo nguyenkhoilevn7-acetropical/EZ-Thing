@@ -65,6 +65,19 @@ SEEDS = (
 )
 
 
+# Varied, user-facing sample categories. These are created only in disposable
+# demo tenants; existing real merchant products and their categories stay intact.
+DEMO_PRODUCT_CATEGORIES = {
+    'MATCHA': 'Matcha & Latte', 'CAFE-SUA': 'Cà phê', 'TRA-DAO': 'Trà trái cây',
+    'COLD-BREW': 'Cà phê', 'CAM-EP': 'Nước ép', 'TRA-VAI': 'Trà trái cây',
+    'BT-100': 'Đồ dùng cá nhân', 'TT-201': 'Túi & phụ kiện',
+    'ST-003': 'Văn phòng phẩm', 'AT-001': 'Thời trang',
+    'NON-001': 'Phụ kiện', 'TUI-001': 'Túi & phụ kiện',
+    'XH-001': 'Xông hơi', 'MS-001': 'Trị liệu thư giãn',
+    'DA-001': 'Chăm sóc da',
+}
+
+
 def seed_demo(db) -> User:
     """Create one standalone user + 4 tenants and example data in one DB transaction.
 
@@ -100,7 +113,7 @@ def seed_demo(db) -> User:
         for name, sku, price, cost, stock in spec["products"]:
             track = spec["industry"] != "services"
             product = Product(id=id_(), business_id=biz_id, name=name, sku=sku,
-                              category=spec["category"], price_vnd=price,
+                              category=DEMO_PRODUCT_CATEGORIES.get(sku, spec["category"]), price_vnd=price,
                               cost_vnd=cost, stock=stock, track_stock=track)
             db.add(product)
             sample_products.append(product)
