@@ -31,7 +31,7 @@ from .schemas import (BranchCreate, ConfirmPayment, CreateBusiness, CreateOrder,
 from .security import check_password, digest_password, session_pair, token_hash
 
 Base.metadata.create_all(bind=engine)  # Pilot only; production must use versioned migrations.
-app = FastAPI(title="EZ Thing Business MVP", version="0.1.0", docs_url="/api/docs")
+app = FastAPI(title="EZ Thing Business MVP", version="0.3.0", docs_url="/api/docs")
 ASSETS = Path(__file__).parent / "static"
 app.mount("/assets", StaticFiles(directory=ASSETS), name="assets")
 
@@ -114,7 +114,7 @@ def issue_session(db: Session, response: Response, user: User):
 
 @app.get("/api/health")
 def health():
-    return {"ok": True, "version": "0.1.0"}
+    return {"ok": True, "version": "0.3.0"}
 
 
 @app.get("/api/catalog")
@@ -533,9 +533,45 @@ def sw():
 
 @app.get("/")
 def index():
-    return FileResponse(ASSETS / "index.html")
+    return FileResponse(ASSETS / "public.html")
+
+
+@app.get("/app")
+@app.get("/app/{path:path}")
+def merchant_app(path: str = ""):
+    return FileResponse(ASSETS / "index.html", headers={"Cache-Control": "no-store"})
+
+
+@app.get("/menu/cafe")
+@app.get("/store/mart")
+@app.get("/store/online")
+@app.get("/booking/wellness")
+def customer_frontend():
+    return FileResponse(ASSETS / "customer.html", headers={"Cache-Control": "no-store"})
+
+
+@app.get("/admin")
+def super_admin_frontend():
+    return FileResponse(ASSETS / "admin.html", headers={"Cache-Control": "no-store"})
+
+
+@app.get("/api/admin/summary")
+def super_admin_summary(user=Depends(current_user), db: Session = Depends(db_session)):
+    # Explicit server-side allowlist. A DEMO user can never become the platform admin.
+    from .demo import is_demo_user
+    allow = {x.strip().lower() for x in os.getenv("EZ_THING_SUPERADMIN_EMAILS", "").split(",") if x.strip()}
+    if is_demo_user(user[0]) or user[0].email.lower() not in allow:
+        fail(403, "Khu vực quản trị nền tảng bị giới hạn")
+    return {"businesses": db.scalar(select(func.count(Business.id))) or 0,
+            "users": db.scalar(select(func.count(User.id))) or 0,
+            "orders": db.scalar(select(func.count(SaleOrder.id))) or 0,
+            "mode": "read_only_pilot"}
 
 # Register industry workflows only after core auth/tenant dependencies are defined.
 from .workflows import IndustryWorkItem, router as industry_router  # noqa: E402
 Base.metadata.create_all(bind=engine)  # Pilot additive table; use Alembic before production.
 app.include_router(industry_router)
+
+# Public customer preview is scoped to staging-only guest tenants.
+from .public import router as preview_router  # noqa: E402
+app.include_router(preview_router)
