@@ -23,6 +23,7 @@ from .models import (AuditEvent, Branch, Business, Customer, DiningTable, Member
                      Product, SaleOrder, SaleOrderItem, StockMovement, now)
 from .workflows import IndustryWorkItem
 from .main import current_user, new_id, order_out, fail
+from .storefront_brand import effective_brand  # Customer-facing demo appearance only
 
 router = APIRouter(prefix='/api/preview', tags=['Demo customer storefront'])
 CHANNELS = {'cafe':'fnb','mart':'retail','online':'online','wellness':'services'}
@@ -89,7 +90,8 @@ def storefront(channel: str, user=Depends(current_user), db: Session=Depends(db_
     b=preview_scope(db,user,channel)
     rows=db.scalars(select(Product).where(Product.business_id==b.id,Product.active.is_(True))
                     .order_by(Product.name)).all()
-    result={'business':{'name':b.name.replace(' • DEMO',''),'industry':b.industry},
+    result={'business':{'name':b.name.replace(' • DEMO',''),'industry':b.industry,
+                         'branding':effective_brand(b) if (b.setup or {}).get('storefront') else None},
             'channel':channel,'demo':True,'products':[p_output(p) for p in rows],
             'staff':list(SPECIALISTS) if channel=='wellness' else [],'tables':[]}
     if channel=='cafe':

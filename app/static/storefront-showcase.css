@@ -229,6 +229,11 @@ body:has(#customer-root) .kind-online .merchant-copy h1{font-size:clamp(50px,5vw
  body:has(#customer-root) *{animation-duration:.01ms!important;transition-duration:.01ms!important;scroll-behavior:auto!important}
 }
 
+/* Tenant-specific brand — applied only when a DEMO tenant has saved its own settings. */
+body:has(#customer-root) .merchant-hero.custom-branded::before{background-image:var(--customer-banner)!important}
+body:has(#customer-root) .merchant-hero.custom-branded .hero-cta:not(.secondary){background:var(--customer-accent,#147D64);border-color:var(--customer-accent,#147D64)}
+body:has(#customer-root) .merchant-hero.custom-branded .hero-cta:not(.secondary):hover{filter:brightness(.91)}
+
 /* Responsive storefront navigation and readable hero (tablet/desktop).
    Avoid flex overflow: the full nav must collapse before labels collide. */
 body:has(#customer-root) .customer-primary-nav a[href="/reserve/cafe"]{display:none}
