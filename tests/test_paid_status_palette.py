@@ -26,6 +26,5 @@ def test_cache_bust_for_paid_status_assets():
     assert '/assets/merchant-palette-refinement.css?v=20261114-ui-23' in html
     # Approved logo/branding revisions may change cache-bust format, but the
     # merchant entrypoint must remain versioned and load after palette CSS.
-    import re
-    assert re.search(r'/assets/app\\.js\\?v=[A-Za-z0-9_.-]+', html)
+    assert '<script src="/assets/app.js?v=' in html
     assert html.index("merchant-palette-refinement.css") < html.index("/assets/app.js")
