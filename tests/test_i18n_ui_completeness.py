@@ -121,7 +121,7 @@ const tests = [
   ['✓ Banner và logo bằng link ảnh hợp lệ', '✓ Banner and logo via approved image URLs'],
   ['✓ 3 kiểu bố cục trang khách', '✓ Three storefront layouts'],
   ['✓ Thông điệp chân trang, tối đa 10 chi nhánh', '✓ Custom footer and up to 10 branches'],
-  ['Khu quản lý ↗', 'Merchant workspace ↗'],
+  ['Khu quản lý ↗', 'Management ↗'],
   ['Khám phá thực đơn →', 'Explore menu →'],
   ['◷ Đặt trước 30 phút', '◷ Book at least 30 minutes ahead'],
   ['↻ Cập nhật', '↻ Refresh'],
