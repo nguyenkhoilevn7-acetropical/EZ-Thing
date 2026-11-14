@@ -987,7 +987,7 @@ function apply(){
 }
 function schedule(){
   if(scheduled)return;scheduled=true;
-  queueMicrotask(()=>{scheduled=false;apply();});
+  window.setTimeout(()=>{scheduled=false;apply();}, 32);
 }
 function setLanguage(lang){
   if(lang!=='vi'&&lang!=='en')return;
