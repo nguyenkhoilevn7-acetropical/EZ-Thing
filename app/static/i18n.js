@@ -602,6 +602,7 @@ const patterns=[
 let current='vi';
 try{const stored=localStorage.getItem('ezthing_language');const cookie=(document.cookie.match(/(?:^|;\s*)ez_lang=(en|vi)/)||[])[1];const browser=(navigator.language||'vi').toLowerCase();current=stored==='en'||stored==='vi'?stored:cookie|| (browser.startsWith('vi')?'vi':'en');}catch{current=(navigator.language||'vi').toLowerCase().startsWith('vi')?'vi':'en';}
 const documentTitleOriginal = document.title;
+let lastLocalizedTitle = documentTitleOriginal;
 const sourceNodes=new WeakMap();
 const sourceAttrs=new WeakMap();
 const ignore='script,style,code,pre,textarea,[contenteditable="true"],[data-ez-lang-ignore]';
@@ -695,8 +696,12 @@ function apply(){
     document.documentElement.lang=current;
     document.documentElement.dataset.ezLanguage=current;
     if(document.body)translateTree(document.body);
-    // Also localize browser/tab titles; the body tree walker excludes <head>.
-    document.title=translate(documentTitleOriginal);
+    // Translate page titles only while owned by the static page; dynamic
+    // merchant/tenant titles must never be overwritten by the language observer.
+    if(document.title===documentTitleOriginal || document.title===lastLocalizedTitle){
+      lastLocalizedTitle=translate(documentTitleOriginal);
+      document.title=lastLocalizedTitle;
+    }
     refreshSwitcher();
   }finally{running=false;}
 }
