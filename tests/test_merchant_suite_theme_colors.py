@@ -12,6 +12,8 @@ def test_merchant_suite_inherits_theme_tokens():
     scoped = css.split("Shared theme contract for the Restaurant Host Desk", 1)[1]
     assert "--suite-accent:var(--merchant-accent,var(--green))" in scoped
     assert "--suite-accent-hover:var(--merchant-accent-hover,var(--green2))" in scoped
+    assert ':root[data-ez-merchant-theme="tropical"] .suite-container' in scoped
+    assert "--suite-accent:#0d936b" in scoped
     assert "--suite-panel:var(--merchant-panel,var(--paper))" in scoped
     assert "--suite-action-ink:#111820" in scoped
     assert ".suite-container .suite-primary" in scoped
