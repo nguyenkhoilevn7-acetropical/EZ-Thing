@@ -5,6 +5,10 @@
 (() => {
 'use strict';
 const entries = [
+["Bắt đầu dùng thử 7 ngày miễn phí, không cần thẻ. Sau đó quyết định chọn gói. Giá hiện tại vẫn là","Start your free 7-day trial with no card required. Choose a plan later. Current prices are still"],
+["giá nghiên cứu","research estimates"],
+["; thanh toán thử nghiệm chỉ hoạt động khi cổng VNPAY được cấu hình.","; sandbox payments are available only after VNPAY is configured."],
+["* Giá nghiên cứu, không phải giá bán chính thức. Trial không tự gia hạn và không tự trừ tiền. Thanh toán hiện ở chế độ VNPAY Sandbox khi được cấu hình.","* Research prices, not official selling prices. The trial does not renew or charge automatically. Only VNPAY Sandbox test payments are available after configuration."],
 /* New trial and subscription copy, before legacy translation entries. */
 ["Dùng thử 7 ngày", "Start 7-day trial"],
 ["Dùng thử miễn phí 7 ngày", "Start a free 7-day trial"],
