@@ -773,3 +773,8 @@ from .team import router as team_router  # noqa: E402
 Base.metadata.create_all(bind=engine)
 app.include_router(team_router)
 
+
+# Published real-tenant catalog is opt-in and always excludes DEMO tenants.
+from .published_storefront import router as published_storefront_router  # noqa: E402
+Base.metadata.create_all(bind=engine)
+app.include_router(published_storefront_router)
