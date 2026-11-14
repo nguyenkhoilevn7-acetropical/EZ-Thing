@@ -130,3 +130,15 @@ class Customer(Base):
     phone: Mapped[str] = mapped_column(String(30), default="")
     address: Mapped[str] = mapped_column(String(300), default="")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+
+
+class LoginFailure(Base):
+    """Persistent per-identity login throttling, shared across app instances.
+
+    The key is SHA-256 of the normalized email; no plaintext PII is stored.
+    """
+    __tablename__ = "auth_login_failures"
+    identity_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
+    failures: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    window_started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now, nullable=False)
+    locked_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
