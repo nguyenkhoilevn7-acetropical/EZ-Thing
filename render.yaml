@@ -1,0 +1,23 @@
+# EZ Thing pilot staging only. No production auto-deploy.
+# Render Free Postgres expires after 30 days: do not store business-critical data.
+services:
+  - type: web
+    name: ez-thing-staging
+    runtime: docker
+    plan: free
+    healthCheckPath: /api/health
+    autoDeployTrigger: 'off'
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: ez-thing-staging-db
+          property: connectionString
+      - key: COOKIE_SECURE
+        value: '1'
+
+databases:
+  - name: ez-thing-staging-db
+    databaseName: ezthing_staging
+    user: ezthing_staging_app
+    plan: free
+    ipAllowList: []

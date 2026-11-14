@@ -1,0 +1,16 @@
+[
+  "tests/test_api.py::test_auth_requires_csrf_and_strong_password",
+  "tests/test_api.py::test_billing_is_manual_and_audited",
+  "tests/test_api.py::test_branch_table_and_customer_scope",
+  "tests/test_api.py::test_cross_tenant_user_cannot_read_or_write",
+  "tests/test_api.py::test_insights_only_paid_sales",
+  "tests/test_api.py::test_onboarding_deterministic_and_no_arbitrary_code",
+  "tests/test_api.py::test_order_idempotency_totals_and_stock",
+  "tests/test_api.py::test_order_low_stock_no_mutation",
+  "tests/test_api.py::test_pilot_security_headers",
+  "tests/test_api.py::test_plan_gates_and_fnb_only_tables",
+  "tests/test_api.py::test_receivables_by_exact_customer_id",
+  "tests/test_api.py::test_same_sku_separate_tenants",
+  "tests/test_api.py::test_static_shell_served",
+  "tests/test_api.py::test_stock_adjust_no_negative_inventory"
+]
