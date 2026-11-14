@@ -113,7 +113,10 @@ def effective(business: Business, branch: Branch, db: Session):
 def get_floorplan(bid: str, branch_id: str | None = Query(default=None),
                   user=Depends(current_user), db: Session = Depends(db_session)):
     business, branch, branches = scope(bid, branch_id, user, db)
-    return {**effective(business, branch, db),
+    member = db.scalar(select(Membership).where(
+        Membership.business_id == bid, Membership.user_id == user[0].id
+    ))
+    return {**effective(business, branch, db), "editable": bool(member and member.role == "owner"),
             "branches": [{"id": b.id, "name": b.name} for b in branches]}
 
 
@@ -126,6 +129,9 @@ def save_floorplan(bid: str, body: FloorplanWrite,
     ))
     if member is None or member.role != "owner":
         raise HTTPException(403, "Chỉ chủ doanh nghiệp có quyền thay đổi sơ đồ bàn")
+    # Serialize concurrent edits for PostgreSQL; optimistic revision protects stale tabs.
+    business = db.scalar(select(Business).where(Business.id == bid).with_for_update())
+    db.refresh(business)
     table_ids = set(db.scalars(select(DiningTable.id).where(
         DiningTable.business_id == bid, DiningTable.branch_id == branch.id
     )).all())
