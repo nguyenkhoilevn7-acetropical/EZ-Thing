@@ -28,7 +28,7 @@ def test_storefront_does_not_swap_out_server_authoritative_demo_flow():
     js = (STATIC / "customer.js").read_text(encoding="utf-8")
     assert "'/preview/'+channel+'/checkout'" in js
     assert "'/preview/wellness/appointments'" in js
-    assert "const res=await api('/preview/'+channel)" in js
+    assert "const data=await api('/preview/'+channel)" in js
     assert "st.csrf=me.csrf_token" in js
     assert "st.pendingId" in js
     assert "price_vnd" in js
