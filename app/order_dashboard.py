@@ -6,6 +6,7 @@ The selected date range is interpreted in Asia/Ho_Chi_Minh local time.
 from __future__ import annotations
 
 from datetime import date, datetime, time, timedelta, timezone
+from collections import defaultdict
 from typing import Literal
 from zoneinfo import ZoneInfo
 
@@ -14,7 +15,7 @@ from sqlalchemy import case, func, select
 from sqlalchemy.orm import Session
 
 from .database import db_session
-from .models import Branch, DiningTable, SaleOrder
+from .models import Branch, DiningTable, SaleOrder, SaleOrderItem
 from .main import current_user, feature, order_out, tenant
 
 router = APIRouter(tags=["Orders dashboard"])
@@ -65,11 +66,19 @@ def order_dashboard(
     ).where(*clauses)).one()
     rows = db.scalars(select(SaleOrder).where(*clauses).order_by(
         SaleOrder.created_at.desc(), SaleOrder.id.desc()).limit(limit)).all()
+    by_order = defaultdict(list)
+    if rows:
+        for item in db.scalars(select(SaleOrderItem).where(
+                SaleOrderItem.business_id == bid,
+                SaleOrderItem.order_id.in_([o.id for o in rows]))):
+            by_order[item.order_id].append(item)
+    from .team import role_for
+    finance = role_for(db, bid, user[0].id) in ("owner", "manager")
     return {
         "scope": "created_at", "timezone": "Asia/Ho_Chi_Minh",
         "limit": limit, "truncated": int(count or 0) > len(rows),
         "total_count": int(count or 0), "open_count": int(opened or 0),
         "paid_count": int(paid or 0), "cancelled_count": int(cancelled or 0),
-        "paid_vnd": int(paid_vnd or 0),
-        "orders": [order_out(db, o) for o in rows],
+        "paid_vnd": int(paid_vnd or 0) if finance else None,
+        "orders": [order_out(db, o, items=by_order[o.id]) for o in rows],
     }
