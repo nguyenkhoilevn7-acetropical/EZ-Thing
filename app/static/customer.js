@@ -57,13 +57,22 @@ const V=n=>new Intl.NumberFormat(window.EZI18N?.locale()||'vi-VN').format(Number
 const icon=p=>{const s=(p.sku+' '+p.name).toLowerCase(); if(/matcha/.test(s))return '🍵';if(/cafe|cà phê|brew/.test(s))return '☕';if(/trà đào|đào/.test(s))return '🍑';if(/cam|nước ép/.test(s))return '🍊';if(/trà vải/.test(s))return '🍹';if(/bình giữ/.test(s))return '🥤';if(/tote|túi/.test(s))return '👜';if(/sổ/.test(s))return '📓';if(/áo/.test(s))return '👕';if(/nón/.test(s))return '🧢';if(/xông/.test(s))return '♨️';if(/massage/.test(s))return '💆';if(/da/.test(s))return '🌸';return info.emoji};
 const id=()=>('d'+(globalThis.crypto?.randomUUID?.()||Math.random().toString(36).slice(2)+Date.now()).replace(/[^\w-]/g,''));
 async function api(path,options={}){
- const r=await fetch('/api'+path,{credentials:'same-origin',cache:'no-store',...options,
-  headers:{'Content-Type':'application/json','Accept-Language':window.EZI18N?.language()||'vi',...(st.csrf&&options.method&&options.method!=='GET'?{'x-csrf-token':st.csrf}:{}),...(options.headers||{})}});
- let body;try{body=await r.json()}catch{body={detail:'Không nhận được phản hồi từ máy chủ'}};
- if(!r.ok){const e=new Error(typeof body.detail==='string'?body.detail:'Yêu cầu thất bại');e.status=r.status;throw e;}return body;
+ const controller=new AbortController();
+ const timeoutMs=path==='/auth/demo'?45000:20000;
+ const timer=setTimeout(()=>controller.abort(),timeoutMs);
+ try{
+  const r=await fetch('/api'+path,{credentials:'same-origin',cache:'no-store',...options,signal:controller.signal,
+   headers:{'Content-Type':'application/json','Accept-Language':window.EZI18N?.language()||'vi',...(st.csrf&&options.method&&options.method!=='GET'?{'x-csrf-token':st.csrf}:{}),...(options.headers||{})}});
+  let body;try{body=await r.json()}catch{body={detail:'Không nhận được phản hồi từ máy chủ'}};
+  if(!r.ok){const e=new Error(typeof body.detail==='string'?body.detail:'Yêu cầu thất bại');e.status=r.status;throw e;}
+  return body;
+ }catch(e){
+  if(controller.signal.aborted)throw new Error('Kết nối DEMO quá thời gian cho phép. Hãy thử tải lại trang.');
+  throw e;
+ }finally{clearTimeout(timer);}
 }
 function toast(message,bad=false){toastRoot.textContent=message;toastRoot.className='customer-toast'+(bad?' bad':'');setTimeout(()=>{toastRoot.textContent='';toastRoot.className='';},3500)}
-function blocked(message){root.innerHTML=`<header class="customer-header"><a class="customer-brand" href="/"><span class="mark">e.</span> EZ <strong>Thing</strong></a><a class="info-link" href="/app">Quản lý ↗</a></header><main class="closed-message"><span style="font-size:52px">🌿</span><h2>Trải nghiệm hiện chưa mở</h2><p>${E(message)}</p><a class="info-link" href="/">← Về trang chủ</a></main>`}
+function blocked(message){root.innerHTML=`<header class="customer-header"><a class="customer-brand" href="/"><span class="mark">e.</span> EZ <strong>Thing</strong></a><a class="info-link" href="/app">Quản lý ↗</a></header><main class="closed-message"><span style="font-size:52px">🌿</span><h2>Trải nghiệm hiện chưa mở</h2><p>${E(message)}</p><button type="button" class="info-link" data-action="retry-demo">Thử lại ↻</button><a class="info-link" href="/">← Về trang chủ</a></main>`}
 
 function header(){
  const brand=channel==='cafe'?'Cafe':channel==='mart'?'Mart':channel==='online'?'Online Shop':'';
@@ -208,7 +217,7 @@ async function start(){try{const config=await api('/config');if(!config.demo_ena
 root.addEventListener('input',e=>{if(e.target.id==='customer-search'){st.search=e.target.value;const caret=e.target.selectionStart;refreshCatalog();const el=document.getElementById('customer-search');el?.focus();el?.setSelectionRange(caret,caret)}});
 root.addEventListener('change',e=>{if(e.target.id==='book-date'){st.date=e.target.value;st.pendingId=null;slots()}if(e.target.id==='book-staff'){st.assignee=e.target.value;st.pendingId=null;slots()}});
 document.addEventListener('click',e=>{const el=e.target.closest('[data-action]');if(!el){if(e.target.matches('[data-overlay]'))close();return}e.preventDefault();const {action,value}=el.dataset;
- if(action==='close'){close();return}if(action==='toggle-menu'){const h=document.querySelector('.customer-header');setMobileMenuOpen(!h?.classList.contains('mobile-open'));return}if(action==='search'){document.getElementById('section-main')?.scrollIntoView({behavior:'smooth'});document.getElementById('customer-search')?.focus({preventScroll:true});return}if(action==='shop-scroll'){document.getElementById('section-main')?.scrollIntoView({behavior:'smooth'});return}if(action==='book-scroll'){document.getElementById('booking-right')?.scrollIntoView({behavior:'smooth'});return}
+ if(action==='retry-demo'){location.reload();return}if(action==='close'){close();return}if(action==='toggle-menu'){const h=document.querySelector('.customer-header');setMobileMenuOpen(!h?.classList.contains('mobile-open'));return}if(action==='search'){document.getElementById('section-main')?.scrollIntoView({behavior:'smooth'});document.getElementById('customer-search')?.focus({preventScroll:true});return}if(action==='shop-scroll'){document.getElementById('section-main')?.scrollIntoView({behavior:'smooth'});return}if(action==='book-scroll'){document.getElementById('booking-right')?.scrollIntoView({behavior:'smooth'});return}
  if(action==='category'){st.filter=value;refreshCatalog();return}if(action==='add'||action==='increase'){if(!st.products.some(x=>x.id===value&&x.available))return;st.cart[value]=Math.min(10,(st.cart[value]||0)+1);st.pendingId=null;refreshCatalog();if(action==='increase')openCart();else toast('Đã thêm vào giỏ hàng');return}
  if(action==='decrease'){if(st.cart[value]){st.cart[value]--;if(!st.cart[value])delete st.cart[value];st.pendingId=null;refreshCatalog();if(cartQty())openCart();else close()}return}
  if(action==='open-cart'){openCart();return}if(action==='service'){st.service=value;st.pendingId=null;slots();return}if(action==='slot'){st.slot=value;const y=window.scrollY;layout();window.scrollTo(0,y);return}if(action==='open-booking'){bookingForm();return}
