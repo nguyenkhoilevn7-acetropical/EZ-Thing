@@ -224,6 +224,14 @@ def enter_demo(request: Request, response: Response, db: Session = Depends(db_se
 @app.post("/api/auth/signup", status_code=201)
 def signup(body: SignUp, response: Response, request: Request, db: Session = Depends(db_session)):
     from .signup_security import signup_limit
+    from .email_verification import (
+        verification_required, mail_config, pending_for_signup, send_verification,
+    )
+    # If verification is required, missing SMTP credentials must fail BEFORE
+    # creating an account that could never receive its activation link.
+    requires_verification = verification_required()
+    if requires_verification:
+        mail_config()
     email = str(body.email).strip().lower()
     signup_limit(db, request, email)
     if db.scalar(select(User).where(User.email == email)):
@@ -235,6 +243,11 @@ def signup(body: SignUp, response: Response, request: Request, db: Session = Dep
     except IntegrityError:
         db.rollback()
         fail(409, "Email đã được sử dụng")
+    if requires_verification:
+        token = pending_for_signup(db, u)
+        db.commit()
+        send_verification(u, token)
+        return {"verification_required": True, "message": "Kiểm tra email để kích hoạt tài khoản"}
     return issue_session(db, response, u)
 
 
@@ -271,6 +284,9 @@ def login(body: Login, response: Response, db: Session = Depends(db_session)):
         fail(401, "Email hoặc mật khẩu không chính xác")
     if is_user_blocked(db, u.id):
         fail(403, "Tài khoản đã bị tạm khóa")
+    from .email_verification import verified
+    if not verified(db, u):
+        fail(403, "EMAIL_VERIFICATION_REQUIRED: Vui lòng xác minh email trước khi đăng nhập")
     if attempt:
         db.delete(attempt)
     return issue_session(db, response, u)
@@ -778,3 +794,14 @@ app.include_router(team_router)
 from .published_storefront import router as published_storefront_router  # noqa: E402
 Base.metadata.create_all(bind=engine)
 app.include_router(published_storefront_router)
+
+# Opt-in verified signup: registration stays legacy-compatible until SMTP
+# and EZ_THING_REQUIRE_VERIFIED_EMAIL=1 are explicitly configured.
+from .email_verification import router as email_verification_router  # noqa: E402
+Base.metadata.create_all(bind=engine)
+app.include_router(email_verification_router)
+
+# Guest carts are requests until reviewed by owner/manager. No guest payments.
+from .public_order_requests import router as public_order_requests_router  # noqa: E402
+Base.metadata.create_all(bind=engine)
+app.include_router(public_order_requests_router)

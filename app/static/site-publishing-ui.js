@@ -2,7 +2,7 @@
 (() => {
 "use strict";
 window.EZPublishingUI = {
- render(site,leads,E,owner){
+ render(site,leads,E,owner,orders=[]){
    const en=window.EZI18N?.language()==='en';
    const t=(vi,english)=>en?english:vi;
    const status=site?.published?t('Đang công khai','Published'):t('Chưa xuất bản','Not published');
@@ -27,6 +27,28 @@ window.EZPublishingUI = {
        'No online payments or automatic charges. Only explicitly published storefronts can be accessed by visitors.')}</p>
      </form>`:`<p class="muted">${t('Chủ doanh nghiệp quản lý việc xuất bản website.',
                          'Only the owner can publish or unpublish this website.')}</p>`}
+   </section>
+   <section class="surface pad ez-public-leads">
+     <div class="panel-title"><div><h3>🛒 ${t('Yêu cầu đặt hàng','Customer order requests')}</h3>
+       <p class="subtle">${t('Đơn chỉ trừ kho sau khi quản lý duyệt. Không có thanh toán tự động.',
+         'Inventory moves only on merchant approval. No automatic payment.')}</p>
+     </div><span class="pill">${(orders||[]).filter(x=>x.status==='pending').length} ${t('đang chờ','pending')}</span></div>
+     <div class="ez-lead-list">${(orders||[]).map(o=>`<article class="ez-lead-item">
+       <div>
+         <strong>#${E(String(o.id||'').slice(0,8).toUpperCase())} · ${E(o.customer_name)}</strong>
+         <span>${E(o.phone)} · ${E(new Date(o.created_at).toLocaleString(en?'en-US':'vi-VN'))}</span>
+         <p>${(o.items||[]).map(i=>E(i.name)+' × '+Number(i.quantity)).join(' · ')}</p>
+         <p>${E(o.address||'')} ${E(o.note||'')}</p>
+         <strong>${new Intl.NumberFormat(en?'en-US':'vi-VN').format(Number(o.total_vnd)||0)}đ</strong>
+       </div>
+       <div class="ez-lead-actions"><span class="pill">${E(o.status)}</span>
+       ${o.status==='pending'?`<button type="button" class="btn sm" data-action="public-order-review"
+          data-value="${E(o.id)}|accept">${t('Duyệt đơn','Approve')}</button>
+         <button type="button" class="btn sm secondary" data-action="public-order-review"
+          data-value="${E(o.id)}|reject">${t('Từ chối','Reject')}</button>`:
+        o.sale_order_id?`<small class="subtle">#${E(o.sale_order_id.slice(0,8))}</small>`:''}
+       </div>
+     </article>`).join('')||`<p class="muted">${t('Chưa có yêu cầu đặt hàng.','No order requests yet.')}</p>`}</div>
    </section>
    <section class="surface pad ez-public-leads">
     <div class="panel-title"><h3>💬 ${t('Yêu cầu từ website','Website enquiries')}</h3>

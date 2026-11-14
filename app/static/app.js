@@ -77,6 +77,8 @@ function auth(){root.innerHTML=`<div class="auth-layout"><section class="auth-ma
  <div class="formfield"><label>Mật khẩu</label><input type="password" name="password" minlength="${s.authMode==='signup'?10:1}" placeholder="${s.authMode==='signup'?'Ít nhất 10 ký tự':'Nhập mật khẩu'}" required autocomplete="${s.authMode==='signup'?'new-password':'current-password'}"/></div>
  <button class="btn wide" type="submit">${s.authMode==='login'?'Đăng nhập':'Bắt đầu dùng thử 7 ngày'} ${I('arrow','sm')}</button></form>
  <div class="auth-switch">${s.authMode==='login'?'Chưa có tài khoản?':'Đã có tài khoản?'} <button data-action="auth-toggle">${s.authMode==='login'?'Đăng ký ngay':'Đăng nhập'}</button></div>
+ ${s.emailVerificationNotice?`<div class="subtle center" role="status" style="margin-top:14px">${E(s.emailVerificationNotice)}</div>`:''}
+ ${s.authMode==='login'?'<div class="auth-switch"><button data-action="auth-resend-verification">Gửi lại email xác minh</button></div>':''}
  <div class="subtle center" style="margin-top:32px">🔒 Dữ liệu doanh nghiệp được phân tách theo tài khoản</div></div></section>
  <aside class="auth-visual"><div class="visual-card"><div class="visual-bar">${logo().replace('wordmark','wordmark').replace('font-size','font-size')}<div class="visual-dots"><i></i><i></i><i></i></div></div>
  <div class="visual-content"><div class="muted tiny strong" style="margin-bottom:14px">TỔNG QUAN KINH DOANH</div><div class="fake-grid"><div class="fake-kpi"><small class="muted">Doanh thu</small><b>24,8tr</b></div><div class="fake-kpi"><small class="muted">Đơn hàng</small><b>128</b></div><div class="fake-kpi"><small class="muted">Khách hàng</small><b>84</b></div></div><div class="fake-chart">${[28,45,35,69,54,80,65,95,70,100].map(i=>`<span style="height:${i}%"></span>`).join('')}</div></div></div>
@@ -124,6 +126,8 @@ async function loadData(){const bid=s.business.id;const tasks={overview:`/busine
  }
  if(s.business.role==='owner'||s.business.role==='manager')
    tasks.publicLeads=`/businesses/${bid}/public-leads`;
+ if(s.business.role==='owner'||s.business.role==='manager')
+   tasks.orderRequests=`/businesses/${bid}/order-requests`;
  if(has('tables'))tasks.tables=`/businesses/${bid}/tables`;if(has(activeIndustry()[1]))tasks.industry=`/businesses/${bid}/industry/${activeIndustry()[0]}`;if(has('insights')&&s.business.role!=='staff'){tasks.insights=`/businesses/${bid}/insights`;tasks.receivables=`/businesses/${bid}/receivables`;}
  const results=await Promise.allSettled(Object.entries(tasks).map(async ([name,path])=>[name,await api(path)]));
  let failed=0;
@@ -187,7 +191,7 @@ function insightsTab(){const inx=s.cache.insights||{};const debt=s.cache.receiva
 function billingTab(){return window.EZBillingUI?.render(s.cache.billing,E,V)||cardEmpty('wallet','Thanh toán','Chưa tải được dữ liệu thanh toán.')}
 function teamTab(){return window.EZTeamUI?.render(s.cache.team,E)||cardEmpty('users','Nhân sự','Chưa tải được danh sách nhân sự.')}
 function lockedAccountTab(){return cardEmpty('lock','Doanh nghiệp đang chờ gia hạn','Dùng thử hoặc gói thanh toán đã hết hạn. Chỉ tài khoản Chủ doanh nghiệp có quyền chọn gói và thanh toán. Vui lòng liên hệ chủ doanh nghiệp.')}
-function settingsTab(){const b=s.business;const features=[['dashboard','Tổng quan'],['products','Quản lý sản phẩm'],['orders','Quản lý đơn hàng'],['tables','Quản lý bàn'],['inventory_basic','Theo dõi kho'],['inventory_adjust','Điều chỉnh kho'],['insights','Phân tích'],['multi_branch','Nhiều chi nhánh'],['kitchen','Bếp & pha chế'],['stock_ledger','Sổ kho'],['fulfillment','Giao vận'],['appointments','Lịch hẹn']];return `${section('Cài đặt không gian', 'Gói dịch vụ, tính năng và thông tin doanh nghiệp.')}<div class="mobile-only surface pad" style="margin-bottom:14px"><div class="panel-title"><h3>Chức năng khác</h3></div><div class="task-list">${[['customers','users','Khách hàng'],...(b.role==='owner'?[['team','users','Nhân sự'],['billing','wallet','Gói & thanh toán']]:[]),...(s.business?.industry==='fnb'&&has('tables')?[['reservations','calendar','Đặt bàn trước']]:[]),...(has('insights')?[['insights','sparkle','Phân tích']]:[]),...(has('tables')?[['tables','tables','Sơ đồ bàn']]:[]),[activeIndustry()[0],s.business.industry==='retail'?'warehouse':s.business.industry==='services'?'calendar':'coffee',navItems.find(x=>x[0]===activeIndustry()[0])?.[2]||'Quy trình ngành']].map(([id,ico,label])=>`<button class="task-item" data-action="tab" data-value="${id}" style="background:var(--merchant-panel,var(--paper,#fff));color:var(--merchant-ink,var(--ink));text-align:left">${I(ico)} <strong style="flex:1">${label}</strong>${I('chevron','sm')}</button>`).join('')}</div></div><div class="surface pad" style="margin-bottom:18px"><div class="panel-title"><div><h3>🌐 Thiết kế trang khách hàng theo thương hiệu</h3><p class="subtle">Mỗi nhà hàng hoặc cửa hàng có tên, banner, thông tin riêng và trang xem trước. BASIC: banner mẫu • PLUS: logo, banner riêng và màu sắc • PRO: thêm kiểu bố cục.</p></div><span class="pill green">${E(b.plan)}</span></div><a class="btn secondary" href="/app/storefront-design?bid=${E(b.id)}">${I('sparkle','sm')} Chỉnh sửa thương hiệu &amp; xem trước ↗</a><p class="subtle" style="margin:10px 0 0">Website công khai chỉ hoạt động khi chủ doanh nghiệp bật xuất bản. Không tự động thu tiền trên website.</p></div>${b.role!=='staff'?(window.EZPublishingUI?.render(s.cache.publishing,s.cache.publicLeads,E,b.role==='owner')||''):''}<div class="split"><div class="surface pad"><div class="panel-title"><h3>Gói thuê bao</h3><span class="pill green">PILOT</span></div><div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:15px"><div><div class="subtle">GÓI ĐANG THỬ NGHIỆM</div><h2 style="font-size:31px;margin:3px 0">${E(b.plan)}</h2><div class="subtle">Không phát sinh thu phí trong bản MVP</div></div><div class="brand-symbol" style="height:56px;width:56px">${I('crown','lg')}</div></div><div class="divider"></div><div class="panel-title"><h3>Chi nhánh</h3>${has('multi_branch')&&b.role!=='staff'?`<button class="btn sm secondary" data-action="new-branch">${I('plus','sm')} Thêm</button>`:''}</div>${(s.cache.branches||[]).map(x=>`<div class="task-item" style="margin-top:8px"><span class="task-icon">${I('store','sm')}</span><strong>${E(x.name)}</strong></div>`).join('')}<div class="divider"></div><button class="btn secondary wide" data-action="switch-business">${I('refresh','sm')} Chuyển doanh nghiệp</button><button class="btn ghost wide" data-action="logout" style="margin-top:8px">${I('logout','sm')} ${s.demo?'Tạo phiên demo mới':'Đăng xuất'}</button></div><div class="surface pad"><div class="panel-title"><h3>Chức năng đang bật</h3><span class="pill">${b.active_modules.length} module</span></div><div class="feature-list">${features.map(([id,name])=>`<div class="feature-row" style="opacity:${has(id)?1:.46}">${I(has(id)?'check':'lock','sm')}<div><b>${name}</b><div><small>${has(id)?'Đang hoạt động':'Chưa bật'}</small></div></div></div>`).join('')}</div><p class="subtle mt8">Gói tính năng được kiểm tra tại API. Để chuyển gói cần hoàn thiện hệ thống thanh toán và cấp quyền.</p></div></div>`}
+function settingsTab(){const b=s.business;const features=[['dashboard','Tổng quan'],['products','Quản lý sản phẩm'],['orders','Quản lý đơn hàng'],['tables','Quản lý bàn'],['inventory_basic','Theo dõi kho'],['inventory_adjust','Điều chỉnh kho'],['insights','Phân tích'],['multi_branch','Nhiều chi nhánh'],['kitchen','Bếp & pha chế'],['stock_ledger','Sổ kho'],['fulfillment','Giao vận'],['appointments','Lịch hẹn']];return `${section('Cài đặt không gian', 'Gói dịch vụ, tính năng và thông tin doanh nghiệp.')}<div class="mobile-only surface pad" style="margin-bottom:14px"><div class="panel-title"><h3>Chức năng khác</h3></div><div class="task-list">${[['customers','users','Khách hàng'],...(b.role==='owner'?[['team','users','Nhân sự'],['billing','wallet','Gói & thanh toán']]:[]),...(s.business?.industry==='fnb'&&has('tables')?[['reservations','calendar','Đặt bàn trước']]:[]),...(has('insights')?[['insights','sparkle','Phân tích']]:[]),...(has('tables')?[['tables','tables','Sơ đồ bàn']]:[]),[activeIndustry()[0],s.business.industry==='retail'?'warehouse':s.business.industry==='services'?'calendar':'coffee',navItems.find(x=>x[0]===activeIndustry()[0])?.[2]||'Quy trình ngành']].map(([id,ico,label])=>`<button class="task-item" data-action="tab" data-value="${id}" style="background:var(--merchant-panel,var(--paper,#fff));color:var(--merchant-ink,var(--ink));text-align:left">${I(ico)} <strong style="flex:1">${label}</strong>${I('chevron','sm')}</button>`).join('')}</div></div><div class="surface pad" style="margin-bottom:18px"><div class="panel-title"><div><h3>🌐 Thiết kế trang khách hàng theo thương hiệu</h3><p class="subtle">Mỗi nhà hàng hoặc cửa hàng có tên, banner, thông tin riêng và trang xem trước. BASIC: banner mẫu • PLUS: logo, banner riêng và màu sắc • PRO: thêm kiểu bố cục.</p></div><span class="pill green">${E(b.plan)}</span></div><a class="btn secondary" href="/app/storefront-design?bid=${E(b.id)}">${I('sparkle','sm')} Chỉnh sửa thương hiệu &amp; xem trước ↗</a><p class="subtle" style="margin:10px 0 0">Website công khai chỉ hoạt động khi chủ doanh nghiệp bật xuất bản. Không tự động thu tiền trên website.</p></div>${b.role!=='staff'?(window.EZPublishingUI?.render(s.cache.publishing,s.cache.publicLeads,E,b.role==='owner',s.cache.orderRequests)||''):''}<div class="split"><div class="surface pad"><div class="panel-title"><h3>Gói thuê bao</h3><span class="pill green">PILOT</span></div><div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:15px"><div><div class="subtle">GÓI ĐANG THỬ NGHIỆM</div><h2 style="font-size:31px;margin:3px 0">${E(b.plan)}</h2><div class="subtle">Không phát sinh thu phí trong bản MVP</div></div><div class="brand-symbol" style="height:56px;width:56px">${I('crown','lg')}</div></div><div class="divider"></div><div class="panel-title"><h3>Chi nhánh</h3>${has('multi_branch')&&b.role!=='staff'?`<button class="btn sm secondary" data-action="new-branch">${I('plus','sm')} Thêm</button>`:''}</div>${(s.cache.branches||[]).map(x=>`<div class="task-item" style="margin-top:8px"><span class="task-icon">${I('store','sm')}</span><strong>${E(x.name)}</strong></div>`).join('')}<div class="divider"></div><button class="btn secondary wide" data-action="switch-business">${I('refresh','sm')} Chuyển doanh nghiệp</button><button class="btn ghost wide" data-action="logout" style="margin-top:8px">${I('logout','sm')} ${s.demo?'Tạo phiên demo mới':'Đăng xuất'}</button></div><div class="surface pad"><div class="panel-title"><h3>Chức năng đang bật</h3><span class="pill">${b.active_modules.length} module</span></div><div class="feature-list">${features.map(([id,name])=>`<div class="feature-row" style="opacity:${has(id)?1:.46}">${I(has(id)?'check':'lock','sm')}<div><b>${name}</b><div><small>${has(id)?'Đang hoạt động':'Chưa bật'}</small></div></div></div>`).join('')}</div><p class="subtle mt8">Gói tính năng được kiểm tra tại API. Để chuyển gói cần hoàn thiện hệ thống thanh toán và cấp quyền.</p></div></div>`}
 function industryTab(){
  const kind=activeIndustry()[0],items=s.cache.industry||[];
  const titles={kitchen:['Bếp & pha chế','Theo dõi đơn từ quầy đến khi phục vụ','Tạo phiếu bếp'],inventory:['Sổ nhập / xuất kho','Lịch sử biến động tồn kho từ giao dịch và điều chỉnh',''],delivery:['Đóng gói & giao hàng','Quản lý quy trình giao hàng nội bộ; chưa kết nối hãng vận chuyển','Tạo phiếu giao'],appointments:['Lịch hẹn dịch vụ','Quản lý nhân viên, khách và giờ hẹn; tránh đặt trùng giờ','Đặt lịch mới']};
@@ -240,6 +244,12 @@ function account(){modal('Tài khoản',`<div class="task-item"><span class="ava
 async function refresh(){await loadData();renderTab()}
 async function handleAction(act,val,button){try{
  if(act==='auth-toggle'){s.authMode=s.authMode==='login'?'signup':'login';auth()}
+ else if(act==='auth-resend-verification'){
+   const email=document.querySelector('#auth-form [name=email]')?.value?.trim()||'';
+   if(!email){toast('Nhập email cần xác minh trước',true);return}
+   await api('/auth/resend-verification',{method:'POST',body:JSON.stringify({email})});
+   toast('Nếu tài khoản cần xác minh, email mới sẽ được gửi.');
+ }
  else if(act==='industry'){s.answers.industry=val;setup()}
  else if(act==='answer-toggle'){s.answers[val]=!s.answers[val];setup()}
  else if(act==='choose-plan'){s.answers.selected_plan=val;setup()}
@@ -254,6 +264,15 @@ async function handleAction(act,val,button){try{
  else if(act==='industry-next'){const [id,status]=val.split('|');await api(`/businesses/${s.business.id}/industry/${activeIndustry()[0]}/${id}/status`,{method:'POST',body:JSON.stringify({status})});await refresh();toast('Đã cập nhật trạng thái')}
  else if(act==='industry-cancel'){modal('Hủy lịch hẹn',`<p class="muted">Anh/chị có chắc chắn muốn hủy lịch này? Thao tác sẽ mở lại khung giờ cho khách khác.</p><div class="modal-footer"><button class="btn secondary" data-action="close-modal">Quay lại</button><button class="btn" data-action="industry-cancel-confirm" data-value="${E(val)}">Xác nhận hủy</button></div>`)}
  else if(act==='industry-cancel-confirm'){await api(`/businesses/${s.business.id}/industry/appointments/${val}/status`,{method:'POST',body:JSON.stringify({status:'cancelled'})});closeModal();await refresh();toast('Đã hủy lịch')}
+ else if(act==='public-order-review'){
+   const [id,decision]=val.split('|');
+   const label=decision==='accept'?'Duyệt yêu cầu đặt hàng':'Từ chối yêu cầu đặt hàng';
+   modal(label,`<form id="public-order-review-form" data-id="${E(id)}" data-decision="${E(decision)}">
+     <p class="muted">${decision==='accept'?'Chỉ duyệt khi đã kiểm tra yêu cầu khách. Khi duyệt, hệ thống tạo đơn chưa thanh toán và trừ kho.':'Yêu cầu bị từ chối sẽ không tạo đơn và không trừ kho.'}</p>
+     <div class="formfield"><label>Ghi chú duyệt (không bắt buộc)</label>
+     <textarea name="reason" maxlength="180" rows="2"></textarea></div>
+     ${submitFoot(decision==='accept'?'Xác nhận tạo đơn':'Xác nhận từ chối')}</form>`);
+ }
  else if(act==='lead-next'){
    const [id,status]=val.split('|');
    await api('/businesses/'+encodeURIComponent(s.business.id)+'/public-leads/'+encodeURIComponent(id)+'/status',
@@ -336,7 +355,31 @@ async function handleAction(act,val,button){try{
  }catch(e){toast(e.message||'Có lỗi xảy ra',true)} }
 async function handleSubmit(form){const bid=s.business?.id;const data=Object.fromEntries(new FormData(form).entries());const btn=form.querySelector('[type="submit"]');if(btn?.disabled)return; if(btn)btn.disabled=true;
  try{
- if(form.id==='auth-form'){const resp=await api('/auth/'+(s.authMode==='login'?'login':'signup'),{method:'POST',body:JSON.stringify(data)});s.user=resp;s.csrf=resp.csrf_token;await afterAuth();return}
+ if(form.id==='auth-form'){
+   const resp=await api('/auth/'+(s.authMode==='login'?'login':'signup'),{method:'POST',body:JSON.stringify(data)});
+   if(resp.verification_required){
+     s.authMode='login';
+     s.emailVerificationNotice='Đã gửi email xác minh. Mở link trong email trước khi đăng nhập.';
+     auth();
+     toast('Vui lòng kiểm tra email để kích hoạt tài khoản');
+     return;
+   }
+   s.emailVerificationNotice='';
+   s.user=resp;s.csrf=resp.csrf_token;
+   await afterAuth();return;
+ }
+ if(form.id==='public-order-review-form'){
+   const id=form.dataset.id,action=form.dataset.decision;
+   await api('/businesses/'+encodeURIComponent(bid)+'/order-requests/'+encodeURIComponent(id)+'/review',{
+     method:'POST',body:JSON.stringify({action,reason:data.reason||''})
+   });
+   s.cache.orderRequests=await api('/businesses/'+encodeURIComponent(bid)+'/order-requests');
+   s.cache.orderDashboard=null;
+   await loadData();
+   closeModal();renderTab();
+   toast(action==='accept'?'Đã duyệt: tạo đơn và đồng bộ kho':'Đã từ chối yêu cầu');
+   return;
+ }
  if(form.id==='site-publish-form'){
    const result=await api('/businesses/'+encodeURIComponent(bid)+'/publishing',{
       method:'PUT',body:JSON.stringify({slug:data.slug.trim(),published:form.querySelector('[name=published]').checked})
@@ -394,13 +437,25 @@ async function afterAuth(){
  appFrame();
 }
 async function start(){
+ const rawVerifyToken=new URLSearchParams(location.hash.slice(1)).get('verify')||new URLSearchParams(location.search).get('verify');
+ const wantsVerification=!!rawVerifyToken;
+ if(wantsVerification){
+   // Clear token from history immediately so no later navigation/reload leaks it.
+   history.replaceState(null,'','/app');
+   try{
+     await api('/auth/verify-email',{method:'POST',body:JSON.stringify({token:rawVerifyToken})});
+     s.emailVerificationNotice='Email đã xác minh. Bạn có thể đăng nhập.';
+   }catch(error){
+     s.emailVerificationNotice=error.message||'Link xác minh không hợp lệ hoặc hết hạn.';
+   }
+ }
  let me;
  try{me=await api('/auth/me')}catch(e){
    if(e.status!==401){toast('Không kết nối được máy chủ: '+e.message,true);auth();return}
  }
  const wantsTrial=new URLSearchParams(location.search).get('trial')==='1';
  const wantsInvite=new URLSearchParams(location.search).has('invite');
- if(me&&me.demo&&(wantsTrial||wantsInvite)){
+ if(me&&me.demo&&(wantsTrial||wantsInvite||wantsVerification)){
    s.user=me;s.csrf=me.csrf_token;
    await api('/auth/logout',{method:'POST'});
    s.user=null;s.csrf=null;s.demo=false;s.authMode='signup';
@@ -411,13 +466,14 @@ async function start(){
  try{
    const config=await api('/config');
    s.trialEnabled=!!config.trial_enabled;
-   if(config.demo_enabled&&!wantsTrial&&!wantsInvite){
+   if(config.demo_enabled&&!wantsTrial&&!wantsInvite&&!wantsVerification){
      const guest=await api('/auth/demo',{method:'POST'});
      s.user=guest;s.csrf=guest.csrf_token;s.demo=!!guest.demo;
      await afterAuth();return;
    }
  }catch(e){toast('Không mở được chế độ demo: '+e.message,true)}
  if(wantsTrial)s.authMode='signup';
+ if(wantsVerification)s.authMode='login';
  if(new URLSearchParams(location.search).has('invite'))s.authMode='login';
  auth();
 }

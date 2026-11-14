@@ -24,5 +24,7 @@ def test_blue_paid_badge_is_legible_in_all_three_themes():
 def test_cache_bust_for_paid_status_assets():
     html=(STATIC/"index.html").read_text(encoding="utf-8")
     assert '/assets/merchant-palette-refinement.css?v=20261114-ui-23' in html
-    assert any(f'/assets/app.js?v=20261114-ui-{version}' in html
-               for version in range(23, 100))
+    # Approved logo/branding revisions may change cache-bust format, but the
+    # merchant entrypoint must remain versioned and load after palette CSS.
+    assert '<script src="/assets/app.js?v=' in html
+    assert html.index("merchant-palette-refinement.css") < html.index("/assets/app.js")

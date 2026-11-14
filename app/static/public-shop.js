@@ -9,7 +9,7 @@
     "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
   }[c]));
   const V = x => new Intl.NumberFormat(lang === "en" ? "en-US" : "vi-VN").format(x) + "đ";
-  const state = { data: null, sending: false };
+  const state = { data: null, sending: false, cart: new Map(), orderRequestId: null };
   let lang = "vi";
   try { lang = localStorage.getItem("ezthing_site_lang") === "en" ? "en" : "vi"; } catch (_) {}
   const T = (vi, en) => lang === "en" ? en : vi;
@@ -31,6 +31,7 @@
     return `<button type="button" class="shop-button" data-action="${E(action)}" data-value="${E(value)}">${label}</button>`;
   }
 
+  function countItems(){return [...state.cart.values()].reduce((sum,x)=>sum+x,0);}
   function phoneHref(phone) {
     const valid = String(phone || "").replace(/[^+0-9]/g, "");
     return valid.length >= 7 ? "tel:" + valid : "";
@@ -58,6 +59,7 @@
         <button class="shop-language" type="button" data-action="switch-language" aria-label="Switch language">
           ${lang === "en" ? "🇬🇧 EN" : "🇻🇳 VI"}
         </button>
+        ${data.industry!=="services" ? button("🛒 "+T("Giỏ hàng", "Cart")+" ("+countItems()+")","cart") : ""}
         ${button(T("Liên hệ cửa hàng", "Contact store"),"contact")}
       </div></div></header>
       <main id="home" class="shop-container">
@@ -84,7 +86,8 @@
             <span class="shop-category">${E(p.category)}</span>
             <h3>${E(p.name)}</h3>
             <div class="shop-product-bottom"><strong>${V(p.price_vnd)}</strong>
-              ${p.available ? button(T("Hỏi mua", "Enquire"), "contact", p.id) :
+              ${p.available ? (data.industry==="services" ? button(T("Hỏi dịch vụ", "Enquire"), "contact", p.id)
+              : button("＋ "+T("Thêm", "Add"),"cart-add",p.id)) :
                  `<span class="shop-out">${T("Tạm hết", "Unavailable")}</span>`}
             </div></div></article>`).join("") || `<p>${T("Cửa hàng đang cập nhật danh mục.", "Catalog coming soon.")}</p>`}</div>
       </section>
@@ -104,7 +107,9 @@
         <span>${E(brand.footer_note || title)} · Powered by EZ Thing</span>
         <span>${T("Chưa tích hợp thanh toán trực tuyến", "No online checkout")}</span>
       </footer>
-      <div class="shop-mobile-cta">${button(T("Liên hệ & đặt hàng", "Contact & enquire"),"contact")}</div>
+      <div class="shop-mobile-cta">${data.industry==="services"
+        ? button(T("Liên hệ & đặt lịch", "Contact & book"),"contact")
+        : button("🛒 "+T("Xem giỏ hàng", "View cart")+" ("+countItems()+")","cart")}</div>
       <div id="shop-modal"></div>`;
   }
 
@@ -140,6 +145,95 @@
       </section></div>`;
     document.body.style.overflow="hidden";
     modal.querySelector("[name=name]")?.focus();
+  }
+
+  function openCart() {
+    const host=document.getElementById("shop-modal");
+    if(!host||!state.data)return;
+    const products=new Map((state.data.products||[]).map(p=>[p.id,p]));
+    const entries=[...state.cart.entries()].filter(([id,qty])=>products.has(id)&&qty>0);
+    const total=entries.reduce((sum,[id,qty])=>sum+products.get(id).price_vnd*qty,0);
+    const online=state.data.industry==="online";
+    host.innerHTML=`<div class="shop-overlay" data-overlay>
+      <section class="shop-dialog" role="dialog" aria-modal="true" aria-label="${T('Giỏ hàng','Shopping cart')}">
+        <header><h2>🛒 ${T("Giỏ hàng","Your cart")}</h2>
+          <button class="shop-close" type="button" data-action="close">✕</button></header>
+        <p class="shop-note">${T("Cửa hàng sẽ duyệt và liên hệ xác nhận đơn. Chưa thu tiền trực tuyến.",
+          "The merchant must review and confirm your request. No online payment.")}</p>
+        <div class="shop-cart-items">
+          ${entries.map(([id,qty])=>`<div class="shop-cart-line">
+            <div><strong>${E(products.get(id).name)}</strong>
+              <small>${V(products.get(id).price_vnd)} × ${qty}</small></div>
+            <div class="shop-cart-qty">
+              <button type="button" data-action="cart-dec" data-value="${E(id)}" aria-label="${T('Giảm','Decrease')}">−</button>
+              <span>${qty}</span>
+              <button type="button" data-action="cart-inc" data-value="${E(id)}" aria-label="${T('Tăng','Increase')}">+</button>
+            </div></div>`).join("")||`<p class="shop-note">${T('Giỏ hàng còn trống.','Your cart is empty.')}</p>`}
+        </div>
+        <div class="shop-cart-total"><strong>${T('Giá dự tính','Estimated subtotal')}</strong>
+          <strong>${V(total)}</strong></div>
+        ${entries.length?`<form class="shop-form" id="shop-order-form">
+          <label>${T('Họ và tên','Full name')}
+            <input name="customer_name" required minlength="2" maxlength="100" autocomplete="name"></label>
+          <label>${T('Điện thoại','Phone number')}
+            <input name="phone" type="tel" required minlength="7" maxlength="30" autocomplete="tel"></label>
+          <label>${T(online?'Địa chỉ nhận hàng':'Địa chỉ (tùy chọn)',
+                            online?'Delivery address':'Address (optional)')}
+            <input name="address" maxlength="300" ${online?'required minlength="8"':''} autocomplete="street-address"></label>
+          <label>${T('Ghi chú','Notes')}
+            <textarea name="note" maxlength="180" placeholder="${T('Ví dụ: giao buổi sáng, ít đá...','For example: morning delivery...')}"></textarea></label>
+          <button type="submit" class="shop-button">
+            ${T('Gửi yêu cầu đặt hàng','Submit order request')}</button>
+          <div id="shop-order-status" role="status" aria-live="polite"></div>
+        </form>`:''}
+      </section></div>`;
+    document.body.style.overflow="hidden";
+    host.querySelector('[data-action="close"]')?.focus();
+  }
+
+  async function sendOrder(form) {
+    if(state.sending)return;
+    const data=Object.fromEntries(new FormData(form).entries());
+    const payload={
+      request_id:state.orderRequestId||(state.orderRequestId=crypto?.randomUUID?.()||
+        "order"+Date.now()+Math.random().toString(36).slice(2)),
+      customer_name:data.customer_name,phone:data.phone,address:data.address||"",
+      note:data.note||"",
+      lines:[...state.cart.entries()].map(([product_id,quantity])=>({product_id,quantity}))
+    };
+    if(!payload.lines.length)return;
+    state.sending=true;
+    const button=form.querySelector('[type="submit"]');
+    if(button)button.disabled=true;
+    const error=document.getElementById("shop-order-status");
+    try{
+      const confirmation=await fetchJSON("/api/public/shops/"+encodeURIComponent(slug)+"/order-requests",{
+        method:"POST",body:JSON.stringify(payload)
+      });
+      state.cart.clear();
+      state.orderRequestId=null;
+      render();
+      const host=document.getElementById("shop-modal");
+      host.innerHTML=`<div class="shop-overlay" data-overlay>
+        <section class="shop-dialog" role="dialog" aria-modal="true" aria-label="${T('Đã nhận yêu cầu','Request received')}">
+          <div style="text-align:center;padding:18px">
+            <div style="font-size:43px;color:var(--accent)">✓</div>
+            <h2>${T("Đã nhận yêu cầu đặt hàng","Order request received")}</h2>
+            <p>${T("Mã yêu cầu","Request reference")}: #${E(confirmation.id.slice(0,8).toUpperCase())}</p>
+            <p>${V(confirmation.total_vnd)}</p>
+            <p class="shop-note">${T("Đơn đang chờ cửa hàng duyệt. Chưa thanh toán và chưa giữ tồn kho.",
+              "Pending merchant review. No charge and no inventory reservation has occurred.")}</p>
+            <button class="shop-button" data-action="close">${T("Hoàn tất","Done")}</button>
+          </div>
+        </section></div>`;
+    }catch(err){
+      if(error)error.textContent=err.name==="AbortError"
+        ? T("Kết nối quá thời gian, vui lòng thử lại.","Request timed out. Please retry.")
+        : err.message;
+    }finally{
+      state.sending=false;
+      if(button)button.disabled=false;
+    }
   }
 
   async function sendContact(form) {
@@ -186,6 +280,21 @@
     const button = e.target.closest("[data-action]");
     if(button){
       const action=button.dataset.action;
+      if(action==="cart-add"){
+        const id=button.dataset.value;
+        const p=state.data?.products?.find(x=>x.id===id&&x.available);
+        if(p&&(state.cart.has(id)||state.cart.size<15)){
+          state.cart.set(id,Math.min(15,(state.cart.get(id)||0)+1));
+          render();openCart();
+        }
+      }
+      if(action==="cart")openCart();
+      if(action==="cart-inc"||action==="cart-dec"){
+        const id=button.dataset.value,quantity=(state.cart.get(id)||0)+(action==="cart-inc"?1:-1);
+        if(quantity<1)state.cart.delete(id);
+        else state.cart.set(id,Math.min(15,quantity));
+        render();openCart();
+      }
       if(action==="contact")openContact(button.dataset.value||"");
       if(action==="close")closeModal();
       if(action==="switch-language"){
@@ -199,6 +308,7 @@
   document.addEventListener("keydown", e=>{if(e.key==="Escape")closeModal()});
   document.addEventListener("submit", e=>{
     if(e.target.id==="shop-contact-form"){e.preventDefault();sendContact(e.target)}
+    if(e.target.id==="shop-order-form"){e.preventDefault();sendOrder(e.target)}
   });
   start();
 })();
