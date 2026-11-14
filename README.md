@@ -1,0 +1,90 @@
+# EZ Thing — AI Business OS (pilot MVP v0.1)
+
+**Trạng thái:** source code MVP chạy được tại môi trường local/staging độc lập. **Chưa triển khai production, chưa phải hệ thống POS thương mại hoàn chỉnh.** Tên EZ Thing là tên dự án tạm thời, chưa chốt nhãn hiệu.
+
+## 1. Mô hình
+
+- SaaS **Multi-tenant**: một codebase, nhiều doanh nghiệp; mọi truy vấn nghiệp vụ lọc theo `business_id` và kiểm tra quyền thành viên.
+- **Basic / Plus / Pro**: quyền dùng module được kiểm tra tại backend. Trong **pilot**, chủ tài khoản có thể chọn gói để thử tính năng mà chưa thanh toán; sau pilot phải có Billing + Entitlement Service xác thực trước khi ra mắt công khai.
+- **Onboarding thông minh**: hỏi ngành nghề và nhu cầu, **chỉ bật module đã viết sẵn**. Gợi ý hiện nay dựa trên quy tắc minh bạch, **chưa sử dụng LLM**.
+- **F&B trước**: quản lý sản phẩm, bàn, đơn hàng, khách hàng, kho cơ bản, phân tích doanh thu.
+- **Retail / Online / Services**: đã có bộ lõi chung (sản phẩm, khách, đơn hàng) nhưng module chuyên ngành của ba nhóm này chưa hoàn thiện.
+- **Không dùng chung DB hoặc tài khoản** với Minh Satori.
+
+## 2. Chạy local
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements-dev.txt
+cp .env.example .env
+# SQLite thử nghiệm mặc định tại ./ezthing.db
+./scripts/run-dev.sh
+```
+
+Mở: http://127.0.0.1:8000. API docs: http://127.0.0.1:8000/api/docs.
+
+Lệnh kiểm thử:
+
+```bash
+pytest -q
+node --check app/static/app.js
+```
+
+> Để chạy PostgreSQL, đặt `DATABASE_URL=postgresql+psycopg://...`. Không sử dụng database Minh Satori hoặc các dự án khác. Cấu trúc bảng đang tự khởi tạo bằng `create_all` **chỉ cho pilot**; production bắt buộc có migration/versioning và quy trình backup/restore.
+
+## 3. Tính năng đã viết mã và được test API
+
+| Nhóm | Đã có | Ghi chú |
+| --- | --- | --- |
+| Tài khoản | Đăng ký, đăng nhập, đăng xuất | Password scrypt, session HttpOnly, CSRF |
+| Doanh nghiệp | Tạo nhiều doanh nghiệp, lựa chọn ngành, gói | Pilot không có billing thật |
+| Gói | Basic / Plus / Pro, module gating API | Theo danh sách tính năng hiện có |
+| Sản phẩm | Thêm, xem, phân loại, giá bán, giá vốn, tồn kho | Mã SKU theo từng business |
+| Kho | Trừ kho khi lên đơn; điều chỉnh tồn Plus+ | Không có định lượng nguyên liệu |
+| Khách hàng | Tạo/xem hồ sơ, chọn ID trong đơn | Không đoán trùng bằng tên |
+| F&B | Tạo bàn, xem trạng thái trống/đang phục vụ | Chưa có đặt bàn, QR, bếp |
+| Đơn hàng | Tạo đơn, tổng giá server-side, idempotency | Chưa sửa/hủy đơn, giảm giá/VAT/ship |
+| Thanh toán | Đánh dấu đã nhận tiền thủ công | **Không phải xác nhận của ngân hàng** |
+| Báo cáo | Dashboard, top sản phẩm, kho thấp, đơn chưa thanh toán | Dựa trên dữ liệu SQL, không sinh bằng AI |
+| Chi nhánh | Tạo nhiều chi nhánh cho Pro | Một số nghiệp vụ tổng hợp liên chi nhánh đang ở mức pilot |
+| Nhật ký | Ghi audit về các thay đổi chính, xem Pro | Không ghi dữ liệu nhạy cảm vào log |
+| UX | Sidebar desktop, bottom nav mobile, modal, toast, SPA | Chưa xác nhận trực quan trên thiết bị thật |
+| PWA | Manifest + cache app shell | **Không có offline writes / offline orders** |
+
+## 4. Gói tạm dùng để thử nghiệm
+
+- Basic: 249.000đ/tháng (đề xuất), dashboard, sản phẩm, đơn hàng, bàn, kho cơ bản.
+- Plus: 499.000đ/tháng (đề xuất), thêm điều chỉnh kho, phân tích và công nợ đơn chưa thanh toán.
+- Pro: 999.000đ/tháng (đề xuất), thêm nhiều chi nhánh và nhật ký quản trị.
+
+Giá chỉ là đề xuất kinh doanh, chưa thu tiền; không chốt pricing trước phỏng vấn khách hàng.
+
+## 5. Những việc bắt buộc trước khi công khai cho khách thật
+
+1. Phát triển migrations PostgreSQL, DB isolation sâu hơn/RLS, backup/restore, TLS, monitoring.
+2. Bổ sung rate limiting, xác minh email, MFA quyền admin, quy trình bảo vệ dữ liệu và quyền truy xuất/xóa.
+3. Payment gateway, webhook ký số, quản lý gia hạn, hủy và quyền của gói trả phí. Không cho tự chọn Pro như trong pilot.
+4. Tích hợp hóa đơn điện tử theo quy định hiện hành; không dùng API PDF thông thường thay chứng từ thuế.
+5. Kiểm soát kho F&B theo công thức định lượng nguyên liệu, order status bếp, sửa/hủy/hoàn tiền có đối soát, đồng bộ nhiều thiết bị.
+6. Nghiệm thu trình duyệt/thiết bị thật và kiểm thử tải, khôi phục, mất kết nối trước khi dùng POS live.
+7. Tích hợp LLM có kiểm soát permission, giới hạn ngân sách, truy vấn read-only và ghi sau phê duyệt.
+8. Nhập Excel/Google Sheets, xuất PDF, tích hợp Zalo/đơn bán hàng đa kênh.
+
+## 6. UI/UX
+
+- Nút thao tác chính rõ ràng; tối đa một nút chính trong mỗi khu vực.
+- Điện thoại ưu tiên bottom navigation; màn hình lớn dùng sidebar.
+- Modal ngắn gọn, phản hồi rõ kết quả API; không báo thành công trước server.
+- Dùng từ ngữ tiếng Việt, giá VND, font rõ; có hỗ trợ reduced motion.
+- Người dùng được phép thoát onboarding và chọn lại doanh nghiệp. Lỗi phiên/không có mạng không được ghi đè dữ liệu.
+
+## 7. Đối chiếu Minh Satori
+
+Xem [`docs/minh-satori-reuse.md`](docs/minh-satori-reuse.md). Chỉ dùng thiết kế nghiệp vụ và mẫu kiểm tra an toàn; không copy ledger, danh bạ, khóa API hoặc chính sách chiết khấu của Minh Satori.
+
+## 8. Nguồn so sánh công khai
+
+- [Sapo FnB — QR Order](https://help.sapo.vn/qr-order-tren-phan-mem-sapo-fnb)
+- [Sapo FnB — giao diện các tab trên app](https://help.sapo.vn/lam-quen-giao-dien-tren-ung-dung-sapo-fnb)
+- [Zoho Creator — AI app/workflow](https://www.zoho.com/creator/)
