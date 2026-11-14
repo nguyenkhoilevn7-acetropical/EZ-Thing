@@ -269,7 +269,7 @@ def business_create(body: CreateBusiness, user=Depends(current_user), db: Sessio
     active = sorted(((set(requested) | required) & allowed) | ({"inventory_adjust"} if body.need_inventory and "inventory_adjust" in allowed else set()))
     if "tables" in active and body.industry != "fnb":
         active.remove("tables")
-    from .billing import trial_enabled, start_trial, industry_modules
+    from .billing import trial_enabled, start_trial, industry_modules, BillingSubscription
     enable_trial = trial_enabled() and not is_demo_user(u)
     b = Business(id=new_id(), name=body.name.strip(), industry=body.industry, plan=plan,
                  requested_plan=plan, subscription_status="pilot", active_modules=active,
@@ -279,7 +279,12 @@ def business_create(body: CreateBusiness, user=Depends(current_user), db: Sessio
     db.add(b)
     db.flush()
     if enable_trial:
-        start_trial(db, b, u.id)
+        # A real account gets one seven-day trial, regardless of how many
+        # businesses it creates. Additional business workspaces need a paid plan.
+        previous = db.scalar(select(BillingSubscription.business_id)
+            .join(Membership, Membership.business_id == BillingSubscription.business_id)
+            .where(Membership.user_id == u.id))
+        start_trial(db, b, u.id, days=0 if previous else 7)
         b.active_modules = industry_modules(b, "PRO")
     db.add(Membership(id=new_id(), user_id=u.id, business_id=b.id, role="owner"))
     db.add(Branch(id=new_id(), business_id=b.id, name="Chi nhánh chính"))
