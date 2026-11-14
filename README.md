@@ -1,4 +1,6 @@
-# EZ Thing — AI Business OS (pilot MVP v0.1)
+# EZ Thing — AI Business OS (pilot MVP v0.3)
+
+> **EZ Thing v0.3 — phân tách frontend (14/11/2026):** Truy cập trang giới thiệu tại [`/`](https://ez-thing-staging.onrender.com/), Merchant Back-Office tại [`/app`](https://ez-thing-staging.onrender.com/app), và 4 trang khách hàng DEMO: [`/menu/cafe`](https://ez-thing-staging.onrender.com/menu/cafe), [`/store/mart`](https://ez-thing-staging.onrender.com/store/mart), [`/store/online`](https://ez-thing-staging.onrender.com/store/online), [`/booking/wellness`](https://ez-thing-staging.onrender.com/booking/wellness). Super Admin tại `/admin` chỉ cho phép email được cấu hình server-side và hiện chỉ đọc. **Chỉ công bố các link sau khi deploy và kiểm thử LIVE thành công.**
 
 **Trạng thái:** source code MVP chạy được tại môi trường local/staging độc lập. **Chưa triển khai production, chưa phải hệ thống POS thương mại hoàn chỉnh.** Tên EZ Thing là tên dự án tạm thời, chưa chốt nhãn hiệu.
 
@@ -97,3 +99,17 @@ Xem [`docs/minh-satori-reuse.md`](docs/minh-satori-reuse.md). Chỉ dùng thiế
 - [Sapo FnB — QR Order](https://help.sapo.vn/qr-order-tren-phan-mem-sapo-fnb)
 - [Sapo FnB — giao diện các tab trên app](https://help.sapo.vn/lam-quen-giao-dien-tren-ung-dung-sapo-fnb)
 - [Zoho Creator — AI app/workflow](https://www.zoho.com/creator/)
+
+## 9. Các lớp giao diện — v0.3
+
+| Đường dẫn | Đối tượng | Trạng thái |
+| --- | --- | --- |
+| `/` | Khách đang tìm hiểu EZ Thing | Website giới thiệu, so sánh ngành và giá đề xuất; **không** phải dashboard |
+| `/app` | Chủ doanh nghiệp / nhân viên | Back-Office nghiệp vụ từ v0.2, đăng nhập thật ngoài staging hoặc DEMO staging |
+| `/menu/cafe` | Khách hàng F&B | Menu, giỏ, chọn bàn, gửi phiếu bếp **DEMO** |
+| `/store/mart` | Khách hàng retail | Danh mục, yêu cầu giữ hàng **DEMO**, ghi đơn và sổ kho |
+| `/store/online` | Khách hàng online | Danh mục, giỏ, gửi đơn giao **DEMO**, phiếu đóng gói |
+| `/booking/wellness` | Khách hàng spa | Dịch vụ, chuyên viên giả, khung giờ trống, đặt hẹn **DEMO** |
+| `/admin` | EZ Thing platform operator | Tài khoản nằm trong `EZ_THING_SUPERADMIN_EMAILS`, thống kê **read-only**; DEMO luôn 403 |
+
+Các trang khách hàng demo dùng **cùng backend/DB** của phiên DEMO nhưng gọi API `/api/preview/...` riêng, chỉ trả dữ liệu public-safe; không dùng endpoint /api/businesses đọc thông tin riêng. `preview` chỉ hoạt động khi `EZ_THING_ENVIRONMENT=staging` và `EZ_THING_DEMO_MODE=1`, có session cookie và CSRF. Khách mới được tạo tenant demo riêng biệt. Chưa mở cửa hàng public thật, QR tại bàn công khai, thanh toán tự động hay kết nối shipper. Xem thêm [`docs/public-frontends-v03.md`](docs/public-frontends-v03.md).

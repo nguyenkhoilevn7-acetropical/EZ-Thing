@@ -354,3 +354,163 @@ def test_demo_seed_populates_industry_screens(cli, monkeypatch):
     for b in businesses:
         for kind in set(route.values())-{route[b['industry']]}:
             assert cli.get(f"/api/businesses/{b['id']}/industry/{kind}").status_code==404
+
+# Public marketing site and customer-facing preview tests.
+def demo_client(cli, monkeypatch):
+    monkeypatch.setenv('EZ_THING_ENVIRONMENT', 'staging')
+    monkeypatch.setenv('EZ_THING_DEMO_MODE', '1')
+    r = post(cli, '/auth/demo', {})
+    assert r.status_code == 201, r.text
+    return r.json()['csrf_token']
+
+
+def test_public_frontend_routes_are_separate_from_backoffice(cli):
+    home = cli.get('/')
+    assert home.status_code == 200
+    assert 'Kinh doanh' in home.text and '/store/mart' in home.text
+    assert '/admin' not in home.text  # No super-admin invitation in customer site
+    app_page = cli.get('/app')
+    assert app_page.status_code == 200 and '/assets/app.js' in app_page.text
+    assert '/assets/app.js' not in home.text
+    assert '/assets/public.css' in home.text
+    for route in ['/menu/cafe', '/store/mart', '/store/online', '/booking/wellness']:
+        r = cli.get(route)
+        assert r.status_code == 200 and '/assets/customer.js' in r.text
+        assert '/assets/app.js' not in r.text
+    assert cli.get('/store/unknown').status_code == 404
+    assert cli.get('/admin').status_code == 200
+    for asset in ['/assets/customer.js', '/assets/customer.css', '/assets/admin.js']:
+        assert cli.get(asset).status_code == 200
+
+
+def test_preview_never_leaks_real_business_records(cli, monkeypatch):
+    real_csrf = signup(cli, 'public-real')
+    real = business(cli,real_csrf,industry='online')['id']
+    product(cli,real,real_csrf,price=7777777,sku='PRIVATE-SKU')
+    assert cli.get('/api/preview/online').status_code == 404
+    monkeypatch.setenv('EZ_THING_ENVIRONMENT', 'staging')
+    monkeypatch.setenv('EZ_THING_DEMO_MODE', '1')
+    assert cli.get('/api/preview/online').status_code == 404  # Real session cannot preview.
+    other=TestClient(app)
+    try:
+        csrf=demo_client(other,monkeypatch)
+        rows=other.get('/api/preview/online')
+        assert rows.status_code == 200
+        assert rows.json()['demo'] is True
+        assert all('cost_vnd' not in x and 'stock' not in x for x in rows.json()['products'])
+        assert 'PRIVATE-SKU' not in str(rows.json())
+        assert other.get('/api/preview/missing').status_code == 404
+        assert cli.get('/api/admin/summary').status_code == 403
+        assert other.get('/api/admin/summary').status_code == 403
+    finally:
+        other.close()
+
+
+def test_cafe_customer_order_is_server_priced_and_seen_in_kitchen(cli, monkeypatch):
+    csrf=demo_client(cli,monkeypatch)
+    store=cli.get('/api/preview/cafe').json()
+    assert store['tables']
+    p=next(x for x in store['products'] if x['available'])
+    payload={'request_id':'cafe-req-1234567','customer_name':'Demo visitor',
+             'table_id':store['tables'][0]['id'],'lines':[{'product_id':p['id'],'quantity':2}],
+             'note':'Ít đá'}
+    assert post(cli,'/preview/cafe/checkout',payload).status_code==403
+    r=post(cli,'/preview/cafe/checkout',payload,csrf)
+    assert r.status_code==201,r.text
+    assert r.json()['total_vnd']==p['price_vnd']*2
+    order_id=r.json()['id']
+    assert post(cli,'/preview/cafe/checkout',payload,csrf).json()['id']==order_id
+    altered=dict(payload,lines=[{'product_id':p['id'],'quantity':1}])
+    assert post(cli,'/preview/cafe/checkout',altered,csrf).status_code==409
+    business_id=next(x['id'] for x in cli.get('/api/businesses').json() if x['industry']=='fnb')
+    tickets=cli.get(f'/api/businesses/{business_id}/industry/kitchen').json()
+    assert any(t['reference_id']==order_id and t['status']=='pending' for t in tickets)
+    assert cli.get('/api/preview/cafe/orders/'+order_id).status_code==200
+    assert len([x for x in cli.get(f'/api/businesses/{business_id}/orders').json() if x['id']==order_id])==1
+    assert post(cli,'/preview/online/checkout',payload,csrf).status_code in (404,422)
+
+
+def test_public_order_rejects_cross_tenant_product_stock_and_bad_table(cli, monkeypatch):
+    csrf=demo_client(cli,monkeypatch)
+    cafe=cli.get('/api/preview/cafe').json()
+    online=cli.get('/api/preview/online').json()
+    payload={'request_id':'bad-cross-tenant','customer_name':'Test visitor',
+             'table_id':cafe['tables'][0]['id'],
+             'lines':[{'product_id':online['products'][0]['id'],'quantity':1}]}
+    assert post(cli,'/preview/cafe/checkout',payload,csrf).status_code==404
+    payload['lines'][0]['product_id']=cafe['products'][0]['id']
+    payload['table_id']='00000000-0000-0000-0000-000000000000'
+    assert post(cli,'/preview/cafe/checkout',payload,csrf).status_code==404
+    payload['table_id']=cafe['tables'][0]['id']
+    payload['lines'][0]['quantity']=100
+    assert post(cli,'/preview/cafe/checkout',payload,csrf).status_code==422
+    assert cli.get('/api/preview/cafe/orders/unknown').status_code==404
+
+
+def test_online_checkout_updates_merchant_fulfillment_retail_does_not(cli,monkeypatch):
+    csrf=demo_client(cli,monkeypatch)
+    for channel in ('mart','online'):
+        site=cli.get('/api/preview/'+channel).json()
+        p=site['products'][0]
+        body={'request_id':channel+'-req-567890', 'customer_name':'Khách DEMO',
+              'phone':'0900000000','address':'123 Duong Test, Quan 1',
+              'lines':[{'product_id':p['id'],'quantity':1}]}
+        if channel=='online':
+            bad=dict(body,address='')
+            assert post(cli,'/preview/online/checkout',bad,csrf).status_code==422
+        order_resp=post(cli,f'/preview/{channel}/checkout',body,csrf)
+        assert order_resp.status_code==201,order_resp.text
+        biz=next(x for x in cli.get('/api/businesses').json() if x['industry']==('online' if channel=='online' else 'retail'))
+        orders=cli.get('/api/businesses/'+biz['id']+'/orders').json()
+        assert any(x['id']==order_resp.json()['id'] for x in orders)
+        if channel=='online':
+            deliveries=cli.get(f"/api/businesses/{biz['id']}/industry/delivery").json()
+            assert any(x['reference_id']==order_resp.json()['id'] for x in deliveries)
+        else:
+            movements=cli.get(f"/api/businesses/{biz['id']}/industry/inventory").json()
+            assert any(x['delta']==-1 for x in movements)
+
+
+def test_booking_preview_available_slots_conflicts_and_replay(cli,monkeypatch):
+    from datetime import date,datetime,timedelta
+    from zoneinfo import ZoneInfo
+    csrf=demo_client(cli,monkeypatch)
+    site=cli.get('/api/preview/wellness').json()
+    p=site['products'][0]
+    future=(datetime.now(ZoneInfo('Asia/Ho_Chi_Minh'))+timedelta(days=2)).date().isoformat()
+    params=f"?product_id={p['id']}&day={future}&assignee=Linh"
+    slots=cli.get('/api/preview/wellness/slots'+params)
+    assert slots.status_code==200,slots.text
+    assert slots.json()['slots']
+    slot=slots.json()['slots'][0]
+    body={'request_id':'spa-request-123456','product_id':p['id'],'customer_name':'Khách demo',
+          'phone':'0900000000','assignee':'Linh','start_at':slot}
+    assert post(cli,'/preview/wellness/appointments',body).status_code==403
+    first=post(cli,'/preview/wellness/appointments',body,csrf)
+    assert first.status_code==201,first.text
+    assert post(cli,'/preview/wellness/appointments',body,csrf).json()['id']==first.json()['id']
+    changed=dict(body,request_id='new-request-1234')
+    assert post(cli,'/preview/wellness/appointments',changed,csrf).status_code==409
+    updated_slots=cli.get('/api/preview/wellness/slots'+params).json()['slots']
+    assert slot not in updated_slots
+    wrong_staff=dict(body,request_id='other-request-123',assignee='Unknown')
+    assert post(cli,'/preview/wellness/appointments',wrong_staff,csrf).status_code==422
+    wrong_time=dict(body,request_id='another-req-12345',start_at='2025-01-01T10:00:00+07:00')
+    assert post(cli,'/preview/wellness/appointments',wrong_time,csrf).status_code in (409,422)
+    biz=next(x for x in cli.get('/api/businesses').json() if x['industry']=='services')
+    appointments=cli.get(f"/api/businesses/{biz['id']}/industry/appointments").json()
+    assert any(x['id']==first.json()['id'] for x in appointments)
+
+
+def test_super_admin_server_side_allowlist_and_demo_exclusion(cli,monkeypatch):
+    csrf=signup(cli,'platform-owner')
+    monkeypatch.setenv('EZ_THING_SUPERADMIN_EMAILS','platform-owner@example.com')
+    resp=cli.get('/api/admin/summary')
+    assert resp.status_code==200,resp.text
+    assert resp.json()['mode']=='read_only_pilot'
+    assert set(resp.json())=={'businesses','users','orders','mode'}
+    another=TestClient(app)
+    try:
+        demo_client(another,monkeypatch)
+        assert another.get('/api/admin/summary').status_code==403
+    finally:another.close()
