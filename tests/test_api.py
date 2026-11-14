@@ -576,3 +576,54 @@ def test_preview_quote_enforces_tenant_stock_and_per_item_limits(cli, monkeypatc
     assert post(cli, quote_path, {'lines':[]}, csrf).status_code == 422
     assert post(cli, quote_path, {'lines':[{'product_id':product['id'],'quantity':11}]}, csrf).status_code == 422
     assert post(cli, '/preview/wellness/quote', {'lines':[{'product_id':product['id'],'quantity':1}]}, csrf).status_code == 404
+
+
+def test_customer_progress_routes_reflect_merchant_workflow_and_isolate_tenants(cli, monkeypatch):
+    from datetime import datetime, timedelta
+    from zoneinfo import ZoneInfo
+    csrf = demo_client(cli, monkeypatch)
+    cafe = cli.get('/api/preview/cafe').json()
+    p = cafe['products'][0]
+    checkout = post(cli, '/preview/cafe/checkout', {
+        'request_id':'progress-check-1234567', 'customer_name':'Khách kiểm thử',
+        'table_id':cafe['tables'][0]['id'],
+        'lines':[{'product_id':p['id'],'quantity':1}]
+    }, csrf)
+    assert checkout.status_code == 201, checkout.text
+    order_id = checkout.json()['id']
+    progress = cli.get(f'/api/preview/cafe/orders/{order_id}/status')
+    assert progress.status_code == 200, progress.text
+    assert progress.json()['status'] == 'open'
+    assert progress.json()['work_type'] == 'kitchen'
+    assert progress.json()['work_status'] == 'pending'
+    assert progress.json()['total_vnd'] == p['price_vnd']
+    assert 'phone' not in str(progress.json()) and 'customer_name' not in str(progress.json())
+    assert cli.get('/api/preview/online/orders/'+order_id+'/status').status_code == 404
+
+    spa = cli.get('/api/preview/wellness').json()
+    service = spa['products'][0]
+    day = (datetime.now(ZoneInfo('Asia/Ho_Chi_Minh')) + timedelta(days=2)).date().isoformat()
+    slots = cli.get('/api/preview/wellness/slots', params={
+        'product_id':service['id'],'day':day,'assignee':'Linh'
+    }).json()['slots']
+    booked = post(cli, '/preview/wellness/appointments', {
+        'request_id':'progress-appointment-test','product_id':service['id'],
+        'customer_name':'Khách demo','phone':'0900000000','assignee':'Linh',
+        'start_at':slots[0]
+    }, csrf)
+    assert booked.status_code == 201, booked.text
+    appointment_id = booked.json()['id']
+    appt_status = cli.get(f'/api/preview/wellness/appointments/{appointment_id}/status')
+    assert appt_status.status_code == 200
+    assert appt_status.json()['status'] == 'scheduled'
+    assert appt_status.json()['assignee'] == 'Linh'
+    assert 'phone' not in str(appt_status.json())
+    assert cli.get('/api/preview/wellness/appointments/missing/status').status_code == 404
+
+    second = TestClient(app)
+    try:
+        demo_client(second, monkeypatch)
+        assert second.get(f'/api/preview/cafe/orders/{order_id}/status').status_code == 404
+        assert second.get(f'/api/preview/wellness/appointments/{appointment_id}/status').status_code == 404
+    finally:
+        second.close()
