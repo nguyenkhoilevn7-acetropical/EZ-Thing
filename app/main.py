@@ -572,6 +572,11 @@ def index():
     return FileResponse(ASSETS / "public.html")
 
 
+@app.get("/app/storefront-design")
+def storefront_design_page():
+    return FileResponse(ASSETS / "brand-editor.html", headers={"Cache-Control": "no-store"})
+
+
 @app.get("/app/reservations")
 def restaurant_reservation_manager():
     return FileResponse(ASSETS / "reservation-admin.html", headers={"Cache-Control": "no-store"})
@@ -617,3 +622,8 @@ app.include_router(platform_admin_router)
 # Scoped restaurant table booking and customer contact requests.
 from .reservations import router as reservations_router  # noqa: E402
 app.include_router(reservations_router)
+
+# Private tenant-specific branded storefront editor and owner previews.
+from .storefront_brand import router as storefront_brand_router  # noqa: E402
+app.include_router(storefront_brand_router)
+

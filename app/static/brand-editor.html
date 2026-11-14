@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="robots" content="noindex,nofollow">
+<title>EZ Thing • Thiết kế thương hiệu</title><link rel="stylesheet" href="/assets/brand-editor.css"><link rel="stylesheet" href="/assets/i18n.css"></head>
+<body>
+<header class="brand-header"><a class="brand-logo" href="/app"><b>e.</b><strong>EZ Thing</strong><span>Brand Studio</span></a><nav><a href="/app">← Quản lý doanh nghiệp</a><a href="/">EZ Thing</a></nav></header>
+<main class="brand-wrapper">
+<section class="brand-intro"><span class="brand-eyebrow">BRAND STUDIO • PRIVATE PILOT</span><h1>Mỗi doanh nghiệp.<br><em>Một dấu ấn riêng.</em></h1><p>Tùy chỉnh tên, thông tin, banner, logo và màu sắc cho trang khách hàng của doanh nghiệp. Quyền sử dụng tùy theo gói đang kích hoạt.</p></section>
+<div class="brand-columns">
+<section class="brand-form-card">
+<div class="brand-card-head"><div><span class="brand-eyebrow">01 / QUẢN LÝ THƯƠNG HIỆU</span><h2>Tùy chỉnh trang khách</h2></div><span id="current-plan" class="plan-pill">PILOT</span></div>
+<label class="field"><span>Chọn doanh nghiệp của bạn</span><select id="business-choice"></select></label>
+<p id="feedback" aria-live="polite" class="feedback"></p>
+<form id="brand-form">
+<h3>Thông tin cơ bản <small>BASIC trở lên</small></h3>
+<label class="field"><span>Tên nhà hàng / cửa hàng</span><input name="display_name" minlength="2" maxlength="140" required autocomplete="organization"></label>
+<label class="field"><span>Giới thiệu ngắn</span><textarea name="description" maxlength="280" rows="2" placeholder="Giới thiệu nét đặc sắc của thương hiệu"></textarea></label>
+<div class="field-grid"><label class="field"><span>Số điện thoại</span><input name="phone" maxlength="30" autocomplete="tel"></label><label class="field"><span>Địa chỉ</span><input name="address" maxlength="250"></label></div>
+<label class="field"><span>Chọn banner mẫu</span><select name="banner_preset" id="banner-preset"></select><small>Có sẵn cho mọi gói.</small></label>
+<h3>Thiết kế nâng cao <small>PLUS trở lên</small></h3>
+<label class="field"><span>Tiêu đề trang chủ <i data-lock="hero_title">PLUS</i></span><input name="hero_title" maxlength="100" placeholder="Một trải nghiệm đáng nhớ"></label>
+<label class="field"><span>Banner bằng đường dẫn ảnh <i data-lock="banner_url">PLUS</i></span><input name="banner_url" maxlength="350" placeholder="https://images.unsplash.com/photo-..."><small>Trong giai đoạn pilot chỉ hỗ trợ ảnh từ images.unsplash.com.</small></label>
+<label class="field"><span>Logo bằng đường dẫn ảnh <i data-lock="logo_url">PLUS</i></span><input name="logo_url" maxlength="350" placeholder="https://images.unsplash.com/photo-..."></label>
+<label class="field"><span>Màu thương hiệu <i data-lock="accent_color">PLUS</i></span><select name="accent_color"><option value="#147D64">Emerald Green</option><option value="#BF506C">Rose Pink</option><option value="#2B62A9">Ocean Blue</option><option value="#7556A8">Royal Purple</option><option value="#C26D30">Warm Orange</option></select></label>
+<h3>Kiểu trình bày <small>PRO</small></h3>
+<label class="field"><span>Layout <i data-lock="layout_style">PRO</i></span><select name="layout_style"><option value="classic">Classic</option><option value="editorial">Editorial</option><option value="gallery">Gallery</option></select></label>
+<label class="field"><span>Lời nhắn chân trang <i data-lock="footer_note">PRO</i></span><input name="footer_note" maxlength="160" placeholder="Cảm ơn bạn đã ghé thăm!"></label>
+<div class="brand-form-footer"><button id="save" type="submit">Lưu thay đổi</button><small>Quyền được kiểm tra ở backend. Tất cả bản xem trước đều riêng tư.</small></div>
+</form>
+</section>
+<div class="brand-right">
+<section class="brand-preview-card"><div class="preview-head"><span class="brand-eyebrow">02 / XEM TRƯỚC</span><span>🔒 Owner only</span></div><div class="brand-stage" id="brand-stage"><div class="brand-stage-content"><span>YOUR RESTAURANT</span><h2 id="stage-title">EZ Thing</h2><p id="stage-text">Thương hiệu của bạn.</p></div></div><div class="preview-bottom"><span>Ảnh và màu sắc thay đổi theo thiết lập.</span><a id="open-preview" target="_blank" rel="noopener noreferrer" href="/app">Mở trang xem trước ↗</a></div></section>
+<section class="plan-info"><span class="brand-eyebrow">03 / QUYỀN THEO GÓI</span><h2>Cá nhân hóa theo gói</h2><div id="plan-list"></div><p class="plan-honesty">Giá bên dưới chỉ là đề xuất trong giai đoạn pilot. Chưa có upload ảnh trực tiếp, tên miền riêng, website công khai hoặc thanh toán thuê bao.</p></section>
+</div>
+</div>
+</main>
+<script defer src="/assets/i18n.js"></script><script defer src="/assets/brand-editor.js"></script>
+</body></html>

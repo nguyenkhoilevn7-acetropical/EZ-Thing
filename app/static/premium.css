@@ -271,3 +271,11 @@ body:has(#customer-root) .flow-footer a{color:#0066cc}
  .site-home .site-header.menu-open .mobile-menu-toggle span:first-child{transform:translateY(3.75px) rotate(45deg)}
  .site-home .site-header.menu-open .mobile-menu-toggle span:last-child{transform:translateY(-3.75px) rotate(-45deg)}
 }
+
+/* Tenant storefront personalization comparison */
+.site-home .pricing-grid article{display:flex;flex-direction:column}
+.site-home .plan-perks{list-style:none;padding:0;margin:20px 0 22px;display:grid;gap:12px;color:#474b52;font-size:12px;line-height:1.45}
+.site-home .plan-perks li{padding:0}
+.site-home .plan-link{margin-top:auto;display:inline-block}
+.site-home .plan-limit-note{max-width:800px;margin:26px auto 16px;color:#777b82;text-align:center;font-size:13px;line-height:1.65}
+@media(max-width:700px){.site-home .pricing-grid article{min-height:auto}.site-home .plan-perks{margin:15px 0 22px}}

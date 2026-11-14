@@ -21,6 +21,7 @@ RECOMMENDATION_EN = (
 
 ERROR_EN = {
     "Vui lòng đăng nhập": "Please sign in",
+    "Chỉ chủ doanh nghiệp mới có quyền sửa thương hiệu": "Only the business owner may change branding",
     "Phiên đăng nhập không hợp lệ": "Invalid sign-in session",
     "Phiên đăng nhập đã hết hạn": "Your session has expired",
     "Thiếu mã xác thực thao tác": "Missing request verification token",
