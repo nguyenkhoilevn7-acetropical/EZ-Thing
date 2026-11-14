@@ -8,7 +8,7 @@ from __future__ import annotations
 import re
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy import select
@@ -18,6 +18,7 @@ from .catalog import PLANS
 from .database import db_session
 from .models import Business, Membership, Product
 from .main import ASSETS, audit, current_user, tenant
+from .i18n import selected_language
 
 router = APIRouter(tags=["Storefront customization"])
 
@@ -160,7 +161,7 @@ def get_storefront(bid: str, user=Depends(current_user), db: Session = Depends(d
 
 
 @router.patch("/api/businesses/{bid}/storefront")
-def edit_storefront(bid: str, body: StorefrontUpdate,
+def edit_storefront(bid: str, body: StorefrontUpdate, request: Request,
                     user=Depends(current_user), db: Session = Depends(db_session)):
     b = tenant(bid, user, db)
     assert_owner(db, bid, user[0].id)
@@ -171,7 +172,9 @@ def edit_storefront(bid: str, body: StorefrontUpdate,
         raise HTTPException(403, detail={
             "code": "BRANDING_PLAN_REQUIRED",
             "fields": forbidden,
-            "message": "Tính năng tùy chỉnh này chưa có trong gói hiện tại",
+            "message": ("This customization is not available on your current plan"
+                        if selected_language(request) == "en"
+                        else "Tính năng tùy chỉnh này chưa có trong gói hiện tại"),
         })
     if "display_name" in changes:
         b.name = changes.pop("display_name")
