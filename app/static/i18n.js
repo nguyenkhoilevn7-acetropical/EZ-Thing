@@ -5,6 +5,29 @@
 (() => {
 'use strict';
 const entries = [
+['Doanh thu hôm nay',"Today's revenue"],
+['Từ đơn đã xác nhận nhận tiền','From confirmed paid orders'],
+['Cảnh báo tồn kho','Low-stock alerts'],
+['Sản phẩm trong danh mục','Products in catalog'],
+['Còn tối đa 5 sản phẩm','5 or fewer units in stock'],
+['Sản phẩm đang quản lý','Managed products'],
+['Đang xử lý','In progress'],
+['Sắp hết','Running low'],
+['Lưu địa chỉ và thông tin liên hệ','Save addresses and contact details'],
+['Bán hàng tại quầy hoặc tại bàn','Sell at the counter or table'],
+['Xây dựng danh mục kinh doanh','Build your product catalog'],
+['Thiết lập khu vực phục vụ','Set up your service areas'],
+['Thêm sản phẩm để bắt đầu tạo đơn bán hàng.','Add a product to start taking orders.'],
+['Chưa có sản phẩm','No products yet'],
+['Không theo dõi kho','Inventory not tracked'],
+['Không có đơn hàng','No orders yet'],
+['Các đơn hàng sẽ hiển thị tại đây.','Orders will appear here.'],
+['Chưa có đơn hàng','No orders yet'],
+['Tạo đơn đầu tiên để bắt đầu theo dõi doanh thu.','Create your first order to start tracking revenue.'],
+['Còn trống','Available'],
+['Đang phục vụ','Occupied'],
+['Xác nhận nhận tiền chỉ ghi nhận thủ công; chưa tích hợp ngân hàng và đối soát tự động.','Payments are confirmed manually; bank reconciliation is not connected yet.'],
+
 ['CỬA HÀNG ONLINE','ONLINE STORE'],['ĐẶT BÀN TRƯỚC','TABLE RESERVATIONS'],
 ['Xem demo ↗','View demo ↗'],['Mở giao diện website đang xem','Open current website demo'],
 ['Trình chiếu giao diện website demo thực tế','Real website demo slideshow'],
@@ -374,6 +397,11 @@ const entries = [
 ];
 const translations=Object.fromEntries(entries);
 const patterns=[
+[/^(\d+) đơn đang xử lý$/,'$1 orders in progress'],
+[/^(\d+) bàn trống • (\d+) bàn có khách$/,'$1 available tables • $2 occupied tables'],
+[/^(\d+) sản phẩm đang quản lý$/,'$1 managed products'],
+[/^(\d+) hồ sơ khách hàng$/,'$1 customer profiles'],
+
 [/^Giỏ hàng \((\d+)\)$/,'Cart ($1)'],
 [/^Giá trị: (.+)$/,'Amount: $1'],
 [/^Mã DEMO: (.+)$/,'Demo ID: $1'],

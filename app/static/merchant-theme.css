@@ -166,9 +166,11 @@
 :root[data-ez-merchant-theme="tropical"] .merchant-theme-trigger-dot{background:#0d936b}
 :root[data-ez-merchant-theme="graphite"] .merchant-theme-trigger-dot{background:#1d1f25;border:2px solid #91bfff}
 .merchant-theme-menu{
-  position:absolute;right:0;top:calc(100% + 12px);width:284px;max-width:calc(100vw - 22px);
+  position:fixed;left:12px;right:auto;top:70px;
+  width:min(284px,calc(100vw - 24px));max-width:calc(100vw - 24px);
+  max-height:min(350px,calc(100dvh - 24px));overflow-y:auto;overscroll-behavior:contain;
   background:var(--paper);border:1px solid var(--line);border-radius:18px;
-  padding:10px;box-shadow:0 18px 55px #0002;color:var(--ink);z-index:90;
+  padding:10px;box-shadow:0 18px 55px #0002;color:var(--ink);z-index:200;
 }
 .merchant-theme-menu[hidden]{display:none!important}
 .merchant-theme-heading{
@@ -198,7 +200,7 @@
 }
 @media(max-width:650px){
   .merchant-theme-trigger{width:36px;height:36px;border-radius:11px}
-  .merchant-theme-menu{right:-46px;top:calc(100% + 14px)}
+  .merchant-theme-menu{right:auto}
   .topbar-right .pill.green{display:none}
 }
 @media(prefers-reduced-motion:reduce){
