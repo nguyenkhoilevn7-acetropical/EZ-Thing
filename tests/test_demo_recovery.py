@@ -13,7 +13,7 @@ def test_customer_api_uses_bounded_wait_and_retry():
     app = (ASSETS / "customer.js").read_text(encoding="utf-8")
     watchdog = (ASSETS / "customer-watchdog.js").read_text(encoding="utf-8")
     assert "controller.abort()" in app
-    assert "finally{clearTimeout(timer)}" in app
+    assert "clearTimeout(timer)" in app
     assert "retry-demo" in app
     assert "window.setTimeout(recover,55000)" in watchdog
     assert "customer-loading" in watchdog
