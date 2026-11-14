@@ -574,7 +574,7 @@ def sw():
 
 @app.get("/")
 def index():
-    return FileResponse(ASSETS / "public.html")
+    return FileResponse(ASSETS / "public.html", headers={"Cache-Control": "no-store, max-age=0"})
 
 
 @app.get("/app/storefront-design")
