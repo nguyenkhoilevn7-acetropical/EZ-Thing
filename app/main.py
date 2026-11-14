@@ -617,3 +617,8 @@ app.include_router(platform_admin_router)
 # Scoped restaurant table booking and customer contact requests.
 from .reservations import router as reservations_router  # noqa: E402
 app.include_router(reservations_router)
+
+# Private tenant-specific branded storefront editor and owner previews.
+from .storefront_brand import router as storefront_brand_router  # noqa: E402
+app.include_router(storefront_brand_router)
+
