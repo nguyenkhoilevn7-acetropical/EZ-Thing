@@ -1,0 +1,19 @@
+/* Staff management uses semantic theme tokens across light and Graphite. */
+.ez-team{display:grid;gap:18px;max-width:1100px}
+.ez-team h3{margin:8px 0 0}
+.ez-team-roles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.ez-team-roles article{padding:16px;border:1px solid var(--merchant-line,var(--line));border-radius:14px;background:var(--merchant-panel-alt,var(--paper))}
+.ez-team-roles b,.ez-team-roles span{display:block}
+.ez-team-roles span{font-size:12px;color:var(--merchant-muted,var(--muted));margin-top:5px}
+.ez-team-invite{display:grid;grid-template-columns:minmax(0,1fr) 155px auto;gap:12px;align-items:end;padding:16px;border:1px solid var(--merchant-line,var(--line));border-radius:14px}
+.ez-team-invite label{font-size:12px;font-weight:600;min-width:0}
+.ez-team-invite input,.ez-team-invite select{margin-top:7px;display:block;width:100%;background:var(--merchant-panel,var(--paper));color:var(--merchant-ink,var(--ink))}
+.ez-team-invite .btn{min-height:44px}
+.ez-team-list{display:grid;gap:10px}
+.ez-team-person{display:flex;align-items:center;gap:12px;min-width:0;padding:13px 14px;border:1px solid var(--merchant-line,var(--line));background:var(--merchant-panel,var(--paper));border-radius:14px}
+.ez-team-person-name{min-width:0;flex:1}
+.ez-team-person-name strong,.ez-team-person-name span{display:block;overflow-wrap:anywhere}
+.ez-team-person-name span{font-size:12px;color:var(--merchant-muted,var(--muted));margin-top:4px}
+.ez-team-person select{width:auto;max-width:155px;background:var(--merchant-panel-alt,var(--paper));color:var(--merchant-ink,var(--ink))}
+@media(max-width:820px){.ez-team-roles{grid-template-columns:1fr}.ez-team-invite{grid-template-columns:1fr}.ez-team-person{flex-wrap:wrap}.ez-team-person-name{flex-basis:65%}}
+@media(max-width:420px){.ez-team-person .pill{margin-left:auto}.ez-team-person select{flex:1}.ez-team-person .btn{flex:1}}
