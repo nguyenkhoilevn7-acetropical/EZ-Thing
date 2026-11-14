@@ -1,0 +1,21 @@
+name: Live demo browser diagnostic
+on:
+  pull_request:
+    paths:
+      - 'app/static/**'
+      - 'tests/live_demo_browser.py'
+      - '.github/workflows/demo-browser-smoke.yml'
+  workflow_dispatch:
+jobs:
+  browser-diagnostic:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: pip install playwright
+      - run: python -m playwright install --with-deps chromium
+      - name: Diagnose staging customer demo with real browser
+        run: python tests/live_demo_browser.py
