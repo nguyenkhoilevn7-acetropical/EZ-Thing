@@ -164,7 +164,9 @@ async function checkout(form){const submit=form.querySelector('[type=submit]');s
  const d=Object.fromEntries(new FormData(form).entries());
  const body={request_id:st.pendingId||(st.pendingId=id()),lines:Object.entries(st.cart).map(([product_id,quantity])=>({product_id,quantity})),customer_name:d.customer_name,phone:d.phone||'',address:d.address||'',table_id:d.table_id||null,note:d.note||''};
  const res=await api('/preview/'+channel+'/checkout',{method:'POST',body:JSON.stringify(body)});
- st.cart={};st.pendingId=null;st.lastOrder=res;refreshCatalog();
+ st.cart={};st.pendingId=null;st.lastOrder=res;
+ try{const latest=await api('/preview/'+channel);st.products=latest.products||st.products;st.tables=latest.tables||st.tables;}catch(_){/* Order is already confirmed; optional catalogue refresh must not mask success. */}
+ refreshCatalog();
  success('Đã gửi yêu cầu DEMO!',channel==='cafe'?'Phiếu bếp thử nghiệm đã được tạo. Vui lòng không thanh toán.':channel==='online'?'Đơn DEMO đã chuyển vào danh sách đóng gói. Không giao hàng thật.':'Cửa hàng đã nhận yêu cầu giữ hàng thử nghiệm.',res.id,`Tổng tiền minh hoạ: ${V(res.total_vnd)}`);
  }catch(e){toast(e.message,true)}finally{submit.disabled=false}}
 function isoTomorrow(){return new Date(Date.now()+86400000).toLocaleDateString('sv-SE',{timeZone:'Asia/Ho_Chi_Minh'})}
