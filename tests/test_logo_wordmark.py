@@ -4,7 +4,7 @@ from xml.etree import ElementTree as ET
 
 STATIC = Path(__file__).resolve().parents[1] / "app" / "static"
 ICON_PATH = STATIC / "icons"
-VERSION = "20261114-minimal-logo-02"
+VERSION = "20261115-sidebar-01"
 SVG_VERSION = "minimal-01"
 
 
