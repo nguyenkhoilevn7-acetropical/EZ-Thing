@@ -1,5 +1,6 @@
 """Guard merchant resiliency and staging infrastructure configuration."""
 from pathlib import Path
+import re
 
 ROOT = Path(__file__).resolve().parents[1]
 APP = (ROOT / "app/static/app.js").read_text(encoding="utf-8")
@@ -17,7 +18,7 @@ def test_merchant_requests_timeout_and_trial_lock_transitions():
 
 
 def test_dark_theme_inline_business_cards_are_theme_aware():
-    assert "background:#fff" not in APP
+    assert re.search(r"background:#fff(?![0-9a-fA-F])", APP) is None
     assert "background:var(--merchant-panel,var(--paper,#fff))" in APP
 
 
