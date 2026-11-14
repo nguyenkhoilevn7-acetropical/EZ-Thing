@@ -192,6 +192,7 @@ def owner_storefront_preview_data(
     bid: str, user=Depends(current_user), db: Session = Depends(db_session),
 ):
     b = tenant(bid, user, db)
+    assert_owner(db, bid, user[0].id)
     products = db.scalars(
         select(Product).where(Product.business_id == bid, Product.active.is_(True))
         .order_by(Product.created_at.desc()).limit(48)
@@ -213,5 +214,6 @@ def owner_storefront_preview_page(
     bid: str, user=Depends(current_user), db: Session = Depends(db_session),
 ):
     tenant(bid, user, db)
+    assert_owner(db, bid, user[0].id)
     return FileResponse(ASSETS / "storefront-owner-preview.html",
                         headers={"Cache-Control": "no-store"})
