@@ -231,11 +231,14 @@ function translateNode(node){
   if(node.nodeType!==3||!node.parentElement||node.parentElement.closest(ignore))return;
   const value=node.nodeValue;
   if(!value||!value.trim())return;
-  let original=sourceNodes.get(node);
-  if(original===undefined||value!==original&&value!==translate(original)){original=value;sourceNodes.set(node,original);}
-  const match=original.match(/^(\s*)([\s\S]*?)(\s*)$/);
+  let entry=sourceNodes.get(node);
+  if(!entry||(value!==entry.original&&value!==entry.rendered)){
+    entry={original:value,rendered:value};sourceNodes.set(node,entry);
+  }
+  const match=entry.original.match(/^(\s*)([\s\S]*?)(\s*)$/);
   if(!match)return;
   const next=match[1]+translate(match[2])+match[3];
+  entry.rendered=next;
   if(value!==next)node.nodeValue=next;
 }
 function translateAttrs(el){
@@ -245,8 +248,12 @@ function translateAttrs(el){
   for(const name of attrs){
     if(!el.hasAttribute(name))continue;
     const value=el.getAttribute(name)||'';
-    if(!(name in originals)||value!==originals[name]&&value!==translate(originals[name]))originals[name]=value;
-    const next=translate(originals[name]);
+    let entry=originals[name];
+    if(!entry||(value!==entry.original&&value!==entry.rendered)){
+      entry={original:value,rendered:value};originals[name]=entry;
+    }
+    const next=translate(entry.original);
+    entry.rendered=next;
     if(value!==next)el.setAttribute(name,next);
   }
 }
