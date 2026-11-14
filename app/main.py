@@ -5,6 +5,8 @@ No Minh Satori production integration; no automated AI, billing or tax issuance.
 import hashlib
 import json
 import os
+from collections import deque
+from threading import Lock
 import uuid
 from collections import defaultdict
 from datetime import datetime, timezone
@@ -19,6 +21,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from .catalog import INDUSTRIES, PLANS, ROADMAP, FEATURES, recommend
+from .demo import demo_enabled, is_demo_user, seed_demo
 from .database import Base, db_session, engine
 from .models import (AuditEvent, Branch, Business, Customer, DiningTable, Membership,
                      Product, SaleOrder, SaleOrderItem, SessionToken, StockMovement, User, now)
@@ -105,7 +108,8 @@ def issue_session(db: Session, response: Response, user: User):
     db.commit()
     response.set_cookie("ez_session", token, httponly=True, samesite="strict",
                         secure=os.getenv("COOKIE_SECURE", "0") == "1", max_age=604800, path="/")
-    return {"id": user.id, "name": user.name, "email": user.email, "csrf_token": csrf}
+    return {"id": user.id, "name": user.name, "email": user.email,
+            "csrf_token": csrf, "demo": is_demo_user(user)}
 
 
 @app.get("/api/health")
@@ -116,6 +120,52 @@ def health():
 @app.get("/api/catalog")
 def catalog():
     return {"plans": PLANS, "features": FEATURES, "industries": INDUSTRIES, "roadmap": ROADMAP}
+
+
+# Staging-only, best-effort throttle. Production must use a shared rate limiter.
+_demo_lock = Lock()
+_demo_attempts = {}
+_demo_global = deque()
+
+
+def demo_rate_limit(request: Request):
+    timestamp = datetime.now(timezone.utc).timestamp()
+    # Trust the transport peer, never an unverified X-Forwarded-For header.
+    peer = request.client.host if request.client else "unknown"
+    with _demo_lock:
+        while _demo_global and _demo_global[0] < timestamp - 3600:
+            _demo_global.popleft()
+        attempts = _demo_attempts.setdefault(peer, deque())
+        while attempts and attempts[0] < timestamp - 3600:
+            attempts.popleft()
+        if len(attempts) >= 60 or len(_demo_global) >= 300:
+            fail(429, "Quá nhiều phiên demo được tạo. Vui lòng thử lại sau.")
+        attempts.append(timestamp)
+        _demo_global.append(timestamp)
+        # Drop expired peer buckets occasionally to bound memory usage.
+        if len(_demo_attempts) > 1000:
+            for key in list(_demo_attempts):
+                if not _demo_attempts[key] or _demo_attempts[key][-1] < timestamp - 3600:
+                    del _demo_attempts[key]
+
+
+@app.get("/api/config")
+def public_config(response: Response):
+    response.headers["Cache-Control"] = "no-store"
+    return {"demo_enabled": demo_enabled()}
+
+
+@app.post("/api/auth/demo", status_code=201)
+def enter_demo(request: Request, response: Response, db: Session = Depends(db_session)):
+    # This is not an authentication bypass. It creates a new guest identity
+    # and new private business tenants, then issues a normal scoped session.
+    if not demo_enabled():
+        fail(404, "Không có chế độ demo")
+    demo_rate_limit(request)
+    user = seed_demo(db)
+    result = issue_session(db, response, user)
+    response.headers["Cache-Control"] = "no-store"
+    return result
 
 
 @app.post("/api/auth/signup", status_code=201)
@@ -144,7 +194,8 @@ def login(body: Login, response: Response, db: Session = Depends(db_session)):
 @app.get("/api/auth/me")
 def me(user=Depends(current_user)):
     u, session = user
-    return {"id": u.id, "name": u.name, "email": u.email, "csrf_token": session.csrf_token}
+    return {"id": u.id, "name": u.name, "email": u.email,
+            "csrf_token": session.csrf_token, "demo": is_demo_user(u)}
 
 
 @app.post("/api/auth/logout")
@@ -194,7 +245,7 @@ def business_out(b: Business):
 @app.get("/api/businesses")
 def business_list(user=Depends(current_user), db: Session = Depends(db_session)):
     ids = db.scalars(select(Membership.business_id).where(Membership.user_id == user[0].id)).all()
-    return [business_out(b) for b in db.scalars(select(Business).where(Business.id.in_(ids))).all()]
+    return [business_out(b) for b in db.scalars(select(Business).where(Business.id.in_(ids)).order_by(Business.created_at.asc())).all()]
 
 
 @app.get("/api/businesses/{bid}")
