@@ -11,7 +11,7 @@ const kinds={
  wellness:{industry:'services',label:'SPA & WELLNESS',hero:'Khoảng thời gian\ndành cho chính bạn.',emoji:'🌿',sub:'Chọn một liệu trình, chuyên viên và khung giờ phù hợp. Đặt lịch đơn giản trong vài bước.',section:'Chọn trải nghiệm của bạn',cart:'Đặt lịch DEMO',action:'Xác nhận lịch DEMO'}
 };
 const info=kinds[channel];
-const st={csrf:'',business:null,products:[],tables:[],staff:[],cart:{},filter:'Tất cả',search:'',pendingId:null,
+const st={csrf:'',business:null,products:[],tables:[],staff:[],cart:{},filter:'Tất cả',search:'',sort:'default',onlyAvailable:false,pendingId:null,slotRequestId:0,flow:null,
        service:null,assignee:'Linh',date:'',slots:[],slot:null,bookingLoading:false,lastOrder:null};
 const E=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const V=n=>new Intl.NumberFormat('vi-VN').format(Number(n)||0)+'đ';
@@ -25,14 +25,76 @@ async function api(path,options={}){
 }
 function toast(message,bad=false){toastRoot.textContent=message;toastRoot.className='customer-toast'+(bad?' bad':'');setTimeout(()=>{toastRoot.textContent='';toastRoot.className='';},3500)}
 function blocked(message){root.innerHTML=`<header class="customer-header"><a class="customer-brand" href="/"><span class="mark">e.</span> EZ <strong>Thing</strong></a><a class="info-link" href="/app">Quản lý ↗</a></header><main class="closed-message"><span style="font-size:52px">🌿</span><h2>Trải nghiệm hiện chưa mở</h2><p>${E(message)}</p><a class="info-link" href="/">← Về trang chủ</a></main>`}
-function header(){return `<div class="visitor-banner">🧪 STAGING DEMO • DỮ LIỆU THỬ NGHIỆM • KHÔNG THANH TOÁN THẬT</div><header class="customer-header"><a class="customer-brand" href="/"><span class="mark">e.</span> EZ <strong>Thing</strong></a><div class="customer-h-actions"><a href="/">Giải pháp</a><a href="/app">Khu quản lý ↗</a>${channel!=='wellness'?`<button data-action="open-cart">Giỏ hàng (${cartQty()})</button>`:`<button data-action="book-scroll">Đặt lịch</button>`}</div></header>`}
-function hero(){return `<section class="merchant-hero kind-${info.industry}"><div class="merchant-copy"><span class="merchant-tag">${info.label} • BẢN DEMO</span><h1>${E(info.hero).replace(/\n/g,'<br>')}</h1><p>${E(info.sub)}</p><div class="merchant-small"><span>✦ ${E(st.business?.name||'EZ Thing')}</span><span>Không cần tải App</span></div></div><div class="merchant-art"><div class="hero-emoji" aria-hidden="true">${info.emoji}</div><span class="sparkle">✦</span></div></section>`}
-function layout(){root.innerHTML=header()+`<main class="customer-main">${hero()}<section class="merchant-content" id="section-main">${channel==='wellness'?bookingHTML():catalogHTML()}</section></main><footer class="flow-footer">Trải nghiệm được xây dựng bởi <a href="/">EZ Thing</a> · Dữ liệu DEMO riêng cho phiên của bạn · Không thu tiền thật.</footer>`+cartBar()}
+function header(){
+ const count=cartQty();
+ return `<div class="visitor-banner"><span class="banner-dot"></span> PHIÊN BẢN TRẢI NGHIỆM · KHÔNG THANH TOÁN THẬT</div>
+ <header class="customer-header">
+ <a class="customer-brand" href="/" aria-label="EZ Thing trang chủ"><span class="mark">${info.emoji}</span><span class="brand-words"><strong>${E(st.business?.name||'EZ Thing')}</strong><small>Powered by EZ Thing</small></span></a>
+ <nav class="customer-h-actions" aria-label="Điều hướng cửa hàng">
+   <a href="#section-main">${channel==='wellness'?'Dịch vụ':'Sản phẩm'}</a>
+   <a href="#customer-about">Thông tin</a>
+   ${channel!=='wellness'?`<button data-action="open-cart" class="head-cart" aria-label="Mở giỏ hàng"><span>Giỏ hàng</span><b>${count}</b></button>`:`<button data-action="book-scroll" class="head-cart">Đặt lịch <span aria-hidden="true">↗</span></button>`}
+ </nav></header>`;
+}
+function hero(){
+ const perks={
+  cafe:['Menu & giá rõ ràng','Chọn bàn khi gửi món','Phiếu bếp thử nghiệm'],
+  mart:['Kiểm tra hàng sẵn có','Giữ hàng tại cửa hàng','Không thanh toán trực tuyến'],
+  online:['Chọn hàng nhanh chóng','Nhập địa chỉ khi đặt','Theo dõi tại khu quản lý'],
+  wellness:['Dịch vụ & giá minh bạch','Chọn chuyên viên & giờ','Chống trùng lịch trên server']
+ }[channel];
+ return `<section class="merchant-hero kind-${info.industry}">
+ <div class="merchant-copy">
+  <span class="merchant-tag"><span class="hero-live-dot"></span> ${info.label} · GIAN HÀNG DEMO</span>
+  <h1>${E(info.hero).replace(/\n/g,'<br>')}</h1><p>${E(info.sub)}</p>
+  <div class="hero-buttons"><a class="hero-primary" href="#section-main">${channel==='wellness'?'Khám phá dịch vụ':'Khám phá sản phẩm'} <span aria-hidden="true">↗</span></a><span class="hero-caption">Không cần đăng nhập</span></div>
+ </div>
+ <div class="merchant-art" aria-hidden="true"><div class="art-halo"></div><div class="art-main">${info.emoji}</div>
+ <div class="art-float art-float-top"><span>✦</span> ${channel==='wellness'?'Thời gian cho bạn':channel==='cafe'?'Hôm nay uống gì?':'Chọn điều bạn thích'}</div>
+ <div class="art-float art-float-bottom"><span>✓</span> ${channel==='wellness'?'Đặt lịch theo giờ':'Mua sắm dễ dàng'}</div></div>
+ </section>
+ <div class="merchant-trust-strip">${perks.map((p,i)=>`<span><i>${['✓','✦','↗'][i]}</i>${E(p)}</span>`).join('')}</div>`;
+}
+function layout(){
+ root.innerHTML=header()+`<main class="customer-main">${hero()}<section class="merchant-content" id="section-main">${channel==='wellness'?bookingHTML():catalogHTML()}</section></main>
+ <section class="customer-about" id="customer-about"><span class="about-mark">${info.emoji}</span><div><strong>${E(st.business?.name||'EZ Thing')}</strong><p>Đây là bản xem trước được kết nối với doanh nghiệp DEMO và hệ thống quản lý. Không đặt mua, giao hàng hoặc thanh toán thật.</p></div><a href="/app">Mở quản lý demo ↗</a></section>
+ <footer class="flow-footer">© EZ Thing · Trải nghiệm độc lập theo phiên · Không nhận thanh toán.</footer>
+ <nav class="customer-bottom-nav" aria-label="Điều hướng nhanh"><a href="#section-main"><span aria-hidden="true">${channel==='wellness'?'🌿':'⌕'}</span>${channel==='wellness'?'Dịch vụ':'Khám phá'}</a><a href="#customer-about"><span aria-hidden="true">ⓘ</span>Thông tin</a>${channel==='wellness'?`<button data-action="book-scroll"><span aria-hidden="true">◷</span>Đặt lịch</button>`:`<button data-action="open-cart"><span aria-hidden="true">▣</span>Giỏ hàng <b>${cartQty()}</b></button>`}</nav>`+cartBar();
+}
 function cartQty(){return Object.values(st.cart).reduce((n,x)=>n+x,0)}
 function cartTotal(){return st.products.reduce((n,p)=>n+p.price_vnd*(st.cart[p.id]||0),0)}
 function cartBar(){if(channel==='wellness'||!cartQty())return '';return `<button class="cart-bar" data-action="open-cart"><span><span class="cart-count">${cartQty()}</span> Xem giỏ hàng</span><span class="cart-total">${V(cartTotal())} &nbsp; ↗</span></button>`}
-function catalogHTML(){const cats=['Tất cả',...new Set(st.products.map(x=>x.category))];const filtered=st.products.filter(p=>(st.filter==='Tất cả'||p.category===st.filter)&&(p.name+' '+p.sku).toLowerCase().includes(st.search.toLowerCase()));return `<div class="catalog-top"><div><h2>${info.section}</h2><p>${st.products.length} sản phẩm đang hiển thị • Giá do máy chủ cung cấp</p></div><label class="search-wrap"><input id="customer-search" aria-label="Tìm sản phẩm" placeholder="Tìm sản phẩm..." value="${E(st.search)}"></label></div><div class="category-bar">${cats.map(cat=>`<button class="chip ${st.filter===cat?'active':''}" data-action="category" data-value="${E(cat)}">${E(cat)}</button>`).join('')}</div><div class="customer-grid">${filtered.length?filtered.map((p,i)=>`<article class="customer-product"><div class="item-visual"><span class="item-tag">${E(p.category)}</span><span class="item-emoji" aria-hidden="true">${icon(p)}</span></div><div class="item-info"><h3>${E(p.name)}</h3><span class="sku">${E(p.sku)} · ${p.available?'Đang có hàng':'Hết hàng'}</span><div class="item-foot"><strong>${V(p.price_vnd)}</strong><button class="add-btn" aria-label="Thêm ${E(p.name)}" data-action="add" data-value="${E(p.id)}" ${p.available?'':'disabled'}>+</button></div></div></article>`).join(''):`<div class="catalog-empty">Chưa tìm thấy sản phẩm phù hợp.</div>`}</div>`}
-function refreshCatalog(){const content=document.getElementById('section-main');if(content)content.innerHTML=catalogHTML();const old=document.querySelector('.cart-bar');old?.remove();root.insertAdjacentHTML('beforeend',cartBar());const hdr=document.querySelector('.customer-h-actions button');if(hdr)hdr.textContent=`Giỏ hàng (${cartQty()})`}
+function catalogHTML(){
+ const cats=['Tất cả',...new Set(st.products.map(x=>x.category).filter(Boolean))];
+ let filtered=st.products.filter(p=>(st.filter==='Tất cả'||p.category===st.filter)&&(p.name+' '+p.sku+' '+p.category).toLocaleLowerCase('vi-VN').includes(st.search.toLocaleLowerCase('vi-VN'))&&(!st.onlyAvailable||p.available));
+ if(st.sort==='low')filtered=[...filtered].sort((a,b)=>a.price_vnd-b.price_vnd);
+ if(st.sort==='high')filtered=[...filtered].sort((a,b)=>b.price_vnd-a.price_vnd);
+ return `<div class="catalog-intro"><span class="eyebrow">${channel==='cafe'?'CHỌN MÓN TRONG VÀI CHẠM':channel==='mart'?'SẮM NHỮNG MÓN THIẾT YẾU': 'KHÁM PHÁ BỘ SƯU TẬP'}</span><div class="catalog-top"><div><h2>${info.section}<span class="heading-dot">.</span></h2><p>${st.products.length} ${channel==='cafe'?'món':'sản phẩm'} · Chọn yêu thích rồi kiểm tra giỏ hàng</p></div><div class="catalog-count">${filtered.length} kết quả</div></div></div>
+ <div class="catalog-tools"><label class="search-wrap"><span class="visually-hidden">Tìm sản phẩm</span><input id="customer-search" type="search" autocomplete="off" placeholder="${channel==='cafe'?'Tìm món, matcha, cà phê...':'Tìm tên, loại sản phẩm...'}" value="${E(st.search)}"></label><label class="sort-wrap"><span class="visually-hidden">Sắp xếp sản phẩm</span><select id="customer-sort"><option value="default" ${st.sort==='default'?'selected':''}>Gợi ý</option><option value="low" ${st.sort==='low'?'selected':''}>Giá thấp trước</option><option value="high" ${st.sort==='high'?'selected':''}>Giá cao trước</option></select></label></div>
+ <div class="category-bar" role="group" aria-label="Bộ lọc danh mục">${cats.map(cat=>`<button aria-pressed="${st.filter===cat}" class="chip ${st.filter===cat?'active':''}" data-action="category" data-value="${E(cat)}">${E(cat)}</button>`).join('')}<label class="available-toggle"><input type="checkbox" id="only-available" ${st.onlyAvailable?'checked':''}><span>Chỉ còn hàng</span></label></div>
+ <div class="customer-grid">${filtered.length?filtered.map((p,i)=>`<article class="customer-product ${p.available?'':'is-sold-out'}">
+ <button type="button" data-action="detail" data-value="${E(p.id)}" class="item-visual" aria-label="Xem chi tiết ${E(p.name)}"><span class="item-tag">${E(p.category)}</span><span class="item-emoji" aria-hidden="true">${icon(p)}</span><span class="item-visual-caption">Xem chi tiết ↗</span></button>
+ <div class="item-info"><p class="product-overline">${channel==='cafe'?'THỨC UỐNG':channel==='online'?'BỘ SƯU TẬP':'HÀNG SẴN CÓ'}</p><h3>${E(p.name)}</h3><span class="sku">${p.available?'● Sẵn có':'○ Tạm hết hàng'} · ${E(p.sku)}</span>
+ <div class="item-foot"><strong>${V(p.price_vnd)}</strong>${st.cart[p.id]?`<div class="card-qty"><button data-action="decrease" data-value="${E(p.id)}" aria-label="Bớt ${E(p.name)}">−</button><b>${st.cart[p.id]}</b><button data-action="add" data-value="${E(p.id)}" aria-label="Thêm ${E(p.name)}" ${p.available?'':'disabled'}>+</button></div>`:`<button class="add-btn" aria-label="Thêm ${E(p.name)} vào giỏ" data-action="add" data-value="${E(p.id)}" ${p.available?'':'disabled'}>+</button>`}</div></div></article>`).join(''):`<div class="catalog-empty"><span>⌕</span><h3>Chưa tìm thấy sản phẩm</h3><p>Thử từ khóa hoặc chọn danh mục khác.</p><button data-action="clear-filter">Xóa bộ lọc</button></div>`}</div>
+ <p class="catalog-disclaimer">Giá và tình trạng hàng lấy từ hệ thống DEMO; giá cuối cùng được máy chủ xác minh trước khi gửi đơn.</p>`;
+}
+function refreshCatalog(){
+ const input=document.getElementById('customer-search'),focus=document.activeElement===input,caret=focus?input.selectionStart:null;
+ const content=document.getElementById('section-main');if(content)content.innerHTML=catalogHTML();
+ const old=document.querySelector('.cart-bar');old?.remove();root.insertAdjacentHTML('beforeend',cartBar());
+ const hdr=document.querySelector('.head-cart b');if(hdr)hdr.textContent=cartQty();
+ const bottom=document.querySelector('.customer-bottom-nav button b');if(bottom)bottom.textContent=cartQty();
+ if(focus){const newInput=document.getElementById('customer-search');newInput?.focus();if(caret!==null)newInput?.setSelectionRange(caret,caret)}
+}
+function detailHTML(product){
+ const amount=st.cart[product.id]||0;
+ return `<div class="customer-overlay" data-overlay><section class="customer-dialog product-dialog" role="dialog" aria-modal="true" aria-label="${E(product.name)}"><div class="dialog-head"><div><span class="eyebrow">${E(product.category)}</span><h2>${E(product.name)}</h2><p class="dialog-sub">Mã sản phẩm: ${E(product.sku)}</p></div><button class="close-modal" data-action="close" aria-label="Đóng">×</button></div>
+ <div class="detail-image"><span aria-hidden="true">${icon(product)}</span><small>Hình minh họa · DEMO</small></div>
+ <div class="detail-price"><div><small>Giá niêm yết</small><strong>${V(product.price_vnd)}</strong></div><span class="detail-availability">${product.available?'● Đang bán':'○ Tạm hết hàng'}</span></div>
+ <p class="detail-info">${channel==='cafe'?'Chọn món và thêm vào giỏ, sau đó chọn bàn khi gửi đơn.':channel==='mart'?'Gửi yêu cầu giữ hàng thử nghiệm tại cửa hàng.':'Chọn số lượng và xác nhận thông tin giao hàng tại bước tiếp theo.'}</p>
+ <button class="submit-btn" data-action="add-detail" data-value="${E(product.id)}" ${product.available&&amount<10?'':'disabled'}>${amount?'Thêm một sản phẩm nữa':'Thêm vào giỏ'} <span>+</span></button>
+ <p class="fine-print">Giá và số lượng sẽ được kiểm tra lại trên máy chủ.</p></section></div>`;
+}
 function openCart(){if(!cartQty()){toast('Hãy chọn ít nhất một sản phẩm',true);return}
  const rows=st.products.filter(x=>st.cart[x.id]);const options=st.tables.map(t=>`<option value="${E(t.id)}">${E(t.label)}</option>`).join('');
  overlay.innerHTML=`<div class="customer-overlay" data-overlay><section role="dialog" aria-modal="true" aria-label="Giỏ hàng" class="customer-dialog"><div class="dialog-head"><div><h2>${info.cart}</h2><p class="dialog-sub">Đặt hàng thử nghiệm • Không thu tiền</p></div><button class="close-modal" data-action="close" aria-label="Đóng">×</button></div>
@@ -62,16 +124,16 @@ async function start(){try{const config=await api('/config');if(!config.demo_ena
  if(!me){me=await api('/auth/demo',{method:'POST'});}
  if(!me.demo){blocked('Hãy sử dụng phiên DEMO để thử trang mua hàng. Dữ liệu thật của doanh nghiệp không được công bố.');return}
  st.csrf=me.csrf_token;
- const data=await api('/preview/'+channel);st.business=data.business;st.products=data.products;st.tables=data.tables;st.staff=data.staff||[];st.date=isoTomorrow();st.service=st.products[0]?.id||null;
+ const data=await api('/preview/'+channel);st.business=data.business;st.products=data.products;st.tables=data.tables;st.staff=data.staff||[];st.flow=data.flow||null;st.date=isoTomorrow();document.body.dataset.channel=channel;st.service=st.products[0]?.id||null;
  layout();if(channel==='wellness')await slots();
  }catch(e){blocked(e.message||'Không thể kết nối với bản DEMO')}}
-root.addEventListener('input',e=>{if(e.target.id==='customer-search'){st.search=e.target.value;const caret=e.target.selectionStart;refreshCatalog();const el=document.getElementById('customer-search');el?.focus();el?.setSelectionRange(caret,caret)}});
-root.addEventListener('change',e=>{if(e.target.id==='book-date'){st.date=e.target.value;st.pendingId=null;slots()}if(e.target.id==='book-staff'){st.assignee=e.target.value;st.pendingId=null;slots()}});
+root.addEventListener('input',e=>{if(e.target.id==='customer-search'){st.search=e.target.value;refreshCatalog()}});
+root.addEventListener('change',e=>{if(e.target.id==='customer-sort'){st.sort=e.target.value;refreshCatalog()}if(e.target.id==='only-available'){st.onlyAvailable=e.target.checked;refreshCatalog()}if(e.target.id==='book-date'){st.date=e.target.value;st.pendingId=null;slots()}if(e.target.id==='book-staff'){st.assignee=e.target.value;st.pendingId=null;slots()}});
 document.addEventListener('click',e=>{const el=e.target.closest('[data-action]');if(!el){if(e.target.matches('[data-overlay]'))close();return}e.preventDefault();const {action,value}=el.dataset;
  if(action==='close'){close();return}if(action==='book-scroll'){document.getElementById('booking-right')?.scrollIntoView({behavior:'smooth'});return}
- if(action==='category'){st.filter=value;refreshCatalog();return}if(action==='add'||action==='increase'){if(!st.products.some(x=>x.id===value&&x.available))return;st.cart[value]=Math.min(10,(st.cart[value]||0)+1);st.pendingId=null;refreshCatalog();if(action==='increase')openCart();else toast('Đã thêm vào giỏ hàng');return}
+ if(action==='category'){st.filter=value;refreshCatalog();return}if(action==='clear-filter'){st.filter='Tất cả';st.search='';st.onlyAvailable=false;st.sort='default';refreshCatalog();return}if(action==='detail'){const p=st.products.find(x=>x.id===value);if(p){overlay.innerHTML=detailHTML(p);document.body.style.overflow='hidden';overlay.querySelector('.close-modal')?.focus()}return}if(action==='add-detail'){if(st.cart[value]>=10)return;st.cart[value]=(st.cart[value]||0)+1;st.pendingId=null;close();refreshCatalog();toast('Đã thêm vào giỏ hàng');return}if(action==='add'||action==='increase'){if(!st.products.some(x=>x.id===value&&x.available))return;st.cart[value]=Math.min(10,(st.cart[value]||0)+1);st.pendingId=null;refreshCatalog();if(action==='increase')openCart();else toast('Đã thêm vào giỏ hàng');return}
  if(action==='decrease'){if(st.cart[value]){st.cart[value]--;if(!st.cart[value])delete st.cart[value];st.pendingId=null;refreshCatalog();if(cartQty())openCart();else close()}return}
- if(action==='open-cart'){openCart();return}if(action==='service'){st.service=value;st.pendingId=null;slots();return}if(action==='slot'){st.slot=value;layout();return}if(action==='open-booking'){bookingForm();return}
+ if(action==='open-cart'){openCart();return}if(action==='service'){st.service=value;st.pendingId=null;slots();return}if(action==='slot'){st.slot=value;const content=document.getElementById('section-main');if(content)content.innerHTML=bookingHTML();return}if(action==='open-booking'){bookingForm();return}
 });
 document.addEventListener('submit',e=>{if(e.target.id==='checkout-form'){e.preventDefault();checkout(e.target)}if(e.target.id==='booking-form'){e.preventDefault();book(e.target)}});
 document.addEventListener('keydown',e=>{if(e.key==='Escape')close()});
