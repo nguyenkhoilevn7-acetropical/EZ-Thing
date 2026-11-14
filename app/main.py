@@ -509,9 +509,14 @@ def order_create(bid: str, body: CreateOrder, user=Depends(current_user), db: Se
 @app.post("/api/businesses/{bid}/orders/{oid}/paid")
 def order_paid(bid: str, oid: str, body: ConfirmPayment, user=Depends(current_user), db: Session = Depends(db_session)):
     b = tenant(bid, user, db); feature(b, "orders")
-    o = db.scalar(select(SaleOrder).where(SaleOrder.id == oid, SaleOrder.business_id == bid))
+    # Lock before checking status: concurrent cancellation must not mark a
+    # cancelled order as paid (or restore stock after a payment).
+    o = db.scalar(select(SaleOrder).where(
+        SaleOrder.id == oid, SaleOrder.business_id == bid).with_for_update())
     if not o: fail(404, "Không tìm thấy đơn")
-    if o.status != "paid":
+    if o.status not in ("open", "paid"):
+        fail(409, "Đơn đã hủy, không thể xác nhận thanh toán")
+    if o.status == "open":
         o.status = "paid"; o.paid_at = now()
         audit(db, bid, user[0].id, "order.marked_paid_manual", {"order_id": oid})
         db.commit()
@@ -639,4 +644,8 @@ app.include_router(floorplan_router)
 # Server-side order KPIs and filtered history for the same existing ledger.
 from .order_dashboard import router as order_dashboard_router  # noqa: E402
 app.include_router(order_dashboard_router)
+
+# Order cancellation shares the SaleOrder ledger, stock movements and existing audit log.
+from .order_lifecycle import router as order_lifecycle_router  # noqa: E402
+app.include_router(order_lifecycle_router)
 
