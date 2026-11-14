@@ -1,5 +1,7 @@
 # EZ Thing — AI Business OS (pilot MVP v0.1)
 
+> **STAGING ĐÃ LIVE (14/11/2026):** [Mở EZ Thing](https://ez-thing-staging.onrender.com) · [Tài liệu Render + Neon](docs/staging-live-20261114.md). Đây là môi trường thử nghiệm, không nhập dữ liệu khách hàng thật. PostgreSQL riêng trên Neon Free; web/API trên Render My Workspace. Auto-deploy tắt. Không dùng Render PostgreSQL Minh Satori.
+
 **Trạng thái:** source code MVP chạy được tại môi trường local/staging độc lập. **Chưa triển khai production, chưa phải hệ thống POS thương mại hoàn chỉnh.** Tên EZ Thing là tên dự án tạm thời, chưa chốt nhãn hiệu.
 
 ## 1. Mô hình

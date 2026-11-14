@@ -1,23 +1,21 @@
-# EZ Thing pilot staging only. No production auto-deploy.
-# Render Free Postgres expires after 30 days: do not store business-critical data.
+# EZ Thing STAGING - manual deployment reference only.
+# Live service: Render My Workspace (Singapore), ez-thing-staging.
+# Database: separate Neon Free project "ez-thing-staging" (NOT Minh Satori).
+# IMPORTANT: the web service was already created manually.
+# Do not approve this Blueprint against the same workspace without reviewing
+# the plan, as it could create a duplicate web service.
+# Do not commit a real DATABASE_URL. Set it privately in Render Environment.
+# autoDeploy is OFF: manually deploy reviewed, tested commits only.
 services:
   - type: web
     name: ez-thing-staging
     runtime: docker
+    region: singapore
     plan: free
     healthCheckPath: /api/health
     autoDeployTrigger: 'off'
     envVars:
       - key: DATABASE_URL
-        fromDatabase:
-          name: ez-thing-staging-db
-          property: connectionString
+        sync: false
       - key: COOKIE_SECURE
         value: '1'
-
-databases:
-  - name: ez-thing-staging-db
-    databaseName: ezthing_staging
-    user: ezthing_staging_app
-    plan: free
-    ipAllowList: []
