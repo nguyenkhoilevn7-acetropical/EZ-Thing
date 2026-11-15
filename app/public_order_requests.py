@@ -251,7 +251,7 @@ def review_request(bid: str,rid: str,body: ReviewOrder,
     db.add(sale)
     db.flush()
     from .operations_v5 import consume_stock_for_sale
-    consume_stock_for_sale(db,bid,sale.id,quantities)
+    consume_stock_for_sale(db,bid,sale.id,quantities,branch.id)
     for line in item.lines:
         pid=line["product_id"]
         qty=quantities[pid]
