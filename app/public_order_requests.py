@@ -250,18 +250,12 @@ def review_request(bid: str,rid: str,body: ReviewOrder,
     )
     db.add(sale)
     db.flush()
+    from .operations_v5 import consume_stock_for_sale
+    consume_stock_for_sale(db,bid,sale.id,quantities,branch.id)
     for line in item.lines:
         pid=line["product_id"]
         qty=quantities[pid]
         p=products[pid]
-        if p.track_stock:
-            updated=db.execute(update(Product).where(
-                Product.id==pid,Product.business_id==bid,
-                Product.stock>=qty).values(stock=Product.stock-qty))
-            if updated.rowcount!=1:
-                reject(409,"Tồn kho không đủ, chưa tạo đơn")
-            db.add(StockMovement(id=str(uuid.uuid4()),business_id=bid,
-                                 product_id=pid,delta=-qty,reason="sale",ref=sale.id))
         db.add(SaleOrderItem(
             id=str(uuid.uuid4()),business_id=bid,order_id=sale.id,
             product_id=pid,product_name=p.name,quantity=qty,

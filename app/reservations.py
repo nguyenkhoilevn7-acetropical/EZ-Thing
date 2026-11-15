@@ -143,8 +143,12 @@ def contact_of(b):
             "hours": cfg.get("hours") or "08:00 – 22:00"}
 
 
-def policy_of(b):
-    config = (b.setup or {}).get("reservation_policy") if b else None
+def policy_of(b, branch_id=None):
+    setup = (b.setup or {}) if b else {}
+    per_branch = (setup.get("reservation_policies_by_branch") or {})
+    config = per_branch.get(branch_id) if branch_id else None
+    if config is None:
+        config = setup.get("reservation_policy")
     return ReservationPolicy.model_validate(config or {}).model_dump(mode="json")
 
 
@@ -174,14 +178,14 @@ def inquiry_out(row):
             "created_at": row.created_at.isoformat()}
 
 
-def valid_start(start, duration, business=None):
+def valid_start(start, duration, business=None, branch_id=None):
     local = start.astimezone(TZ)
     today = datetime.now(TZ).date()
     if local.date() < today or local.date() > today + timedelta(days=30):
         fail(422, "Chỉ nhận đặt bàn trong 30 ngày tới")
     if local.minute not in (0, 30) or local.second or local.microsecond:
         fail(422, "Giờ đặt bàn phải theo bước 30 phút")
-    policy = policy_of(business)
+    policy = policy_of(business, branch_id)
     if reason := closed_reason(policy, local.date()):
         fail(422, reason)
     if not (time.fromisoformat(policy["open_time"]) <= local.time()
@@ -200,6 +204,13 @@ def day_valid(day):
     today = datetime.now(TZ).date()
     if not today <= day <= today + timedelta(days=30):
         fail(422, "Chỉ nhận đặt bàn trong 30 ngày tới")
+
+
+def primary_branch_id(db, business):
+    branch=db.scalar(select(Branch).where(Branch.business_id==business.id)
+        .order_by(Branch.created_at,Branch.id))
+    if not branch:fail(422,"Doanh nghiệp chưa có chi nhánh")
+    return branch.id
 
 
 def eligible_area_tables(db, business, zone_id=None, branch_id=None):
@@ -232,7 +243,7 @@ def free_tables(db, bid, start, end, party_size, requested_table=None, allowed_i
                        .order_by(DiningTable.seats, DiningTable.label)).all()
     overlaps = db.scalars(select(IndustryWorkItem).where(
         IndustryWorkItem.business_id == bid,
-        IndustryWorkItem.kind == "reservations",
+        IndustryWorkItem.kind.in_(("reservations", "waitlist")),
         IndustryWorkItem.status.in_(BUSY),
         IndustryWorkItem.scheduled_at < end,
         IndustryWorkItem.ends_at > start)).all()
@@ -242,9 +253,9 @@ def free_tables(db, bid, start, end, party_size, requested_table=None, allowed_i
             (allowed_ids is None or t.id in allowed_ids)]
 
 
-def availability(db, b, day, party_size, duration, requested_table=None, allowed_ids=None):
+def availability(db, b, day, party_size, duration, requested_table=None, allowed_ids=None, branch_id=None):
     day_valid(day)
-    policy = policy_of(b)
+    policy = policy_of(b, branch_id)
     reason = closed_reason(policy, day)
     if reason:
         return {"date": day.isoformat(), "party_size": party_size,
@@ -257,7 +268,7 @@ def availability(db, b, day, party_size, duration, requested_table=None, allowed
         for minute in (0, 30):
             start = datetime.combine(day, time(hour, minute), tzinfo=TZ)
             try:
-                first, end = valid_start(start, duration, b)
+                first, end = valid_start(start, duration, b, branch_id)
             except Exception as err:
                 # Time validation is intentionally reused for unavailable slots.
                 from fastapi import HTTPException
@@ -292,7 +303,8 @@ def create_reservation(db, b, body, actor_id, source):
         return reservation_out(existing)
     # Resolve request idempotency before enforcing changed opening hours.
     # A retry must not lose access to the previously accepted reservation.
-    start, end = valid_start(body.start_at, body.duration_minutes, b)
+    active_branch = body.branch_id or primary_branch_id(db,b)
+    start, end = valid_start(body.start_at, body.duration_minutes, b, active_branch)
     total = db.scalars(select(IndustryWorkItem.id).where(
         IndustryWorkItem.business_id == b.id,
         IndustryWorkItem.kind == "reservations")).all()
@@ -300,7 +312,7 @@ def create_reservation(db, b, body, actor_id, source):
         fail(429, "Phiên DEMO đã đạt giới hạn đặt bàn")
     if source != "merchant" and (body.zone_id or body.branch_id):
         fail(422, "Khu vực chỉ dành cho người quản lý")
-    allowed_ids = eligible_area_tables(db, b, body.zone_id, body.branch_id)
+    allowed_ids = eligible_area_tables(db, b, body.zone_id, active_branch)
     if body.table_id and allowed_ids is not None and body.table_id not in allowed_ids:
         fail(422, "Bàn không thuộc khu vực hoặc chi nhánh được chọn")
     candidates = free_tables(db, b.id, start, end, body.party_size, body.table_id, allowed_ids)
@@ -373,14 +385,15 @@ def merchant_slots(bid: str, day: date = Query(...), party_size: int = Query(ge=
     if duration_minutes not in (60, 90, 120):
         fail(422, "Thời lượng chỉ hỗ trợ 60, 90 hoặc 120 phút")
     business = fnb_scope(bid, user, db)
-    allowed_ids = eligible_area_tables(db, business, zone_id, branch_id)
+    active_branch = branch_id or primary_branch_id(db,business)
+    allowed_ids = eligible_area_tables(db, business, zone_id, active_branch)
     if table_id and db.scalar(select(DiningTable.id).where(
             DiningTable.business_id == bid, DiningTable.id == table_id)) is None:
         fail(404, "Bàn không thuộc nhà hàng")
     if table_id and allowed_ids is not None and table_id not in allowed_ids:
         fail(422, "Bàn không thuộc khu vực hoặc chi nhánh được chọn")
     return availability(db, business, day, party_size, duration_minutes,
-                        table_id, allowed_ids)
+                        table_id, allowed_ids, active_branch)
 
 
 @router.get("/preview/cafe/reservations/availability")
@@ -390,7 +403,10 @@ def demo_slots(day: date = Query(...), party_size: int = Query(ge=1, le=20),
     if duration_minutes not in (60, 90, 120):
         fail(422, "Thời lượng chỉ hỗ trợ 60, 90 hoặc 120 phút")
     b = preview_scope(db, user, "cafe")
-    return availability(db, b, day, party_size, duration_minutes)
+    branch=primary_branch_id(db,b)
+    allowed=eligible_area_tables(db,b,branch_id=branch)
+    return availability(db, b, day, party_size, duration_minutes,
+                        allowed_ids=allowed, branch_id=branch)
 
 
 @router.post("/preview/cafe/reservations", status_code=201)
@@ -403,29 +419,43 @@ def customer_book(body: ReservationCreate, user=Depends(current_user),
 
 
 @router.get("/businesses/{bid}/reservations/policy")
-def merchant_reservation_policy(bid: str, user=Depends(current_user),
-                                db: Session = Depends(db_session)):
-    return policy_of(fnb_scope(bid, user, db))
+def merchant_reservation_policy(bid: str, branch_id: str | None = None,
+                                user=Depends(current_user), db: Session = Depends(db_session)):
+    b = fnb_scope(bid, user, db)
+    if branch_id:
+        if not db.scalar(select(Branch.id).where(Branch.business_id==bid,Branch.id==branch_id)):
+            fail(404,"Chi nhánh không tồn tại")
+    return policy_of(b, branch_id)
 
 
 @router.put("/businesses/{bid}/reservations/policy")
 def save_reservation_policy(bid: str, body: ReservationPolicy,
+                            branch_id: str | None = None,
                             user=Depends(current_user), db: Session = Depends(db_session)):
     business = fnb_scope(bid, user, db)
     ensure_owner(db, bid, user)
+    if branch_id:
+        if not db.scalar(select(Branch.id).where(Branch.business_id==bid,Branch.id==branch_id)):
+            fail(404,"Chi nhánh không tồn tại")
     setup = dict(business.setup or {})
-    setup["reservation_policy"] = body.model_dump(mode="json")
+    if branch_id:
+        branch_policies = dict(setup.get("reservation_policies_by_branch") or {})
+        branch_policies[branch_id] = body.model_dump(mode="json")
+        setup["reservation_policies_by_branch"] = branch_policies
+    else:
+        setup["reservation_policy"] = body.model_dump(mode="json")
     business.setup = setup
     db.add(AuditEvent(id=new_id(), business_id=business.id, actor_id=user[0].id,
-                      action="restaurant.reservation_policy.updated", payload="{}"))
+                      action="restaurant.reservation_policy.updated",
+                      payload=json.dumps({"branch_id":branch_id})))
     db.commit()
-    return policy_of(business)
+    return policy_of(business, branch_id)
 
 
 @router.get("/preview/cafe/reservations/policy")
 def demo_reservation_policy(user=Depends(current_user), db: Session = Depends(db_session)):
-    # Read-only public-safe values; no merchant/private data is exposed.
-    return policy_of(preview_scope(db, user, "cafe"))
+    b=preview_scope(db,user,"cafe")
+    return policy_of(b,primary_branch_id(db,b))
 
 
 @router.get("/businesses/{bid}/reservations/contact")

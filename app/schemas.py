@@ -54,6 +54,7 @@ class CreateOrder(BaseModel):
     customer_id: str | None = None
 
 class StockAdjust(BaseModel):
+    branch_id: str | None = None
     delta: int = Field(ge=-100000, le=100000)
     reason: str = Field(min_length=4, max_length=40)
     @field_validator("delta")

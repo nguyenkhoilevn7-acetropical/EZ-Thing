@@ -456,6 +456,8 @@ def product_create(bid: str, body: ProductCreate, user=Depends(current_user), db
         db.flush()
     except IntegrityError:
         db.rollback(); fail(409, "Mã SKU đã tồn tại trong doanh nghiệp")
+    from .operations_v5 import new_product_branch_balance
+    new_product_branch_balance(db,bid,p)
     if body.track_stock and body.stock:
         db.add(StockMovement(id=new_id(), business_id=bid, product_id=p.id,
                              delta=body.stock, reason="opening_stock"))
@@ -478,6 +480,8 @@ def stock_adjust(bid: str, pid: str, body: StockAdjust, user=Depends(current_use
                                                 Product.stock + body.delta >= 0).values(stock=Product.stock + body.delta))
     if not updated.rowcount:
         fail(409, "Số lượng tồn kho không đủ")
+    from .operations_v5 import branch_stock_change,primary_branch
+    branch_stock_change(db,bid,body.branch_id or primary_branch(db,bid).id,pid,body.delta)
     db.add(StockMovement(id=new_id(), business_id=bid, product_id=pid,
                          delta=body.delta, reason=body.reason))
     audit(db, bid, user[0].id, "stock.adjusted", {"product_id": pid, "delta": body.delta})
@@ -604,15 +608,10 @@ def order_create(bid: str, body: CreateOrder, user=Depends(current_user), db: Se
     try:
         db.add(o)
         db.flush()
+        from .operations_v5 import consume_stock_for_sale
+        consume_stock_for_sale(db, bid, o.id, quantities, branch.id)
         for pid, qty in quantities.items():
             p = products_by_id[pid]
-            if p.track_stock:
-                changed = db.execute(update(Product).where(Product.id == pid, Product.business_id == bid,
-                                         Product.stock >= qty).values(stock=Product.stock - qty))
-                if not changed.rowcount:
-                    db.rollback(); fail(409, f"Không đủ tồn kho: {p.name}")
-                db.add(StockMovement(id=new_id(), business_id=bid, product_id=pid,
-                                     delta=-qty, reason="sale", ref=o.id))
             db.add(SaleOrderItem(id=new_id(), business_id=bid, order_id=o.id, product_id=pid,
                                  product_name=p.name, quantity=qty, unit_price_vnd=p.price_vnd,
                                  total_vnd=qty * p.price_vnd))
@@ -642,6 +641,8 @@ def order_paid(bid: str, oid: str, body: ConfirmPayment, user=Depends(current_us
         fail(409, "Đơn đã hủy, không thể xác nhận thanh toán")
     if o.status == "open":
         o.status = "paid"; o.paid_at = now()
+        from .operations_v5 import loyalty_earn_on_paid
+        loyalty_earn_on_paid(db, bid, o)
         audit(db, bid, user[0].id, "order.marked_paid_manual", {"order_id": oid})
         db.commit()
     return order_out(db, o)
@@ -805,3 +806,8 @@ app.include_router(email_verification_router)
 from .public_order_requests import router as public_order_requests_router  # noqa: E402
 Base.metadata.create_all(bind=engine)
 app.include_router(public_order_requests_router)
+
+# V5 operations reuse existing industry_work_items; no duplicate payment or order ledger.
+from .operations_v5 import router as operations_v5_router  # noqa: E402
+Base.metadata.create_all(bind=engine)  # Pilot compatibility; Alembic migration for production.
+app.include_router(operations_v5_router)

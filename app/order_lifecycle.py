@@ -77,6 +77,8 @@ def cancel_unpaid_order(
         if changed.rowcount != 1:
             db.rollback()
             fail(409, "Không thể đối soát sản phẩm khi hoàn tồn kho")
+        from .operations_v5 import branch_stock_change
+        branch_stock_change(db,bid,order.branch_id,movement.product_id,-movement.delta)
         db.add(StockMovement(
             id=new_id(), business_id=bid, product_id=movement.product_id,
             delta=-movement.delta, reason="order_cancelled", ref=oid,
