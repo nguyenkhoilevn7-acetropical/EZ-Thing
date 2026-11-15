@@ -11,7 +11,7 @@ from zoneinfo import ZoneInfo
 from typing import Literal
 
 from fastapi import APIRouter, Depends, Query
-from pydantic import BaseModel, EmailStr, Field, field_validator
+from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
 from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
@@ -74,6 +74,31 @@ class ContactUpdate(BaseModel):
         return value
 
 
+class ReservationPolicy(BaseModel):
+    """Owner-controlled booking rules; stored in the tenant's existing setup JSON.
+
+    Times use Asia/Ho_Chi_Minh local time and 30-minute increments. All new
+    reservations are enforced on the server, not just filtered in the UI.
+    """
+    open_time: str = Field(default="08:00", pattern=r"^(?:[01]\\d|2[0-3]):(?:00|30)$")
+    last_seating_time: str = Field(default="20:30", pattern=r"^(?:[01]\\d|2[0-3]):(?:00|30)$")
+    close_time: str = Field(default="22:00", pattern=r"^(?:[01]\\d|2[0-3]):(?:00|30)$")
+    closed_weekdays: list[int] = Field(default_factory=list, max_length=7)
+    blocked_dates: list[date] = Field(default_factory=list, max_length=60)
+
+    @model_validator(mode="after")
+    def check_schedule(self):
+        if not self.open_time < self.last_seating_time < self.close_time:
+            raise ValueError("Giờ mở cửa, giờ nhận khách cuối và giờ đóng cửa phải tăng dần")
+        if any(day < 0 or day > 6 for day in self.closed_weekdays):
+            raise ValueError("Thứ trong tuần phải từ 0 (thứ Hai) đến 6 (Chủ Nhật)")
+        if len(set(self.closed_weekdays)) != len(self.closed_weekdays):
+            raise ValueError("Không được lặp ngày nghỉ hàng tuần")
+        if len(set(self.blocked_dates)) != len(self.blocked_dates):
+            raise ValueError("Không được lặp ngày chặn đặt bàn")
+        return self
+
+
 class InquiryCreate(BaseModel):
     request_id: str = Field(min_length=8, max_length=80, pattern=r"^[A-Za-z0-9_-]+$")
     name: str = Field(min_length=2, max_length=100)
@@ -118,6 +143,19 @@ def contact_of(b):
             "hours": cfg.get("hours") or "08:00 – 22:00"}
 
 
+def policy_of(b):
+    config = (b.setup or {}).get("reservation_policy") if b else None
+    return ReservationPolicy.model_validate(config or {}).model_dump(mode="json")
+
+
+def closed_reason(policy, day):
+    if day.weekday() in policy["closed_weekdays"]:
+        return "Nhà hàng không nhận đặt bàn vào thứ này"
+    if day.isoformat() in policy["blocked_dates"]:
+        return "Nhà hàng tạm ngưng nhận đặt bàn vào ngày đã chọn"
+    return None
+
+
 def reservation_out(row):
     d = row.details or {}
     return {"id": row.id, "status": row.status, "customer_name": d.get("customer_name", ""),
@@ -136,20 +174,25 @@ def inquiry_out(row):
             "created_at": row.created_at.isoformat()}
 
 
-def valid_start(start, duration):
+def valid_start(start, duration, business=None):
     local = start.astimezone(TZ)
     today = datetime.now(TZ).date()
     if local.date() < today or local.date() > today + timedelta(days=30):
         fail(422, "Chỉ nhận đặt bàn trong 30 ngày tới")
     if local.minute not in (0, 30) or local.second or local.microsecond:
         fail(422, "Giờ đặt bàn phải theo bước 30 phút")
-    if local.hour < 8 or local.hour > 20 or (local.hour == 20 and local.minute > 30):
-        fail(422, "Khung giờ nhận khách: 08:00–20:30")
+    policy = policy_of(business)
+    if reason := closed_reason(policy, local.date()):
+        fail(422, reason)
+    if not (time.fromisoformat(policy["open_time"]) <= local.time()
+            <= time.fromisoformat(policy["last_seating_time"])):
+        fail(422, "Giờ đến ngoài khung giờ nhận khách của nhà hàng")
     if start.astimezone(timezone.utc) < now() + timedelta(minutes=30):
         fail(422, "Cần đặt bàn trước tối thiểu 30 phút")
     end = start.astimezone(timezone.utc) + timedelta(minutes=duration)
-    if end.astimezone(TZ).date() != local.date() or end.astimezone(TZ).time() > time(22, 0):
-        fail(422, "Giờ kết thúc vượt thời gian phục vụ")
+    if (end.astimezone(TZ).date() != local.date()
+            or end.astimezone(TZ).time() > time.fromisoformat(policy["close_time"])):
+        fail(422, "Giờ kết thúc vượt giờ đóng cửa của nhà hàng")
     return start.astimezone(timezone.utc), end
 
 
@@ -201,12 +244,20 @@ def free_tables(db, bid, start, end, party_size, requested_table=None, allowed_i
 
 def availability(db, b, day, party_size, duration, requested_table=None, allowed_ids=None):
     day_valid(day)
+    policy = policy_of(b)
+    reason = closed_reason(policy, day)
+    if reason:
+        return {"date": day.isoformat(), "party_size": party_size,
+                "duration_minutes": duration, "slots": [],
+                "closed_reason": reason, "timezone": "Asia/Ho_Chi_Minh"}
     output = []
-    for hour in range(8, 21):
+    start_hour = int(policy["open_time"][:2])
+    last_hour = int(policy["last_seating_time"][:2])
+    for hour in range(start_hour, last_hour + 1):
         for minute in (0, 30):
             start = datetime.combine(day, time(hour, minute), tzinfo=TZ)
             try:
-                first, end = valid_start(start, duration)
+                first, end = valid_start(start, duration, b)
             except Exception as err:
                 # Time validation is intentionally reused for unavailable slots.
                 from fastapi import HTTPException
@@ -228,7 +279,6 @@ def lock_capacity(db, bid):
 
 
 def create_reservation(db, b, body, actor_id, source):
-    start, end = valid_start(body.start_at, body.duration_minutes)
     reference = hashlib.sha256((source + "|" + b.id + "|" + body.request_id).encode()).hexdigest()[:36]
     fingerprint = hashlib.sha256(json.dumps(body.model_dump(mode="json"),
                                              ensure_ascii=False, sort_keys=True).encode()).hexdigest()
@@ -240,6 +290,9 @@ def create_reservation(db, b, body, actor_id, source):
         if (existing.details or {}).get("fingerprint") != fingerprint:
             fail(409, "Mã yêu cầu đã dùng cho lượt đặt khác")
         return reservation_out(existing)
+    # Resolve request idempotency before enforcing changed opening hours.
+    # A retry must not lose access to the previously accepted reservation.
+    start, end = valid_start(body.start_at, body.duration_minutes, b)
     total = db.scalars(select(IndustryWorkItem.id).where(
         IndustryWorkItem.business_id == b.id,
         IndustryWorkItem.kind == "reservations")).all()
@@ -347,6 +400,32 @@ def customer_book(body: ReservationCreate, user=Depends(current_user),
     if body.table_id:
         fail(422, "Khách hàng chỉ chọn số người và giờ, nhà hàng tự xếp bàn")
     return create_reservation(db, b, body, user[0].id, "demo")
+
+
+@router.get("/businesses/{bid}/reservations/policy")
+def merchant_reservation_policy(bid: str, user=Depends(current_user),
+                                db: Session = Depends(db_session)):
+    return policy_of(fnb_scope(bid, user, db))
+
+
+@router.put("/businesses/{bid}/reservations/policy")
+def save_reservation_policy(bid: str, body: ReservationPolicy,
+                            user=Depends(current_user), db: Session = Depends(db_session)):
+    business = fnb_scope(bid, user, db)
+    ensure_owner(db, bid, user)
+    setup = dict(business.setup or {})
+    setup["reservation_policy"] = body.model_dump(mode="json")
+    business.setup = setup
+    db.add(AuditEvent(id=new_id(), business_id=business.id, actor_id=user[0].id,
+                      action="restaurant.reservation_policy.updated", payload="{}"))
+    db.commit()
+    return policy_of(business)
+
+
+@router.get("/preview/cafe/reservations/policy")
+def demo_reservation_policy(user=Depends(current_user), db: Session = Depends(db_session)):
+    # Read-only public-safe values; no merchant/private data is exposed.
+    return policy_of(preview_scope(db, user, "cafe"))
 
 
 @router.get("/businesses/{bid}/reservations/contact")
