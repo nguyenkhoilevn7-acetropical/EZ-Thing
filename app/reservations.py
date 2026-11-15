@@ -206,6 +206,13 @@ def day_valid(day):
         fail(422, "Chỉ nhận đặt bàn trong 30 ngày tới")
 
 
+def primary_branch_id(db, business):
+    branch=db.scalar(select(Branch).where(Branch.business_id==business.id)
+        .order_by(Branch.created_at,Branch.id))
+    if not branch:fail(422,"Doanh nghiệp chưa có chi nhánh")
+    return branch.id
+
+
 def eligible_area_tables(db, business, zone_id=None, branch_id=None):
     """Return only tables in the requested tenant/branch/area.
 
@@ -296,7 +303,8 @@ def create_reservation(db, b, body, actor_id, source):
         return reservation_out(existing)
     # Resolve request idempotency before enforcing changed opening hours.
     # A retry must not lose access to the previously accepted reservation.
-    start, end = valid_start(body.start_at, body.duration_minutes, b, body.branch_id)
+    active_branch = body.branch_id or (primary_branch_id(db,b) if source=="demo" else None)
+    start, end = valid_start(body.start_at, body.duration_minutes, b, active_branch)
     total = db.scalars(select(IndustryWorkItem.id).where(
         IndustryWorkItem.business_id == b.id,
         IndustryWorkItem.kind == "reservations")).all()
@@ -304,7 +312,7 @@ def create_reservation(db, b, body, actor_id, source):
         fail(429, "Phiên DEMO đã đạt giới hạn đặt bàn")
     if source != "merchant" and (body.zone_id or body.branch_id):
         fail(422, "Khu vực chỉ dành cho người quản lý")
-    allowed_ids = eligible_area_tables(db, b, body.zone_id, body.branch_id)
+    allowed_ids = eligible_area_tables(db, b, body.zone_id, active_branch)
     if body.table_id and allowed_ids is not None and body.table_id not in allowed_ids:
         fail(422, "Bàn không thuộc khu vực hoặc chi nhánh được chọn")
     candidates = free_tables(db, b.id, start, end, body.party_size, body.table_id, allowed_ids)
@@ -394,7 +402,10 @@ def demo_slots(day: date = Query(...), party_size: int = Query(ge=1, le=20),
     if duration_minutes not in (60, 90, 120):
         fail(422, "Thời lượng chỉ hỗ trợ 60, 90 hoặc 120 phút")
     b = preview_scope(db, user, "cafe")
-    return availability(db, b, day, party_size, duration_minutes)
+    branch=primary_branch_id(db,b)
+    allowed=eligible_area_tables(db,b,branch_id=branch)
+    return availability(db, b, day, party_size, duration_minutes,
+                        allowed_ids=allowed, branch_id=branch)
 
 
 @router.post("/preview/cafe/reservations", status_code=201)
@@ -442,8 +453,8 @@ def save_reservation_policy(bid: str, body: ReservationPolicy,
 
 @router.get("/preview/cafe/reservations/policy")
 def demo_reservation_policy(user=Depends(current_user), db: Session = Depends(db_session)):
-    # Read-only public-safe values; no merchant/private data is exposed.
-    return policy_of(preview_scope(db, user, "cafe"))
+    b=preview_scope(db,user,"cafe")
+    return policy_of(b,primary_branch_id(db,b))
 
 
 @router.get("/businesses/{bid}/reservations/contact")
