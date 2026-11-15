@@ -321,3 +321,87 @@ def product_availability(
         "reason": body.reason.strip()})
     db.commit()
     return {"product_id": product_id, "available": row.active}
+
+
+
+class CallRunner(BaseModel):
+    expected_revision: int = Field(ge=0)
+
+
+class TransferStation(BaseModel):
+    expected_revision: int = Field(ge=0)
+    station: Literal["bar", "hot", "cold", "expo"]
+    reason: str = Field(min_length=4, max_length=160)
+
+
+def lock_ticket_line(db: Session, bid: str, ticket_id: str, line_id: str):
+    """Lock sale order first, then canonical kitchen job, like POS edits/cancel."""
+    probe = db.scalar(select(IndustryWorkItem).where(
+        IndustryWorkItem.id == ticket_id, IndustryWorkItem.business_id == bid,
+        IndustryWorkItem.kind == "kitchen"))
+    if probe is None:
+        fail(404, "Không tìm thấy phiếu")
+    order = db.scalar(select(SaleOrder).where(
+        SaleOrder.id == probe.reference_id, SaleOrder.business_id == bid
+    ).with_for_update())
+    if order is None:
+        fail(404, "Không tìm thấy đơn")
+    job = db.scalar(select(IndustryWorkItem).where(
+        IndustryWorkItem.id == ticket_id, IndustryWorkItem.business_id == bid,
+        IndustryWorkItem.kind == "kitchen").with_for_update())
+    if not job or job.reference_id != order.id or job.status == "cancelled" or order.status == "cancelled":
+        fail(409, "Phiếu đã bị hủy hoặc thay đổi")
+    details = dict(job.details or {})
+    lines = [dict(x) for x in (details.get("kds_lines") or ticket_lines(db, bid, order))]
+    line = next((x for x in lines if x["id"] == line_id), None)
+    if line is None:
+        fail(404, "Món không thuộc phiếu")
+    return order, job, details, lines, line
+
+
+@router.post("/tickets/{ticket_id}/lines/{line_id}/call-runner")
+def call_runner(bid: str, ticket_id: str, line_id: str, body: CallRunner,
+                user=Depends(current_user), db: Session = Depends(db_session)):
+    guard(db, bid, user)
+    order, job, details, lines, line = lock_ticket_line(db, bid, ticket_id, line_id)
+    if line["status"] != "ready":
+        fail(409, "Chỉ gọi phục vụ khi món đã sẵn sàng")
+    # Internal flag only. No Zalo/SMS/push or third-party acknowledgement.
+    if line.get("runner_called_at"):
+        return ticket_view(job, order, lines)
+    revision = int(details.get("kds_revision", 0))
+    if body.expected_revision != revision:
+        fail(409, "Phiếu thay đổi ở thiết bị khác")
+    line["runner_called_at"] = datetime.now(timezone.utc).isoformat()
+    details.update(kds_lines=lines, kds_revision=revision+1)
+    job.details = details
+    audit(db, bid, user[0].id, "kds.runner_called", {
+        "ticket_id": ticket_id, "line_id": line_id, "transport": "internal_flag"})
+    db.commit()
+    return ticket_view(job, order, lines)
+
+
+@router.post("/tickets/{ticket_id}/lines/{line_id}/move-station")
+def transfer_station(bid: str, ticket_id: str, line_id: str,
+                     body: TransferStation, user=Depends(current_user),
+                     db: Session = Depends(db_session)):
+    guard(db, bid, user)
+    allow(db, bid, user, MANAGE_ROLES)
+    order, job, details, lines, line = lock_ticket_line(db, bid, ticket_id, line_id)
+    revision = int(details.get("kds_revision", 0))
+    if body.expected_revision != revision:
+        fail(409, "Phiếu thay đổi ở thiết bị khác")
+    if line["status"] in ("ready", "served"):
+        fail(409, "Không chuyển trạm khi món đã xong")
+    old = line["station"]
+    if old == body.station:
+        return ticket_view(job, order, lines)
+    line["station"] = body.station
+    line["updated_at"] = datetime.now(timezone.utc).isoformat()
+    details.update(kds_lines=lines, kds_revision=revision+1)
+    job.details = details
+    audit(db, bid, user[0].id, "kds.station_transferred", {
+        "ticket_id":ticket_id,"line_id":line_id,"from":old,
+        "to":body.station,"reason":body.reason.strip()})
+    db.commit()
+    return ticket_view(job, order, lines)
