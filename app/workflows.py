@@ -198,6 +198,9 @@ def change_status(bid: str, kind: str, item_id: str, body: NextStatus,
     else:
         fail(409, "Trình tự trạng thái không hợp lệ")
     if kind == "kitchen" and (item.details or {}).get("kds_lines"):
+        existing_states = {x.get("status") for x in item.details["kds_lines"]}
+        if len(existing_states) > 1:
+            fail(409, "Phiếu có nhiều trạng thái món; hãy xử lý từng món trên KDS")
         # Preserve legacy bulk status endpoint and old tests without creating
         # inconsistencies with new KDS per-item tickets.
         changed = []
