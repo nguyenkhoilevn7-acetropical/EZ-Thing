@@ -26,7 +26,7 @@ def cli():
         yield c
 
 def post(cli,path,body,csrf):
-    return cli.post("/api"+path,json=body,headers={"x-csrf-token":csrf})
+    return cli.post("/api"+path,json=body,headers={"x-csrf-token":csrf} if csrf else {})
 
 def put(cli,path,body,csrf):
     return cli.put("/api"+path,json=body,headers={"x-csrf-token":csrf})
