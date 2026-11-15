@@ -84,3 +84,15 @@
 }
 #ez-kds:fullscreen{background:var(--merchant-page,var(--bg,#f5f7fa));padding:20px;overflow:auto}
 @media print{body>*{display:none!important}body>.kds-print-region{display:block!important;color:#000;background:#fff;font:15px/1.6 sans-serif;padding:20px}.kds-print-region p{border-bottom:1px dashed #aaa;padding:7px 0}}
+
+/* Graphite uses pale-blue accents; dark ink is required on filled controls. */
+:root[data-ez-merchant-theme="graphite"] .kds-station.active,
+:root[data-ez-merchant-theme="graphite"] .kds-act:not(.kds-act-held):not(.kds-act-recall){
+ color:#111820;
+}
+:root[data-ez-merchant-theme="graphite"] .kds-timer.warning{
+ background:#392d18;color:#f3cd7b;
+}
+:root[data-ez-merchant-theme="graphite"] .kds-timer.late{
+ background:#3a2326;color:#f48f87;
+}
