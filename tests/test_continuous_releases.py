@@ -83,14 +83,14 @@ def test_single_asset_change_alters_html_url_and_worker_shell_without_manual_bum
         '{"name":"EZ Thing","icons":[]}', encoding="utf-8")
 
     before = AssetPipeline(root)
-    old_markup = before.page("index.html").text()
+    old_markup = before.page("index.html").body.decode("utf-8")
     old_shell = before.shell_hash
     old_worker = before.service_worker().body.decode("utf-8")
     assert "?v=" not in old_markup
 
     (root / "app.js").write_text("console.log('after');", encoding="utf-8")
     after = AssetPipeline(root)
-    new_markup = after.page("index.html").text()
+    new_markup = after.page("index.html").body.decode("utf-8")
     assert new_markup != old_markup
     assert before.hashes["/assets/app.js"] != after.hashes["/assets/app.js"]
     assert after.shell_hash != old_shell
