@@ -1,7 +1,7 @@
 /* Compact, semantic merchant order cards. Keeps the existing action dispatcher. */
 (() => {
   'use strict';
-  function renderList(orders, { E, V, D, status, I, canMarkPaid = true, canCancel = true }) {
+  function renderList(orders, { E, V, D, status, I, canMarkPaid = true, canCancel = true, canEdit = false, canMove = false }) {
     const cards = orders.map(o => {
       const shortId = E(String(o.id || '').slice(0, 8).toUpperCase());
       const id = E(o.id);
@@ -12,7 +12,9 @@
       const ageMarkup = o.status === 'open'
         ? `<span class='order-card-age'>${I('clock', 'sm')} Đơn mở ${age} phút</span>` : '';
       const actions = o.status === 'open'
-        ? (canMarkPaid ? `<button type='button' class='btn sm order-card-pay' data-action='confirm-paid' data-value='${id}'>${I('check', 'sm')} Đã nhận tiền</button>` : '')
+        ? (canEdit ? `<button type='button' class='btn sm secondary order-card-edit' data-action='pos-edit' data-value='${id}'>✎ Sửa món</button>` : '')
+          + (canMove ? `<button type='button' class='btn sm secondary order-card-move' data-action='pos-move' data-value='${id}'>⇄ Chuyển bàn</button>` : '')
+          + (canMarkPaid ? `<button type='button' class='btn sm order-card-pay' data-action='confirm-paid' data-value='${id}'>${I('check', 'sm')} Đã nhận tiền</button>` : '')
           + (canCancel ? `<button type='button' class='btn sm ghost order-card-cancel' data-action='cancel-order' data-value='${id}'>Hủy đơn</button>` : '')
         : '';
       return `<article class='order-card' role='listitem' data-match='${match}' aria-label='Đơn hàng #${shortId}'>
