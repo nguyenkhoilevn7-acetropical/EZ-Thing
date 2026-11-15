@@ -10,8 +10,10 @@ import hashlib
 import json
 import re
 from pathlib import Path
+from urllib.parse import parse_qs
 
 from fastapi.responses import HTMLResponse, Response
+from fastapi.staticfiles import StaticFiles
 
 
 # This is intentionally attribute-scoped (not a broad replace of links
@@ -106,3 +108,26 @@ class AssetPipeline:
 
 
 STATIC_ASSETS = AssetPipeline(Path(__file__).resolve().parent / "static")
+
+
+class RefreshableStaticFiles(StaticFiles):
+    """Prevent stale links from dynamic JS while caching content-tagged files.
+
+    Existing JS-generated icons may still use historical ?v= strings; they
+    must revalidate, even when HTML references are automatically content-hashed.
+    Avoid 1-year immutable cache on query-only URLs: the physical filename is
+    reused on subsequent deployments (and during rolling instance updates).
+    """
+
+    async def get_response(self, path, scope):
+        response = await super().get_response(path, scope)
+        if response.status_code not in (200, 304):
+            return response
+        query = scope.get("query_string", b"")[:256].decode("ascii", "ignore")
+        selected = parse_qs(query).get("h", [])
+        expected = STATIC_ASSETS.hashes.get("/assets/" + path)
+        if expected and selected == [expected]:
+            response.headers["Cache-Control"] = "public, max-age=3600"
+        else:
+            response.headers["Cache-Control"] = "no-cache, must-revalidate"
+        return response
