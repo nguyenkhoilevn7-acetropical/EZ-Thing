@@ -101,6 +101,13 @@ try:
   # V5 is an integrated merchant tab: render real cards, load tenant data,
   # keep the mobile navigation, and respect Graphite surfaces.
   page.goto(BASE+"/app?tab=operations",wait_until="domcontentloaded",timeout=15000)
+  page.wait_for_timeout(1500)
+  print("V5 DIAGNOSTIC",json.dumps({
+   "heading":page.locator("#page-content").inner_text()[:1800],
+   "html":page.locator("#page-content").inner_html()[:1800],
+   "pageerrors":errors[-8:],
+   "api":requests[-25:]
+  },ensure_ascii=False),flush=True)
   page.locator("#ez-operations-v5 .v5-panel").first.wait_for(timeout=25000)
   assert page.locator("#ez-operations-v5 .v5-panel").count()>=2
   assert page.locator(".mobile-nav").count()==1
