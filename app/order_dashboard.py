@@ -72,6 +72,8 @@ def order_dashboard(
                 SaleOrderItem.business_id == bid,
                 SaleOrderItem.order_id.in_([o.id for o in rows]))):
             by_order[item.order_id].append(item)
+    from .modifiers import order_selection_map
+    selections = order_selection_map(db, bid, [x for group in by_order.values() for x in group])
     from .team import role_for
     finance = role_for(db, bid, user[0].id) in ("owner", "manager")
     return {
@@ -80,5 +82,5 @@ def order_dashboard(
         "total_count": int(count or 0), "open_count": int(opened or 0),
         "paid_count": int(paid or 0), "cancelled_count": int(cancelled or 0),
         "paid_vnd": int(paid_vnd or 0) if finance else None,
-        "orders": [order_out(db, o, items=by_order[o.id]) for o in rows],
+        "orders": [order_out(db, o, items=by_order[o.id], selections=selections) for o in rows],
     }

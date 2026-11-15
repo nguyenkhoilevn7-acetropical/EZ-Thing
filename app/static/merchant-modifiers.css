@@ -1,0 +1,21 @@
+/* Product modifier builder + POS inline choices, dark/light token friendly. */
+.m6-editor{display:grid;gap:16px;max-height:76vh;overflow-y:auto;padding:4px 2px 12px}
+.m6-group{border:1px solid var(--border,rgba(100,116,139,.25));border-radius:16px;padding:15px;background:var(--surface,transparent)}
+.m6-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px}
+.m6-grid{display:grid;grid-template-columns:minmax(145px,2fr) repeat(2,minmax(75px,1fr));gap:10px}
+.m6-grid label,.m6-option label{font-size:12px;display:grid;gap:5px;color:var(--text,inherit)}
+.m6-grid input,.m6-option input,.m6-option select{width:100%;box-sizing:border-box;padding:9px;border-radius:9px;border:1px solid var(--border,rgba(100,116,139,.3));background:var(--surface,transparent);color:inherit}
+.m6-options{margin:13px 0;display:grid;gap:8px}
+.m6-option{display:grid;grid-template-columns:minmax(115px,1.7fr) minmax(100px,1fr) minmax(125px,1.6fr) 95px 32px;gap:8px;align-items:end}
+.m6-option button{min-height:40px}
+.m6-add{display:flex;flex-wrap:wrap;gap:9px}
+.m6-pos-slot{grid-column:1/-1;min-width:0}
+.m6-pos-groups{display:grid;gap:8px;padding:8px 0}
+.m6-pos-group{border:1px solid var(--border,rgba(100,116,139,.24));border-radius:12px;display:flex;gap:9px;flex-wrap:wrap;padding:10px}
+.m6-pos-group legend{font-size:13px;font-weight:600;padding:0 5px;color:inherit}
+.m6-pos-group legend small{opacity:.65;font-weight:400}
+.m6-pos-group label{display:inline-flex;align-items:center;gap:5px;font-size:13px;border:1px solid var(--border,rgba(100,116,139,.2));border-radius:9px;padding:7px 9px;cursor:pointer}
+.m6-pos-group label:has(input:checked){border-color:var(--accent,#287aff);background:color-mix(in srgb,var(--accent,#287aff) 9%,transparent)}
+.m6-pos-group label input{accent-color:var(--accent,#287aff);width:auto}
+.m6-pos-group label small{opacity:.7}
+@media(max-width:680px){.m6-grid{grid-template-columns:1fr 1fr}.m6-grid label:first-child{grid-column:1/-1}.m6-option{grid-template-columns:1fr 1fr}.m6-option label:nth-child(3){grid-column:1/-1}.m6-option button{justify-self:start}}

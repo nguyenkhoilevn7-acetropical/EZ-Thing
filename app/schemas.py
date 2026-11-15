@@ -44,6 +44,7 @@ class BranchCreate(BaseModel):
 class OrderLine(BaseModel):
     product_id: str
     quantity: int = Field(ge=1, le=1000)
+    selected_options: list[str] = Field(default_factory=list, max_length=30)
 
 class CreateOrder(BaseModel):
     branch_id: str | None = None

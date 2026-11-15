@@ -32,3 +32,14 @@
 .shop-cart-total strong:last-child{color:var(--accent);font-size:21px}
 #shop-order-status{font-size:12px;color:#b3434d;overflow-wrap:anywhere;line-height:1.6}
 @media(max-width:670px){.shop-cart-line{padding:10px}.shop-cart-line strong{font-size:13px}.shop-cart-total strong:last-child{font-size:17px}}
+
+/* V6: price-transparent, touch-friendly modifier selection. */
+.shop-mod-group{margin:12px 0;padding:13px;border:1px solid var(--line);border-radius:13px;display:grid;gap:9px;min-inline-size:0}
+.shop-mod-group legend{padding:0 5px;font-weight:700;font-size:14px}
+.shop-mod-group legend small{display:block;color:var(--muted);font-weight:400;font-size:11px}
+.shop-mod-option{display:flex!important;align-items:center;gap:11px!important;padding:12px!important;border:1px solid var(--line);border-radius:11px;cursor:pointer}
+.shop-mod-option:has(input:checked){border-color:var(--accent);background:color-mix(in srgb,var(--accent) 8%,transparent)}
+.shop-mod-option input{flex-shrink:0;width:auto!important;accent-color:var(--accent)}
+.shop-mod-option span{flex:1}
+.shop-mod-option strong{font-size:13px;white-space:nowrap}
+#shop-mod-status{color:#b9454f;font-size:12px;min-height:14px}
