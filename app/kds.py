@@ -117,14 +117,18 @@ def ticket_lines(db: Session, bid: str, order: SaleOrder) -> list[dict]:
 
 def ticket_view(row: IndustryWorkItem, order: SaleOrder | None,
                 lines: list[dict]) -> dict:
+    def iso(value):
+        if value is None:
+            return None
+        return (value.replace(tzinfo=timezone.utc) if value.tzinfo is None else value).isoformat()
     return {
         "id": row.id,
         "order_id": row.reference_id,
         "branch_id": order.branch_id if order else None,
         "table_id": order.table_id if order else None,
         "status": row.status,
-        "created_at": row.created_at.isoformat(),
-        "updated_at": row.updated_at.isoformat() if row.updated_at else row.created_at.isoformat(),
+        "created_at": iso(row.created_at),
+        "updated_at": iso(row.updated_at or row.created_at),
         "revision": int((row.details or {}).get("kds_revision", 0)),
         "note": (row.details or {}).get("note", ""),
         "lines": lines,
@@ -174,6 +178,7 @@ def queue(bid: str, branch_id: str | None = None,
         "stations": STATION_LABELS,
         "tickets": all_tickets,
         "all_day": dict(counts),
+        "ready_for_expo": sum(int(line["quantity"]) for ticket in all_tickets for line in ticket["lines"] if line["status"] == "ready"),
         "poll_after_seconds": 5,
         "transport": "foreground_polling",
         "notifications": "browser_tab_opt_in_only",
