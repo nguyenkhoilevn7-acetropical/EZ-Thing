@@ -303,7 +303,7 @@ def create_reservation(db, b, body, actor_id, source):
         return reservation_out(existing)
     # Resolve request idempotency before enforcing changed opening hours.
     # A retry must not lose access to the previously accepted reservation.
-    active_branch = body.branch_id or (primary_branch_id(db,b) if source=="demo" else None)
+    active_branch = body.branch_id or primary_branch_id(db,b)
     start, end = valid_start(body.start_at, body.duration_minutes, b, active_branch)
     total = db.scalars(select(IndustryWorkItem.id).where(
         IndustryWorkItem.business_id == b.id,
@@ -385,14 +385,15 @@ def merchant_slots(bid: str, day: date = Query(...), party_size: int = Query(ge=
     if duration_minutes not in (60, 90, 120):
         fail(422, "Thời lượng chỉ hỗ trợ 60, 90 hoặc 120 phút")
     business = fnb_scope(bid, user, db)
-    allowed_ids = eligible_area_tables(db, business, zone_id, branch_id)
+    active_branch = branch_id or primary_branch_id(db,business)
+    allowed_ids = eligible_area_tables(db, business, zone_id, active_branch)
     if table_id and db.scalar(select(DiningTable.id).where(
             DiningTable.business_id == bid, DiningTable.id == table_id)) is None:
         fail(404, "Bàn không thuộc nhà hàng")
     if table_id and allowed_ids is not None and table_id not in allowed_ids:
         fail(422, "Bàn không thuộc khu vực hoặc chi nhánh được chọn")
     return availability(db, business, day, party_size, duration_minutes,
-                        table_id, allowed_ids, branch_id)
+                        table_id, allowed_ids, active_branch)
 
 
 @router.get("/preview/cafe/reservations/availability")
