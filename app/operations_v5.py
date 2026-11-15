@@ -39,7 +39,8 @@ class BranchBalance(Base):
 
 
 def branch_inventory_enabled(db:Session,bid:str):
-    business=db.get(Business,bid)
+    business=db.scalar(select(Business).where(Business.id==bid)
+                       .execution_options(populate_existing=True))
     return bool((business.setup or {}).get("branch_inventory_enabled")) if business else False
 
 
@@ -52,9 +53,9 @@ def primary_branch(db,bid):
 
 def branch_stock_change(db,bid,branch_id,pid,delta):
     """Atomic branch change inside the caller's wider Product.stock transaction."""
+    lock_business(db,bid,"branch-inventory")
     if not branch_inventory_enabled(db,bid):return
     if not branch_id:fail(422,"Thiếu chi nhánh khi theo dõi kho riêng")
-    lock_business(db,bid,"branch-inventory")
     in_branch(db,bid,branch_id)
     if delta>=0:
         row=db.get(BranchBalance,{"business_id":bid,"branch_id":branch_id,"product_id":pid})
@@ -95,6 +96,7 @@ def activate_branch_inventory(bid:str,body:ActivateBranchInventory,
     allow(db,bid,user,{"owner"})
     lock_business(db,bid,"branch-inventory")
     b=db.scalar(select(Business).where(Business.id==bid).with_for_update())
+    db.refresh(b)
     if branch_inventory_enabled(db,bid):
         return {"enabled":True,"message":"Kho chi nhánh đã được kích hoạt"}
     main=primary_branch(db,bid)
@@ -113,6 +115,7 @@ def activate_branch_inventory(bid:str,body:ActivateBranchInventory,
 
 
 def new_product_branch_balance(db:Session,bid:str,p:Product):
+    lock_business(db,bid,"branch-inventory")
     if branch_inventory_enabled(db,bid) and p.track_stock:
         branch=primary_branch(db,bid)
         db.add(BranchBalance(business_id=bid,branch_id=branch.id,
@@ -489,8 +492,14 @@ def transfer_status(bid:str,item_id:str,body:TransferStatus,
     allowed={"requested":{"approved","cancelled"},"approved":{"received","cancelled"}}
     if body.status not in allowed.get(row.status,set()):
         fail(409,"Trạng thái yêu cầu không hợp lệ")
-    if body.status=="received" and branch_inventory_enabled(db,bid):
+    if body.status=="received":
         lock_business(db,bid,"branch-inventory")
+        if not branch_inventory_enabled(db,bid):
+            row.status=body.status
+            audit(db,bid,user[0].id,"stock.transfer_status",
+                  {"id":row.id,"status":body.status,"inventory_applied":False})
+            db.commit()
+            return item_out(row)
         props=row.details or {}
         src=props["from_branch_id"]
         dst=props["to_branch_id"]
