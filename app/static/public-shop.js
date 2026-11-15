@@ -64,7 +64,7 @@
       </div></div></header>
       <main id="home" class="shop-container">
       <section class="shop-hero" aria-labelledby="shop-headline">
-        <div class="shop-hero-bg" style="background-image:url('${E(brand.banner_image || "")}')"></div>
+        <div class="shop-hero-bg" style="background-image:url('${E(brand.banner_image || "")}');background-position:${Math.max(0,Math.min(100,Number(brand.banner_position_x??50)))}% ${Math.max(0,Math.min(100,Number(brand.banner_position_y??50)))}%"></div>
         <div class="shop-hero-shade"></div>
         <div class="shop-hero-content">
           <div class="shop-eyebrow">EZ THING · ${E(data.industry.toUpperCase())}</div>
