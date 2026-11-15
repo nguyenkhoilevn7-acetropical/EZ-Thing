@@ -31,7 +31,60 @@
     return `<button type="button" class="shop-button" data-action="${E(action)}" data-value="${E(value)}">${label}</button>`;
   }
 
-  function countItems(){return [...state.cart.values()].reduce((sum,x)=>sum+x,0);}
+  function countItems(){return [...state.cart.values()].reduce((sum,x)=>sum+x.quantity,0);}
+  function productById(id){return state.data?.products?.find(p=>p.id===id);}
+  function selectedOptions(p,ids){
+    return (p.modifier_groups||[]).flatMap(g=>g.options.filter(o=>ids.includes(o.id)).map(o=>({...o,group_name:g.name})));
+  }
+  function unitPrice(p,ids){return p.price_vnd+selectedOptions(p,ids).reduce((total,o)=>total+o.price_vnd,0);}
+  function cartKey(id,ids){return id+"|"+[...ids].sort().join(",");}
+  function addProduct(id,ids){
+    const p=productById(id);
+    if(!p||!p.available)return;
+    const key=cartKey(id,ids),found=state.cart.get(key);
+    if(!found&&state.cart.size>=15)return;
+    state.cart.set(key,{product_id:id,selected_options:[...ids],quantity:Math.min(15,(found?.quantity||0)+1)});
+    state.orderRequestId=null;
+    render();openCart();
+  }
+  function openModifiers(id){
+    const p=productById(id);
+    if(!p)return;
+    const host=document.getElementById("shop-modal");
+    if(!host)return;
+    host.innerHTML=`<div class="shop-overlay" data-overlay><section class="shop-dialog"
+      role="dialog" aria-modal="true" aria-label="${T('Tùy chọn sản phẩm','Customize product')}">
+      <header><h2>${E(p.name)}</h2><button class="shop-close" data-action="close" type="button">✕</button></header>
+      <form class="shop-form" id="shop-modifier-form" data-product-id="${E(p.id)}">
+        <p class="shop-note">${T('Chọn size, topping hoặc yêu cầu thêm','Choose size and extras')}</p>
+        ${(p.modifier_groups||[]).map(g=>`<fieldset class="shop-mod-group">
+          <legend>${E(g.name)} <small>${g.min_select?`${T('Bắt buộc','Required')} · `:''}${g.max_select===1?T('Chọn 1','Choose 1'):T('Tối đa','Up to')+' '+g.max_select}</small></legend>
+          ${g.max_select===1&&g.min_select===0?`<label class="shop-mod-option"><input type="radio" name="group_${E(g.id)}" value="" checked>${T('Không chọn','No extras')}</label>`:''}
+          ${g.options.map(o=>`<label class="shop-mod-option"><input type="${g.max_select===1?'radio':'checkbox'}"
+            name="group_${E(g.id)}" data-mod-group="${E(g.id)}" data-mod-option value="${E(o.id)}">
+            <span>${E(o.name)}</span><strong>${o.price_vnd?'+'+V(o.price_vnd):T('Miễn phí','Free')}</strong></label>`).join('')}
+          </fieldset>`).join('')}
+        <div class="shop-cart-total"><strong>${T('Giá sản phẩm','Item price')}</strong><strong id="shop-mod-total">${V(p.price_vnd)}</strong></div>
+        <div id="shop-mod-status" role="status" aria-live="polite"></div>
+        <button class="shop-button" type="submit">${T('Thêm vào giỏ','Add to cart')}</button>
+      </form></section></div>`;
+    document.body.style.overflow="hidden";
+    host.querySelector('input[data-mod-option]')?.focus();
+  }
+  function commitModifiers(form){
+    const p=productById(form.dataset.productId);
+    if(!p)return;
+    const selected=[...form.querySelectorAll('[data-mod-option]:checked')].map(x=>x.value);
+    for(const group of (p.modifier_groups||[])){
+      const count=selected.filter(id=>group.options.some(o=>o.id===id)).length;
+      if(count<group.min_select||count>group.max_select){
+        const status=form.querySelector('#shop-mod-status');
+        if(status)status.textContent=T('Vui lòng chọn đúng số lượng: ','Please select the required number: ')+group.name;
+        return;
+      }
+    }
+    addProduct(p.id,selected);
+  }
   function phoneHref(phone) {
     const valid = String(phone || "").replace(/[^+0-9]/g, "");
     return valid.length >= 7 ? "tel:" + valid : "";
@@ -151,8 +204,8 @@
     const host=document.getElementById("shop-modal");
     if(!host||!state.data)return;
     const products=new Map((state.data.products||[]).map(p=>[p.id,p]));
-    const entries=[...state.cart.entries()].filter(([id,qty])=>products.has(id)&&qty>0);
-    const total=entries.reduce((sum,[id,qty])=>sum+products.get(id).price_vnd*qty,0);
+    const entries=[...state.cart.entries()].filter(([key,item])=>products.has(item.product_id)&&item.quantity>0);
+    const total=entries.reduce((sum,[key,item])=>sum+unitPrice(products.get(item.product_id),item.selected_options)*item.quantity,0);
     const online=state.data.industry==="online";
     host.innerHTML=`<div class="shop-overlay" data-overlay>
       <section class="shop-dialog" role="dialog" aria-modal="true" aria-label="${T('Giỏ hàng','Shopping cart')}">
@@ -161,13 +214,14 @@
         <p class="shop-note">${T("Cửa hàng sẽ duyệt và liên hệ xác nhận đơn. Chưa thu tiền trực tuyến.",
           "The merchant must review and confirm your request. No online payment.")}</p>
         <div class="shop-cart-items">
-          ${entries.map(([id,qty])=>`<div class="shop-cart-line">
-            <div><strong>${E(products.get(id).name)}</strong>
-              <small>${V(products.get(id).price_vnd)} × ${qty}</small></div>
+          ${entries.map(([key,item])=>`<div class="shop-cart-line">
+            <div><strong>${E(products.get(item.product_id).name)}</strong>
+              <small>${selectedOptions(products.get(item.product_id),item.selected_options).map(o=>E(o.group_name)+': '+E(o.name)).join(' · ')}</small>
+              <small>${V(unitPrice(products.get(item.product_id),item.selected_options))} × ${item.quantity}</small></div>
             <div class="shop-cart-qty">
-              <button type="button" data-action="cart-dec" data-value="${E(id)}" aria-label="${T('Giảm','Decrease')}">−</button>
-              <span>${qty}</span>
-              <button type="button" data-action="cart-inc" data-value="${E(id)}" aria-label="${T('Tăng','Increase')}">+</button>
+              <button type="button" data-action="cart-dec" data-value="${E(key)}" aria-label="${T('Giảm','Decrease')}">−</button>
+              <span>${item.quantity}</span>
+              <button type="button" data-action="cart-inc" data-value="${E(key)}" aria-label="${T('Tăng','Increase')}">+</button>
             </div></div>`).join("")||`<p class="shop-note">${T('Giỏ hàng còn trống.','Your cart is empty.')}</p>`}
         </div>
         <div class="shop-cart-total"><strong>${T('Giá dự tính','Estimated subtotal')}</strong>
@@ -199,7 +253,7 @@
         "order"+Date.now()+Math.random().toString(36).slice(2)),
       customer_name:data.customer_name,phone:data.phone,address:data.address||"",
       note:data.note||"",
-      lines:[...state.cart.entries()].map(([product_id,quantity])=>({product_id,quantity}))
+      lines:[...state.cart.values()].map(x=>({product_id:x.product_id,quantity:x.quantity,selected_options:x.selected_options}))
     };
     if(!payload.lines.length)return;
     state.sending=true;
@@ -281,19 +335,21 @@
     if(button){
       const action=button.dataset.action;
       if(action==="cart-add"){
-        const id=button.dataset.value;
-        const p=state.data?.products?.find(x=>x.id===id&&x.available);
-        if(p&&(state.cart.has(id)||state.cart.size<15)){
-          state.cart.set(id,Math.min(15,(state.cart.get(id)||0)+1));
-          render();openCart();
+        const p=productById(button.dataset.value);
+        if(p?.available){
+          if(p.modifier_groups?.length)openModifiers(p.id);
+          else addProduct(p.id,[]);
         }
       }
       if(action==="cart")openCart();
       if(action==="cart-inc"||action==="cart-dec"){
-        const id=button.dataset.value,quantity=(state.cart.get(id)||0)+(action==="cart-inc"?1:-1);
-        if(quantity<1)state.cart.delete(id);
-        else state.cart.set(id,Math.min(15,quantity));
-        render();openCart();
+        const key=button.dataset.value,entry=state.cart.get(key);
+        if(entry){
+          const quantity=entry.quantity+(action==="cart-inc"?1:-1);
+          if(quantity<1)state.cart.delete(key);
+          else state.cart.set(key,{...entry,quantity:Math.min(15,quantity)});
+          state.orderRequestId=null;render();openCart();
+        }
       }
       if(action==="contact")openContact(button.dataset.value||"");
       if(action==="close")closeModal();
@@ -306,9 +362,19 @@
     } else if(e.target.matches("[data-overlay]")) closeModal();
   });
   document.addEventListener("keydown", e=>{if(e.key==="Escape")closeModal()});
+  document.addEventListener("change", e=>{
+    if(e.target.closest('#shop-modifier-form')){
+      const form=e.target.closest('form'),p=productById(form.dataset.productId);
+      if(!p)return;
+      const ids=[...form.querySelectorAll('[data-mod-option]:checked')].map(x=>x.value);
+      const total=form.querySelector('#shop-mod-total');
+      if(total)total.textContent=V(unitPrice(p,ids));
+    }
+  });
   document.addEventListener("submit", e=>{
     if(e.target.id==="shop-contact-form"){e.preventDefault();sendContact(e.target)}
     if(e.target.id==="shop-order-form"){e.preventDefault();sendOrder(e.target)}
+    if(e.target.id==="shop-modifier-form"){e.preventDefault();commitModifiers(e.target)}
   });
   start();
 })();
