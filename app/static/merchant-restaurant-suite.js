@@ -45,10 +45,10 @@ window.EZRestaurantSuite=function(deps){
         deps.api(prefix+'/reservations'),
         deps.api(prefix+'/inquiries'),
         deps.api(prefix+'/reservations/contact'),
-        deps.api(prefix+'/reservations/policy')
+        deps.api(prefix+'/reservations/policy'+(st.branch?'?branch_id='+encodeURIComponent(st.branch):''))
       ]);
       if(generation!==st.request)return;
-      st.layout=floor;st.branch=floor.branch_id;st.bookings=booking;st.inquiries=inquiry;st.contact=contact;st.policy=policy;
+      st.layout=floor;st.branch=floor.branch_id;st.bookings=booking;st.inquiries=inquiry;st.contact=contact;st.policy=st.branch?policy:await deps.api(prefix+'/reservations/policy?branch_id='+encodeURIComponent(floor.branch_id));
       st.activeZone=st.activeZone&&floor.zones.some(z=>z.id===st.activeZone)?st.activeZone:floor.zones[0]?.id;
       st.dirty=false;
     })().finally(()=>{if(generation===st.request)st.loading=null});
@@ -167,8 +167,9 @@ window.EZRestaurantSuite=function(deps){
     const weekdays=[['T2','Mon'],['T3','Tue'],['T4','Wed'],['T5','Thu'],['T6','Fri'],['T7','Sat'],['CN','Sun']];
     const policyPanel='<section class="surface pad suite-booking-policy" aria-labelledby="suite-policy-title">'+
       '<h3 id="suite-policy-title">'+tr('Quy tắc nhận đặt bàn','Reservation availability rules')+'</h3>'+
-      '<p class="subtle">'+tr('Áp dụng toàn bộ chi nhánh. Các lịch đã xác nhận không bị tự động hủy.',
-        'Applies to all branches. Existing bookings are never automatically cancelled.')+'</p>'+
+      '<p class="subtle">'+tr('Áp dụng riêng cho chi nhánh đang chọn: ','Applies to selected branch: ')+
+        E(st.layout?.branch_name||'')+'. '+
+        tr('Lịch cũ không bị tự động hủy.','Existing bookings remain unchanged.')+'</p>'+
       '<form data-suite-form="reservation-policy">'+
       '<div class="suite-booking-filters">'+
       '<label>'+tr('Giờ mở cửa','Opening time')+'<input type="time" step="1800" name="open_time" required value="'+E(policy.open_time)+'"></label>'+
@@ -451,7 +452,7 @@ window.EZRestaurantSuite=function(deps){
         closed_weekdays:values.getAll('closed_weekdays').map(Number),
         blocked_dates:String(values.get('blocked_dates')||'').split(/[\s,;]+/).map(v=>v.trim()).filter(Boolean)
       };
-      await deps.api('/businesses/'+encodeURIComponent(st.bid)+'/reservations/policy',
+      await deps.api('/businesses/'+encodeURIComponent(st.bid)+'/reservations/policy?branch_id='+encodeURIComponent(st.branch),
         {method:'PUT',body:JSON.stringify(body)});
       deps.toast(tr('Đã lưu quy tắc đặt bàn','Booking rules saved'));return reload();
     }
