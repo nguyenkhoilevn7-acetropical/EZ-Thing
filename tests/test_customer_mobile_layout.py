@@ -16,7 +16,9 @@ def test_mobile_css_is_loaded_after_all_existing_styles():
     styles = ["customer.css", "premium.css", "storefront-showcase.css", "i18n.css", "customer-mobile-fixes.css"]
     positions = [page.index(f"/assets/{name}") for name in styles]
     assert positions == sorted(positions)
-    assert "customer-mobile-fixes.css?v=" in page
+    from app.asset_pipeline import STATIC_ASSETS
+    path = "/assets/customer-mobile-fixes.css"
+    assert path + "?h=" + STATIC_ASSETS.hashes[path] in STATIC_ASSETS.page("customer.html").body.decode("utf-8")
 
 
 def test_catalog_chips_do_not_clip_start_and_are_scrollable():
