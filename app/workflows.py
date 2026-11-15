@@ -127,7 +127,7 @@ def create_item(bid: str, kind: str, body: CreateWorkItem,
                 Customer.business_id == bid)) if order.customer_id else None
             if not customer or not customer.address.strip():
                 fail(422, "Đơn giao hàng cần có khách hàng và địa chỉ nhận hàng")
-        details = {"note": body.note,
+        details = {"note": body.note.strip() or (order.note if kind == "kitchen" else ""),
                    **({"carrier": body.carrier, "tracking_number": body.tracking_number} if kind == "delivery" else {})}
         if kind == "kitchen":
             # A single immutable menu+modifier+station snapshot is created at
