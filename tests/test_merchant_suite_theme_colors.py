@@ -50,5 +50,9 @@ def test_business_status_colors_are_not_overridden_as_brand_accents():
 
 def test_new_stylesheet_version_is_loaded():
     index = (STATIC / "index.html").read_text(encoding="utf-8")
-    assert "merchant-restaurant-suite.css?v=20261114-ui-25" in index
-    assert "merchant-restaurant-suite.css?v=20261114-ui-24" not in index
+    # The stylesheet version must change when its contents change. Avoid
+    # pinning a single historical version: legitimate cache-busting updates
+    # should not break unrelated theme regressions.
+    assert '/assets/merchant-restaurant-suite.css?v=20261115-policy-01' in index
+    assert '/assets/merchant-restaurant-suite.js?v=20261115-policy-01' in index
+    assert 'merchant-restaurant-suite.css?v=20261114-ui-25' not in index

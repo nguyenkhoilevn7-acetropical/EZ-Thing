@@ -5,7 +5,7 @@
 'use strict';
 window.EZRestaurantSuite=function(deps){
   const E=deps.E, V=deps.V, fmt=deps.D;
-  const st={bid:null,branch:null,layout:null,bookings:[],inquiries:[],contact:{},
+  const st={bid:null,branch:null,layout:null,bookings:[],inquiries:[],contact:{},policy:null,
     activeZone:null,editing:false,dirty:false,search:'',filter:'all',date:'',
     loading:null,request:0,lastMoved:0,selected:null};
   const next=()=>globalThis.crypto?.randomUUID?.()||('req-'+Date.now()+'-'+Math.random().toString(36).slice(2));
@@ -21,12 +21,13 @@ window.EZRestaurantSuite=function(deps){
     confirmed:[['seated','Nhận bàn'],['cancelled','Hủy lịch'],['no_show','Không đến']],
     seated:[['completed','Hoàn tất']]};
   const statusLabel=(r)=>labels[r]||r;
+  const tr=(vi,en)=>(window.EZI18N?.language()||'vi')==='en'?en:vi;
   const option=(key,val,selected)=>'<option value="'+E(key)+'"'+(key===selected?' selected':'')+'>'+E(val)+'</option>';
   const button=(action,caption,extra)=>'<button type="button" data-suite="'+action+'"'+(extra||'')+'>'+caption+'</button>';
   function ensureBusiness(){
     const id=deps.getState().business?.id;
     if(id!==st.bid){
-      st.bid=id;st.branch=null;st.layout=null;st.bookings=[];st.inquiries=[];st.contact={};
+      st.bid=id;st.branch=null;st.layout=null;st.bookings=[];st.inquiries=[];st.contact={};st.policy=null;
       st.activeZone=null;st.editing=false;st.dirty=false;st.loading=null;st.request++;
     }
   }
@@ -39,14 +40,15 @@ window.EZRestaurantSuite=function(deps){
     const prefix='/businesses/'+encodeURIComponent(st.bid);
     const suffix=st.branch?'?branch_id='+encodeURIComponent(st.branch):'';
     st.loading=(async()=>{
-      const [floor,booking,inquiry,contact]=await Promise.all([
+      const [floor,booking,inquiry,contact,policy]=await Promise.all([
         deps.api(prefix+'/floorplan'+suffix),
         deps.api(prefix+'/reservations'),
         deps.api(prefix+'/inquiries'),
-        deps.api(prefix+'/reservations/contact')
+        deps.api(prefix+'/reservations/contact'),
+        deps.api(prefix+'/reservations/policy')
       ]);
       if(generation!==st.request)return;
-      st.layout=floor;st.branch=floor.branch_id;st.bookings=booking;st.inquiries=inquiry;st.contact=contact;
+      st.layout=floor;st.branch=floor.branch_id;st.bookings=booking;st.inquiries=inquiry;st.contact=contact;st.policy=policy;
       st.activeZone=st.activeZone&&floor.zones.some(z=>z.id===st.activeZone)?st.activeZone:floor.zones[0]?.id;
       st.dirty=false;
     })().finally(()=>{if(generation===st.request)st.loading=null});
@@ -159,12 +161,35 @@ window.EZRestaurantSuite=function(deps){
         (i.status==='new'?button('inquiry-status','Đã liên hệ',' data-id="'+E(i.id)+'" data-status="contacted"'):
         i.status==='contacted'?button('inquiry-status','Đóng yêu cầu',' data-id="'+E(i.id)+'" data-status="closed"'):'')+'</div></div>').join(''):
         '<p class="subtle">Chưa có lời nhắn.</p>')+'</section></div>';
+    // Rules are part of the same Reservations tab; no separate page or menu loss.
+    const policy=st.policy||{open_time:'08:00',last_seating_time:'20:30',
+      close_time:'22:00',closed_weekdays:[],blocked_dates:[]};
+    const weekdays=[['T2','Mon'],['T3','Tue'],['T4','Wed'],['T5','Thu'],['T6','Fri'],['T7','Sat'],['CN','Sun']];
+    const policyPanel='<section class="surface pad suite-booking-policy" aria-labelledby="suite-policy-title">'+
+      '<h3 id="suite-policy-title">'+tr('Quy tắc nhận đặt bàn','Reservation availability rules')+'</h3>'+
+      '<p class="subtle">'+tr('Áp dụng toàn bộ chi nhánh. Các lịch đã xác nhận không bị tự động hủy.',
+        'Applies to all branches. Existing bookings are never automatically cancelled.')+'</p>'+
+      '<form data-suite-form="reservation-policy">'+
+      '<div class="suite-booking-filters">'+
+      '<label>'+tr('Giờ mở cửa','Opening time')+'<input type="time" step="1800" name="open_time" required value="'+E(policy.open_time)+'"></label>'+
+      '<label>'+tr('Giờ nhận khách cuối','Last seating')+'<input type="time" step="1800" name="last_seating_time" required value="'+E(policy.last_seating_time)+'"></label>'+
+      '<label>'+tr('Giờ đóng cửa','Closing time')+'<input type="time" step="1800" name="close_time" required value="'+E(policy.close_time)+'"></label></div>'+
+      '<fieldset><legend>'+tr('Ngày nghỉ hằng tuần','Weekly closed days')+'</legend>'+
+      '<div class="suite-policy-days">'+weekdays.map((label,i)=>
+        '<label class="suite-policy-day"><input type="checkbox" name="closed_weekdays" value="'+i+'"'+
+        (policy.closed_weekdays.includes(i)?' checked':'')+'><span>'+tr(label[0],label[1])+'</span></label>').join('')+
+      '</div></fieldset>'+
+      '<label>'+tr('Ngày tạm ngưng nhận đặt bàn (YYYY-MM-DD, mỗi dòng một ngày)',
+        'Blackout dates (YYYY-MM-DD, one per line)')+
+      '<textarea name="blocked_dates" rows="2" placeholder="2026-12-25">'+E(policy.blocked_dates.join('\n'))+'</textarea></label>'+
+      '<button type="submit" class="suite-primary">'+tr('Lưu quy tắc đặt bàn','Save booking rules')+'</button>'+
+      '</form></section>';
     return toolbar+'<div class="suite-summary"><div><strong>'+upcoming+'</strong><span>Sắp diễn ra</span></div>'+
       '<div><strong>'+pending+'</strong><span>Chờ duyệt</span></div>'+
       '<div><strong>'+confirmed+'</strong><span>Đã xác nhận</span></div>'+
       '<div><strong>'+openInquiries+'</strong><span>Liên hệ mới</span></div></div>'+
       '<section class="surface pad suite-booking-panel"><div class="panel-title"><h3>Danh sách đặt bàn</h3><span class="subtle">'+all.length+' kết quả trong dữ liệu gần đây</span></div>'+
-      filters+'<div class="suite-booking-list">'+(records||'<p class="subtle">Chưa có lịch đặt bàn phù hợp.</p>')+'</div></section>'+contact;
+      filters+'<div class="suite-booking-list">'+(records||'<p class="subtle">Chưa có lịch đặt bàn phù hợp.</p>')+'</div></section>'+contact+policyPanel;
   }
   function editZones(){
     if(!st.layout?.editable)return;
@@ -347,7 +372,7 @@ window.EZRestaurantSuite=function(deps){
       if(desired||previous)sel.value=(desired||previous).start_at;
       sel.disabled=!free.length;
       if(!free.length){
-        status.textContent='Không có bàn trống phù hợp trong ngày. Thử ngày, khu vực hoặc số khách khác.';
+        status.textContent=data.closed_reason||'Không có bàn trống phù hợp trong ngày. Thử ngày, khu vực hoặc số khách khác.';
       }else if(!desired){
         status.textContent='Giờ mong muốn chưa còn bàn. Chọn một trong '+free.length+' khung giờ trống bên trên.';
       }else{
@@ -417,6 +442,19 @@ window.EZRestaurantSuite=function(deps){
         {method:'PUT',body:JSON.stringify(body)});
       deps.toast('Đã lưu thông tin liên hệ');return reload();
     }
+    if(form.dataset.suiteForm==='reservation-policy'){
+      const values=new FormData(form);
+      const body={
+        open_time:String(values.get('open_time')||''),
+        last_seating_time:String(values.get('last_seating_time')||''),
+        close_time:String(values.get('close_time')||''),
+        closed_weekdays:values.getAll('closed_weekdays').map(Number),
+        blocked_dates:String(values.get('blocked_dates')||'').split(/[\s,;]+/).map(v=>v.trim()).filter(Boolean)
+      };
+      await deps.api('/businesses/'+encodeURIComponent(st.bid)+'/reservations/policy',
+        {method:'PUT',body:JSON.stringify(body)});
+      deps.toast(tr('Đã lưu quy tắc đặt bàn','Booking rules saved'));return reload();
+    }
     if(form.dataset.suiteForm==='new-booking'){
       const body=Object.fromEntries(new FormData(form));
       if(!body.start_at)throw Error('Vui lòng chọn giờ còn bàn');
@@ -481,7 +519,7 @@ window.EZRestaurantSuite=function(deps){
       }
   },true);
   return {renderFloorplan,renderReservations,mount,invalidate:()=>{
-    st.bid=null;st.layout=null;st.bookings=[];st.dirty=false;st.editing=false;
+    st.bid=null;st.layout=null;st.bookings=[];st.policy=null;st.dirty=false;st.editing=false;
   }, refresh:reload};
 };
 })();

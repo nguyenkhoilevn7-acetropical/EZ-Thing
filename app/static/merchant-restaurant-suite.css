@@ -273,3 +273,21 @@
 :root[data-ez-merchant-theme="graphite"] .suite-container .suite-table:not(.state-reserved):not(.state-serving) small{
   color:var(--suite-muted);
 }
+
+/* Booking policy editor — follows Blue / Tropical / Graphite tokens. */
+.suite-booking-policy{margin-top:16px}
+.suite-booking-policy h3{margin:0 0 8px;font-size:17px;letter-spacing:-.03em;color:var(--suite-ink)}
+.suite-booking-policy>p{margin-bottom:16px}
+.suite-booking-policy form{display:grid;gap:16px}
+.suite-booking-policy .suite-booking-filters{margin:0;align-items:start}
+.suite-booking-policy .suite-booking-filters label{flex:1 1 150px;min-width:0}
+.suite-booking-policy fieldset{border:0;margin:0;padding:0;min-width:0}
+.suite-booking-policy legend{font-size:12px;font-weight:650;color:var(--suite-muted);margin-bottom:10px}
+.suite-policy-days{display:flex;gap:8px;flex-wrap:wrap}
+.suite-policy-day{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--suite-line);border-radius:10px;padding:9px 12px;background:var(--suite-field-bg);color:var(--suite-ink);font-size:12px;cursor:pointer}
+.suite-policy-day:has(input:checked){border-color:var(--suite-accent);background:var(--suite-accent-bg)}
+.suite-policy-day input{accent-color:var(--suite-accent);width:16px;height:16px;margin:0}
+.suite-booking-policy form>label{display:grid;gap:8px;font-size:12px;font-weight:650;color:var(--suite-muted)}
+.suite-booking-policy textarea{width:100%;min-height:70px;resize:vertical;background:var(--suite-field-bg);color:var(--suite-ink);border:1px solid var(--suite-line);border-radius:11px;padding:12px;font:500 13px/1.6 system-ui,sans-serif}
+.suite-container .suite-booking-policy .suite-primary{justify-self:start}
+@media(max-width:720px){.suite-policy-days{gap:6px}.suite-policy-day{padding:8px 10px}.suite-booking-policy .suite-booking-filters label{flex:1 1 calc(50% - 8px)}}
