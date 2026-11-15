@@ -14,7 +14,7 @@ from typing import Literal
 
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field, field_validator
-from sqlalchemy import select, func, text, update, String, Integer, ForeignKey, UniqueConstraint
+from sqlalchemy import select, func, text, update, String, Integer, ForeignKey, UniqueConstraint, CheckConstraint
 from sqlalchemy.orm import Session, Mapped, mapped_column
 
 from .database import Base, db_session
@@ -30,7 +30,8 @@ UTC = timezone.utc
 class BranchBalance(Base):
     """Optional physically allocated stock; global Product.stock stays authoritative."""
     __tablename__ = "branch_stock_balances"
-    __table_args__ = (UniqueConstraint("business_id","branch_id","product_id"),)
+    __table_args__ = (UniqueConstraint("business_id","branch_id","product_id"),
+                      CheckConstraint("quantity >= 0",name="ck_branch_stock_nonnegative"))
     business_id:Mapped[str]=mapped_column(ForeignKey("businesses.id",ondelete="CASCADE"),primary_key=True)
     branch_id:Mapped[str]=mapped_column(ForeignKey("branches.id",ondelete="CASCADE"),primary_key=True)
     product_id:Mapped[str]=mapped_column(ForeignKey("products.id",ondelete="CASCADE"),primary_key=True)
