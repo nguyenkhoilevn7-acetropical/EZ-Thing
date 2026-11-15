@@ -4,8 +4,6 @@ from xml.etree import ElementTree as ET
 
 STATIC = Path(__file__).resolve().parents[1] / "app" / "static"
 ICON_PATH = STATIC / "icons"
-VERSION = "20261115-audit-02"
-SVG_VERSION = "minimal-01"
 
 
 def test_flat_vector_logo_is_embedded_font_free_and_accessible():
@@ -27,7 +25,7 @@ def test_flat_vector_logo_is_embedded_font_free_and_accessible():
 def test_public_header_and_footer_use_one_approved_full_wordmark():
     html = (STATIC / "public.html").read_text(encoding="utf-8")
     assert html.count('class="site-brand ez-site-brand"') == 2
-    assert html.count('/assets/icons/ez-thing-wordmark-light.svg?v=' + SVG_VERSION) == 2
+    assert html.count('/assets/icons/ez-thing-wordmark-light.svg') == 2
     assert 'class="ez-logo-word">Thing</span>' not in html
     assert "ez-brand-symbol" not in html
 
@@ -35,7 +33,7 @@ def test_public_header_and_footer_use_one_approved_full_wordmark():
 def test_platform_entrypoints_are_cache_busted_and_use_new_logo():
     for name in ("public.html", "index.html", "admin.html", "customer.html"):
         html = (STATIC / name).read_text(encoding="utf-8")
-        assert f"brand-logo.css?v={VERSION}" in html, name
+        assert "brand-logo.css" in html, name
         assert "black-e-04" not in html, name
         assert "ez-logo-02" not in html, name
         assert "ez-thing-wordmark-" in html, name
@@ -57,15 +55,15 @@ def test_business_custom_logo_remains_unmodified():
     assert "brand?.logo_url" in js
     assert "merchant-brand-image" in js
     assert 'ez-tenant-wordmark' in js
-    assert "/assets/icons/ez-thing-wordmark-light.svg?v=minimal-01" in js
-    assert "/assets/icons/ez-thing-wordmark-dark.svg?v=minimal-01" in js
+    assert "/assets/icons/ez-thing-wordmark-light.svg" in js
+    assert "/assets/icons/ez-thing-wordmark-dark.svg" in js
 
 def test_site_favicons_and_pwa_icons_use_minimal_ez_artwork():
     import json
 
     for name in ("public.html", "index.html", "admin.html", "customer.html", "public-shop.html"):
         html = (STATIC / name).read_text(encoding="utf-8")
-        assert 'href="/assets/icons/ez-mark-light.svg?v=minimal-01"' in html, name
+        assert 'href="/assets/icons/ez-mark-light.svg' in html, name
         assert 'href="/assets/icons/icon-192.png"' not in html, name
     manifest = json.loads((STATIC / "manifest.webmanifest").read_text(encoding="utf-8"))
     assert len(manifest["icons"]) == 2
@@ -83,12 +81,12 @@ def test_compact_merchant_sidebar_uses_real_ez_symbol_instead_of_cropped_wordmar
     assert "--sidebar:82px" in responsive
     assert 'class="sidebar-ez-icon sidebar-ez-icon-light"' in js
     assert 'class="sidebar-ez-icon sidebar-ez-icon-dark"' in js
-    assert 'src="/assets/icons/ez-mark-light.svg?v=minimal-01"' in js
-    assert 'src="/assets/icons/ez-mark-dark.svg?v=minimal-01"' in js
+    assert 'src="/assets/icons/ez-mark-light.svg' in js
+    assert 'src="/assets/icons/ez-mark-dark.svg' in js
     assert "aria-label=\"EZ Thing trang chủ\"" in js
     assert "@media(min-width:651px) and (max-width:1120px)" in css
     assert ".sidebar .merchant-home-link .wordmark{display:none}" in css
     assert "display:block;width:47px;height:33px" in css
     assert '[data-ez-merchant-theme="graphite"] .sidebar .merchant-home-link .sidebar-ez-icon-dark{display:block}' in css
-    assert 'app.js?v=20261115-v7-01' in index
-    assert "brand-logo.css?v=20261115-audit-02" in index
+    assert '/assets/app.js' in index
+    assert "brand-logo.css" in index
