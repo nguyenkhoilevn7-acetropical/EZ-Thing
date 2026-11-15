@@ -219,3 +219,42 @@ def test_pos_editor_is_accessible_and_uses_csrf(client):
     index=client.get("/app").text
     assert "pos-v7.js?v=20261115-v7-01" in index
     assert "pos-v7.css?v=20261115-v7-01" in index
+
+
+def test_staff_edits_plain_items_but_cannot_discount_or_move_table(client):
+    from uuid import uuid4
+    from app.database import SessionLocal
+    csrf,bid=owner(client,"pos-v7-owner-staff@example.com")
+    p=item(client,bid,csrf,"Tea","STAFF-TEA")
+    branch=client.get(f"/api/businesses/{bid}/branches").json()[0]["id"]
+    table=post(client,f"/businesses/{bid}/tables",{
+        "branch_id":branch,"label":"Staff table"},csrf).json()["id"]
+    oid=post(client,f"/businesses/{bid}/orders",{
+        "idempotency_key":"pos-v7-staff-source-1",
+        "lines":[{"product_id":p,"quantity":1}]},csrf).json()["id"]
+    with TestClient(app) as staff:
+        reg=staff.post("/api/auth/signup",json={
+            "name":"Cashier","email":"pos-v7-cashier@example.com",
+            "password":"SafePassword!123"})
+        assert reg.status_code==201,reg.text
+        csrf_staff=reg.json()["csrf_token"]
+        uid=staff.get("/api/auth/me").json()["id"]
+        with SessionLocal() as db:
+            db.add(Membership(id=str(uuid4()),business_id=bid,user_id=uid,role="staff"))
+            db.commit()
+        assert staff.get("/api"+check(bid,oid)).status_code==200
+        edited={"request_id":"staff-v7-edit-no-discount","expected_revision":0,
+                "lines":[{"product_id":p,"quantity":2}]}
+        assert put(staff,check(bid,oid),{
+            **edited,"discount_vnd":1000},csrf_staff).status_code==403
+        assert post(staff,check(bid,oid)+"/move-table",{
+            "request_id":"staff-v7-move-table-01",
+            "expected_revision":0,"table_id":table},csrf_staff).status_code==403
+        result=put(staff,check(bid,oid),edited,csrf_staff)
+        assert result.status_code==200,result.text
+        assert result.json()["total_vnd"]==70000
+        assert result.json()["revision"]==1
+        owner_edit=put(client,check(bid,oid),{
+            "request_id":"pos-v7-owner-stale-01","expected_revision":0,
+            "lines":[{"product_id":p,"quantity":1}]},csrf)
+        assert owner_edit.status_code==409
