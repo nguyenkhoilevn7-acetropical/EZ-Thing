@@ -104,7 +104,6 @@ def waitlist(bid: str, user=Depends(current_user), db: Session=Depends(db_sessio
 def join_waitlist(bid: str, body: WaitlistAdd, user=Depends(current_user),
                   db: Session=Depends(db_session)):
     scope(db, bid, user, "fnb", "tables")
-    can_manage(db, bid, user)
     in_branch(db, bid, body.branch_id)
     lock_business(db, bid, "waitlist")
     ref = hashlib.sha256((bid + "|" + body.request_id).encode()).hexdigest()[:36]
@@ -116,6 +115,10 @@ def join_waitlist(bid: str, body: WaitlistAdd, user=Depends(current_user),
         if (existing.details or {}).get("fingerprint") != fingerprint:
             fail(409, "Mã yêu cầu đã được sử dụng")
         return item_out(existing)
+    count=db.scalar(select(func.count()).select_from(IndustryWorkItem).where(
+        IndustryWorkItem.business_id==bid,IndustryWorkItem.kind=="waitlist",
+        IndustryWorkItem.status.in_(("waiting","ready")))) or 0
+    if count>=200:fail(429,"Danh sách chờ đã đạt giới hạn")
     row = IndustryWorkItem(id=new_id(), business_id=bid, kind="waitlist",
         reference_id=ref, title="Chờ bàn • " + body.name.strip(), status="waiting",
         details={"name":body.name.strip(), "phone":body.phone.strip(),
@@ -127,7 +130,7 @@ def join_waitlist(bid: str, body: WaitlistAdd, user=Depends(current_user),
 @router.post("/waitlist/{item_id}/status")
 def progress_waitlist(bid: str, item_id: str, body: WaitlistStatus,
                       user=Depends(current_user), db: Session=Depends(db_session)):
-    scope(db, bid, user, "fnb", "tables", True)
+    scope(db, bid, user, "fnb", "tables")
     lock_business(db, bid, "waitlist")
     row = db.scalar(select(IndustryWorkItem).where(
         IndustryWorkItem.business_id == bid, IndustryWorkItem.kind == "waitlist",
@@ -450,12 +453,14 @@ def loyalty_earn_on_paid(db:Session,bid:str,order:SaleOrder):
 def loyalty(bid:str,user=Depends(current_user),db:Session=Depends(db_session)):
     scope(db,bid,user,permission="orders")
     can_manage(db,bid,user)
-    ledger=rows(db,bid,"loyalty",500)
+    ledger=db.scalars(select(IndustryWorkItem).where(
+        IndustryWorkItem.business_id==bid,IndustryWorkItem.kind=="loyalty")
+        .order_by(IndustryWorkItem.created_at.desc(),IndustryWorkItem.id.desc())).all()
     balances=defaultdict(int)
     for item in ledger:
         if item.customer_id:balances[item.customer_id]+=int(item.details.get("points",0))
     return {"balances":[{"customer_id":cid,"points":value} for cid,value in balances.items()],
-            "transactions":[item_out(x) for x in ledger],
+            "transactions":[item_out(x) for x in ledger[:100]],
             "policy":"1 point per 10,000 VND paid; no cash value; manual rewards only"}
 
 
