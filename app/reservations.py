@@ -16,7 +16,7 @@ from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
 from .database import db_session
-from .models import AuditEvent, Business, Customer, DiningTable, Membership, now
+from .models import AuditEvent, Branch, Business, Customer, DiningTable, Membership, now
 from .workflows import IndustryWorkItem
 from .main import current_user, fail, feature, new_id, tenant
 from .public import preview_scope
@@ -40,6 +40,8 @@ class ReservationCreate(BaseModel):
     start_at: datetime
     duration_minutes: Literal[60, 90, 120] = 90
     table_id: str | None = None
+    zone_id: str | None = Field(default=None, max_length=32)
+    branch_id: str | None = Field(default=None, max_length=36)
     note: str = Field(default="", max_length=240)
 
     @field_validator("phone")
@@ -157,7 +159,31 @@ def day_valid(day):
         fail(422, "Chỉ nhận đặt bàn trong 30 ngày tới")
 
 
-def free_tables(db, bid, start, end, party_size, requested_table=None):
+def eligible_area_tables(db, business, zone_id=None, branch_id=None):
+    """Return only tables in the requested tenant/branch/area.
+
+    Floorplan placement is server-owned metadata; client-submitted zone/table
+    associations must never be trusted.
+    """
+    if not zone_id and not branch_id:
+        return None
+    branch_query = select(Branch).where(Branch.business_id == business.id)
+    if branch_id:
+        branch_query = branch_query.where(Branch.id == branch_id)
+    else:
+        branch_query = branch_query.order_by(Branch.created_at, Branch.id)
+    branch = db.scalar(branch_query)
+    if branch is None:
+        fail(422, "Chi nhánh không hợp lệ")
+    from .floorplan import effective
+    layout = effective(business, branch, db)
+    if zone_id and not any(z["id"] == zone_id for z in layout["zones"]):
+        fail(422, "Khu vực đặt bàn không hợp lệ")
+    return {t["id"] for t in layout["tables"]
+            if not zone_id or t["placement"]["zone_id"] == zone_id}
+
+
+def free_tables(db, bid, start, end, party_size, requested_table=None, allowed_ids=None):
     tables = db.scalars(select(DiningTable).where(DiningTable.business_id == bid,
                                                  DiningTable.seats >= party_size)
                        .order_by(DiningTable.seats, DiningTable.label)).all()
@@ -169,10 +195,11 @@ def free_tables(db, bid, start, end, party_size, requested_table=None):
         IndustryWorkItem.ends_at > start)).all()
     taken = {(w.details or {}).get("table_id") for w in overlaps}
     return [t for t in tables if t.id not in taken and
-            (requested_table is None or t.id == requested_table)]
+            (requested_table is None or t.id == requested_table) and
+            (allowed_ids is None or t.id in allowed_ids)]
 
 
-def availability(db, b, day, party_size, duration, requested_table=None):
+def availability(db, b, day, party_size, duration, requested_table=None, allowed_ids=None):
     day_valid(day)
     output = []
     for hour in range(8, 21):
@@ -186,7 +213,7 @@ def availability(db, b, day, party_size, duration, requested_table=None):
                 if not isinstance(err, HTTPException):
                     raise
                 continue
-            count = len(free_tables(db, b.id, first, end, party_size, requested_table))
+            count = len(free_tables(db, b.id, first, end, party_size, requested_table, allowed_ids))
             output.append({"start_at": start.isoformat(), "available_tables": count,
                            "available": count > 0})
     return {"date": day.isoformat(), "party_size": party_size,
@@ -218,7 +245,12 @@ def create_reservation(db, b, body, actor_id, source):
         IndustryWorkItem.kind == "reservations")).all()
     if source == "demo" and len(total) >= 50:
         fail(429, "Phiên DEMO đã đạt giới hạn đặt bàn")
-    candidates = free_tables(db, b.id, start, end, body.party_size, body.table_id)
+    if source != "merchant" and (body.zone_id or body.branch_id):
+        fail(422, "Khu vực chỉ dành cho người quản lý")
+    allowed_ids = eligible_area_tables(db, b, body.zone_id, body.branch_id)
+    if body.table_id and allowed_ids is not None and body.table_id not in allowed_ids:
+        fail(422, "Bàn không thuộc khu vực hoặc chi nhánh được chọn")
+    candidates = free_tables(db, b.id, start, end, body.party_size, body.table_id, allowed_ids)
     if not candidates:
         fail(409, "Không còn bàn phù hợp trong khung giờ này")
     table = candidates[0]
@@ -233,6 +265,7 @@ def create_reservation(db, b, body, actor_id, source):
         details={"customer_name": body.customer_name.strip(), "phone": body.phone,
                  "party_size": body.party_size, "table_id": table.id,
                  "table_label": table.label, "note": body.note.strip(),
+                 "zone_id": body.zone_id, "branch_id": table.branch_id,
                  "fingerprint": fingerprint, "source": source})
     db.add(item)
     db.add(AuditEvent(id=new_id(), business_id=b.id, actor_id=actor_id,
@@ -281,12 +314,18 @@ def update_reservation(bid: str, rid: str, body: ReservationStatus,
 def merchant_slots(bid: str, day: date = Query(...), party_size: int = Query(ge=1, le=20),
                    duration_minutes: Literal[60, 90, 120] = 90,
                    table_id: str | None = Query(default=None, max_length=36),
+                   zone_id: str | None = Query(default=None, max_length=32),
+                   branch_id: str | None = Query(default=None, max_length=36),
                    user=Depends(current_user), db: Session = Depends(db_session)):
     business = fnb_scope(bid, user, db)
+    allowed_ids = eligible_area_tables(db, business, zone_id, branch_id)
     if table_id and db.scalar(select(DiningTable.id).where(
             DiningTable.business_id == bid, DiningTable.id == table_id)) is None:
         fail(404, "Bàn không thuộc nhà hàng")
-    return availability(db, business, day, party_size, duration_minutes, table_id)
+    if table_id and allowed_ids is not None and table_id not in allowed_ids:
+        fail(422, "Bàn không thuộc khu vực hoặc chi nhánh được chọn")
+    return availability(db, business, day, party_size, duration_minutes,
+                        table_id, allowed_ids)
 
 
 @router.get("/preview/cafe/reservations/availability")
