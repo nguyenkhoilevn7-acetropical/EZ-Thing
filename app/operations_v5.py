@@ -747,6 +747,14 @@ def operational_sync(bid:str,user=Depends(current_user),db:Session=Depends(db_se
     revision,last_count=db.execute(select(
         func.max(IndustryWorkItem.updated_at),func.count(IndustryWorkItem.id)
     ).where(IndustryWorkItem.business_id==bid)).one()
-    version=hashlib.sha256(f"{revision or ''}:{last_count}".encode()).hexdigest()[:16]
+    order_revision,paid_revision,order_count=db.execute(select(
+        func.max(SaleOrder.created_at),func.max(SaleOrder.paid_at),func.count(SaleOrder.id)
+    ).where(SaleOrder.business_id==bid)).one()
+    stock_revision,stock_count=db.execute(select(
+        func.max(StockMovement.created_at),func.count(StockMovement.id)
+    ).where(StockMovement.business_id==bid)).one()
+    version=hashlib.sha256(
+        f"{revision or ''}:{last_count}:{order_revision}:{paid_revision}:{order_count}:{stock_revision}:{stock_count}".encode()
+    ).hexdigest()[:16]
     return {"server_time":now().isoformat(),"active_counts":counts,
             "version":version,"poll_after_seconds":15,"transport":"polling"}
