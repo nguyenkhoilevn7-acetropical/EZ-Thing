@@ -172,6 +172,11 @@ window.EZOperationsV5=function(deps){
       if(document.hidden||current!==business().id||state().tab!=='operations')return;
       try{
         var x=await api(url('sync')),el=document.getElementById('v5-poll-status');
+        var editing=!!document.activeElement?.closest('#ez-operations-v5 form');
+        if(x.version&&data.sync?.version&&x.version!==data.sync.version&&!editing){
+          return mount(); // Only redraw when an actual tenant row changed.
+        }
+        data.sync=x;
         if(el)el.textContent=tx('Đồng bộ 15 giây/lần','15s sync')+
           ' • '+Object.entries(x.active_counts||{}).map(a=>a[0]+': '+a[1]).join(' · ');
       }catch(_){var e=document.getElementById('v5-poll-status');if(e)e.textContent=tx('Đang mất kết nối đồng bộ','Sync unavailable')}
