@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="robots" content="noindex,nofollow">
-<title>EZ Thing • Thiết kế thương hiệu</title><link rel="icon" href="/assets/icons/ez-mark-light.svg?v=minimal-01" type="image/svg+xml"><link rel="stylesheet" href="/assets/brand-editor.css"><link rel="stylesheet" href="/assets/brand-logo.css?v=20261115-audit-02"><link rel="stylesheet" href="/assets/i18n.css"></head>
+<title>EZ Thing • Thiết kế thương hiệu</title><link rel="icon" href="/assets/icons/ez-mark-light.svg?v=minimal-01" type="image/svg+xml"><link rel="stylesheet" href="/assets/brand-editor.css?v=20261115-upload-01"><link rel="stylesheet" href="/assets/brand-logo.css?v=20261115-audit-02"><link rel="stylesheet" href="/assets/i18n.css"></head>
 <body>
 <header class="brand-header"><a class="brand-logo" href="/app" aria-label="EZ Thing Brand Studio"><img class="ez-full-logo studio-ez-logo" src="/assets/icons/ez-thing-wordmark-light.svg?v=minimal-01" alt="EZ Thing" width="1124" height="286" decoding="async"><span>Brand Studio</span></a><nav><a href="/app">← Quản lý doanh nghiệp</a><a href="/">EZ Thing</a></nav></header>
 <main class="brand-wrapper">
@@ -18,8 +18,22 @@
 <label class="field"><span>Chọn banner mẫu</span><select name="banner_preset" id="banner-preset"></select><small>Có sẵn cho mọi gói.</small></label>
 <h3>Thiết kế nâng cao <small>PLUS trở lên</small></h3>
 <label class="field"><span>Tiêu đề trang chủ <i data-lock="hero_title">PLUS</i></span><input name="hero_title" maxlength="100" placeholder="Một trải nghiệm đáng nhớ"></label>
-<label class="field"><span>Banner bằng đường dẫn ảnh <i data-lock="banner_url">PLUS</i></span><input name="banner_url" maxlength="350" placeholder="https://images.unsplash.com/photo-..."><small>Trong giai đoạn pilot chỉ hỗ trợ ảnh từ images.unsplash.com.</small></label>
+<div class="brand-media-field" data-media-kind="banner">
+  <strong>Ảnh banner <small>PLUS trở lên · JPEG / PNG / WebP</small></strong>
+  <div class="brand-upload-row"><label class="brand-upload-button" for="brand-banner-file">↑ Tải banner từ thiết bị</label><input type="file" id="brand-banner-file" accept="image/jpeg,image/png,image/webp"><button type="button" data-remove-media="banner" class="brand-remove-button">Bỏ ảnh tải lên</button></div>
+  <span class="media-help" id="banner-upload-status" aria-live="polite">Chọn ảnh để xem trước ngay; lưu để áp dụng.</span>
+  <div class="media-inline-preview" id="banner-inline" aria-label="Xem nhanh ảnh banner"></div>
+</div>
+<label class="field"><span>Banner bằng đường dẫn ảnh <i data-lock="banner_url">PLUS</i></span><input name="banner_url" maxlength="350" placeholder="https://images.unsplash.com/photo-..."><small>Hoặc nhập đường dẫn Unsplash; ảnh tải lên được ưu tiên.</small></label>
+<div class="brand-media-field" data-media-kind="logo">
+  <strong>Ảnh logo <small>PLUS trở lên · JPEG / PNG / WebP</small></strong>
+  <div class="brand-upload-row"><label class="brand-upload-button" for="brand-logo-file">↑ Tải logo từ thiết bị</label><input type="file" id="brand-logo-file" accept="image/jpeg,image/png,image/webp"><button type="button" data-remove-media="logo" class="brand-remove-button">Bỏ ảnh tải lên</button></div>
+  <span class="media-help" id="logo-upload-status" aria-live="polite">Logo hiển thị trực tiếp trong preview.</span>
+  <div class="media-inline-preview logo" id="logo-inline" aria-label="Xem nhanh logo"></div>
+</div>
 <label class="field"><span>Logo bằng đường dẫn ảnh <i data-lock="logo_url">PLUS</i></span><input name="logo_url" maxlength="350" placeholder="https://images.unsplash.com/photo-..."></label>
+<input type="hidden" name="banner_position_x" value="50"><input type="hidden" name="banner_position_y" value="50">
+<input type="hidden" name="logo_position_x" value="50"><input type="hidden" name="logo_position_y" value="50">
 <label class="field"><span>Màu thương hiệu <i data-lock="accent_color">PLUS</i></span><select name="accent_color"><option value="#147D64">Emerald Green</option><option value="#BF506C">Rose Pink</option><option value="#2B62A9">Ocean Blue</option><option value="#7556A8">Royal Purple</option><option value="#C26D30">Warm Orange</option></select></label>
 <h3>Kiểu trình bày <small>PRO</small></h3>
 <label class="field"><span>Layout <i data-lock="layout_style">PRO</i></span><select name="layout_style"><option value="classic">Classic</option><option value="editorial">Editorial</option><option value="gallery">Gallery</option></select></label>
@@ -28,10 +42,13 @@
 </form>
 </section>
 <div class="brand-right">
-<section class="brand-preview-card"><div class="preview-head"><span class="brand-eyebrow">02 / XEM TRƯỚC</span><span>🔒 Owner only</span></div><div class="brand-stage" id="brand-stage"><div class="brand-stage-content"><span>YOUR RESTAURANT</span><h2 id="stage-title">EZ Thing</h2><p id="stage-text">Thương hiệu của bạn.</p></div></div><div class="preview-bottom"><span>Ảnh và màu sắc thay đổi theo thiết lập.</span><a id="open-preview" target="_blank" rel="noopener noreferrer" href="/app">Mở trang xem trước ↗</a></div></section>
-<section class="plan-info"><span class="brand-eyebrow">03 / QUYỀN THEO GÓI</span><h2>Cá nhân hóa theo gói</h2><div id="plan-list"></div><p class="plan-honesty">Giá bên dưới chỉ là đề xuất trong giai đoạn pilot. Chưa có upload ảnh trực tiếp, tên miền riêng, website công khai hoặc thanh toán thuê bao.</p></section>
+<section class="brand-preview-card"><div class="preview-head"><span class="brand-eyebrow">02 / XEM TRƯỚC</span><span>🔒 Owner only</span></div><div class="brand-stage" id="brand-stage" data-drag-image="banner" aria-label="Kéo banner để chỉnh vị trí ảnh"><div class="brand-stage-content"><span>YOUR RESTAURANT</span><h2 id="stage-title">EZ Thing</h2><p id="stage-text">Thương hiệu của bạn.</p></div></div>
+<div class="brand-image-tools"><span>↔ ↕ Kéo trên ảnh để căn banner · <b id="banner-coordinates">50% / 50%</b></span><button type="button" data-reset-position="banner">Căn giữa</button></div>
+<div class="brand-logo-tool"><div class="brand-logo-stage" id="brand-logo-stage" data-drag-image="logo" aria-label="Kéo để chỉnh vị trí logo"><img id="stage-logo" alt="Xem trước logo"></div><div><strong>Logo preview</strong><p>Kéo ngang/dọc để căn logo</p><span id="logo-coordinates">50% / 50%</span></div><button type="button" data-reset-position="logo">Căn giữa</button></div>
+<div class="preview-bottom"><span>Preview cập nhật ngay; nhấn Lưu thay đổi để áp dụng.</span><a id="open-preview" target="_blank" rel="noopener noreferrer" href="/app">Mở trang xem trước ↗</a></div></section>
+<section class="plan-info"><span class="brand-eyebrow">03 / QUYỀN THEO GÓI</span><h2>Cá nhân hóa theo gói</h2><div id="plan-list"></div><p class="plan-honesty">Giá bên dưới chỉ là đề xuất trong giai đoạn pilot. Upload ảnh có giới hạn dung lượng ở gói PLUS/PRO. Tên miền riêng và thanh toán thuê bao chưa được triển khai.</p></section>
 </div>
 </div>
 </main>
-<script defer src="/assets/i18n.js?v=20261115-audit-01"></script><script defer src="/assets/brand-editor.js"></script>
+<script defer src="/assets/i18n.js?v=20261115-audit-01"></script><script defer src="/assets/brand-editor.js?v=20261115-upload-01"></script>
 </body></html>
