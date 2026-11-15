@@ -181,7 +181,7 @@ window.EZRestaurantSuite=function(deps){
       '</div></fieldset>'+
       '<label>'+tr('Ngày tạm ngưng nhận đặt bàn (YYYY-MM-DD, mỗi dòng một ngày)',
         'Blackout dates (YYYY-MM-DD, one per line)')+
-      '<textarea name="blocked_dates" rows="2" placeholder="2026-12-25">'+E(policy.blocked_dates.join('\\n'))+'</textarea></label>'+
+      '<textarea name="blocked_dates" rows="2" placeholder="2026-12-25">'+E(policy.blocked_dates.join('\n'))+'</textarea></label>'+
       '<button type="submit" class="suite-primary">'+tr('Lưu quy tắc đặt bàn','Save booking rules')+'</button>'+
       '</form></section>';
     return toolbar+'<div class="suite-summary"><div><strong>'+upcoming+'</strong><span>Sắp diễn ra</span></div>'+
@@ -449,7 +449,7 @@ window.EZRestaurantSuite=function(deps){
         last_seating_time:String(values.get('last_seating_time')||''),
         close_time:String(values.get('close_time')||''),
         closed_weekdays:values.getAll('closed_weekdays').map(Number),
-        blocked_dates:String(values.get('blocked_dates')||'').split(/[\\s,;]+/).map(v=>v.trim()).filter(Boolean)
+        blocked_dates:String(values.get('blocked_dates')||'').split(/[\s,;]+/).map(v=>v.trim()).filter(Boolean)
       };
       await deps.api('/businesses/'+encodeURIComponent(st.bid)+'/reservations/policy',
         {method:'PUT',body:JSON.stringify(body)});
