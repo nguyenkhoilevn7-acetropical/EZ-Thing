@@ -192,3 +192,79 @@ def test_merchant_booking_form_has_time_selection_retry_and_disabled_unverified_
     assert 'retry-slots' in js
     assert "sel.disabled=true" in js
     assert "branch_id" in js and "zone_id" in js
+
+
+def test_business_booking_policy_closures_slots_validation_and_idempotent_retry(client, monkeypatch):
+    """The API, rather than the UI, determines which days/times can be booked."""
+    csrf = guest(client, monkeypatch)
+    bid = next(x['id'] for x in client.get('/api/businesses').json()
+               if x['industry'] == 'fnb')
+    endpoint = f'/businesses/{bid}/reservations/policy'
+    current = client.get('/api' + endpoint)
+    assert current.status_code == 200
+    assert current.json() == {
+        'open_time': '08:00', 'last_seating_time': '20:30',
+        'close_time': '22:00', 'closed_weekdays': [], 'blocked_dates': []}
+    assert client.get('/api/preview/cafe/reservations/policy').json() == current.json()
+
+    day = (datetime.now(ZoneInfo('Asia/Ho_Chi_Minh')) + timedelta(days=2)).date()
+    day_string = day.isoformat()
+    schedule = {
+        'open_time': '11:00', 'last_seating_time': '12:00',
+        'close_time': '14:00', 'closed_weekdays': [], 'blocked_dates': []}
+    assert write(client, endpoint, schedule, method='PUT').status_code == 403
+    invalid = {**schedule, 'close_time': '10:00'}
+    assert write(client, endpoint, invalid, csrf, 'PUT').status_code == 422
+    invalid = {**schedule, 'closed_weekdays': [7]}
+    assert write(client, endpoint, invalid, csrf, 'PUT').status_code == 422
+    invalid = {**schedule, 'blocked_dates': [day_string, day_string]}
+    assert write(client, endpoint, invalid, csrf, 'PUT').status_code == 422
+
+    saved = write(client, endpoint, schedule, csrf, 'PUT')
+    assert saved.status_code == 200, saved.text
+    assert saved.json() == schedule
+    slots = client.get(f'/api/businesses/{bid}/reservations/availability',
+                       params={'day': day_string, 'party_size': 2, 'duration_minutes': 60})
+    assert slots.status_code == 200, slots.text
+    assert slots.json()['slots']
+    assert all(11 <= datetime.fromisoformat(s['start_at']).hour <= 12
+               for s in slots.json()['slots'])
+    assert write(client, f'/businesses/{bid}/reservations',
+                 body(req='before-hours-policy', start=slot(10)), csrf).status_code == 422
+
+    initial = body(req='policy-idempotency-001', start=slot(11))
+    first = write(client, f'/businesses/{bid}/reservations', initial, csrf)
+    assert first.status_code == 201, first.text
+    first_id = first.json()['id']
+
+    blocked_weekday = {**schedule, 'closed_weekdays': [day.weekday()]}
+    assert write(client, endpoint, blocked_weekday, csrf, 'PUT').status_code == 200
+    closed = client.get(f'/api/businesses/{bid}/reservations/availability',
+                        params={'day': day_string, 'party_size': 2})
+    assert closed.status_code == 200
+    assert closed.json()['slots'] == []
+    assert closed.json()['closed_reason']
+    assert write(client, f'/businesses/{bid}/reservations',
+                 body(req='policy-new-rejected', start=slot(12)), csrf).status_code == 422
+    # Previously accepted bookings remain visible and retryable after policy changes.
+    retry = write(client, f'/businesses/{bid}/reservations', initial, csrf)
+    assert retry.status_code == 201 and retry.json()['id'] == first_id
+
+    holiday = {**schedule, 'blocked_dates': [day_string]}
+    assert write(client, endpoint, holiday, csrf, 'PUT').status_code == 200
+    assert client.get('/api/preview/cafe/reservations/policy').json()['blocked_dates'] == [day_string]
+    holiday_slots = client.get('/api/preview/cafe/reservations/availability',
+                               params={'day': day_string, 'party_size': 2})
+    assert holiday_slots.status_code == 200 and holiday_slots.json()['slots'] == []
+    assert write(client, f'/businesses/{bid}/reservations',
+                 body(req='policy-closure-rejected', start=slot(12)), csrf).status_code == 422
+
+
+def test_booking_policy_ui_is_in_existing_merchant_reservations_tab():
+    source = (Path(__file__).resolve().parents[1] /
+              'app/static/merchant-restaurant-suite.js').read_text()
+    assert 'data-suite-form="reservation-policy"' in source
+    assert "reservations/policy" in source
+    assert "closed_weekdays" in source and "blocked_dates" in source
+    assert "open_time" in source and "last_seating_time" in source
+    assert "new-booking" in source
