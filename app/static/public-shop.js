@@ -53,7 +53,7 @@
     const symbol = symbols[data.industry] || "✦";
     root.innerHTML = `<header class="shop-header"><div class="shop-container shop-header-inner">
       <a class="shop-brand" href="#home">
-        <span class="shop-logo">${brand.logo_url ? `<img src="${E(brand.logo_url)}" alt="${E(title)}">` : symbol}</span>
+        <span class="shop-logo">${(brand.logo_image || brand.logo_url) ? `<img src="${E(brand.logo_image || brand.logo_url)}" alt="${E(title)}">` : symbol}</span>
         <span><strong>${E(title)}</strong><small>POWERED BY EZ THING</small></span>
       </a><div class="shop-actions">
         <button class="shop-language" type="button" data-action="switch-language" aria-label="Switch language">
