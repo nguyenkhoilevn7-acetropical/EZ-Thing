@@ -4,8 +4,8 @@ import subprocess
 from pathlib import Path
 
 STATIC = Path(__file__).resolve().parents[1] / "app" / "static"
-WORDMARK = "/assets/icons/ez-thing-wordmark-light.svg?v=minimal-01"
-FAVICON = 'href="/assets/icons/ez-mark-light.svg?v=minimal-01"'
+WORDMARK = "/assets/icons/ez-thing-wordmark-light.svg"
+FAVICON = 'href="/assets/icons/ez-mark-light.svg'
 
 
 def read(name):
@@ -29,7 +29,7 @@ def test_wordmark_on_reservations_brand_studio_and_demo_storefronts():
     for name in ("reservation-public.html", "reservation-admin.html", "brand-editor.html"):
         html = read(name)
         assert WORDMARK in html, name
-        assert "brand-logo.css?v=20261115-audit-02" in html, name
+        assert "brand-logo.css" in html, name
     customer = read("customer.js")
     assert customer.count('class="ez-full-logo customer-ez-logo"') == 2
 
@@ -78,12 +78,13 @@ console.log(JSON.stringify(['Đơn mở 120 phút','MATCHA · Đang có hàng','
 
 
 def test_changed_scripts_are_cache_busted():
-    version = "20261115-audit-01"
-    assert f"/assets/app.js?v=20261115-v7-01" in read("index.html")
-    assert f"/assets/admin.js?v={version}" in read("admin.html")
-    assert f"/assets/customer.js?v={version}" in read("customer.html")
-    for page in STATIC.glob("*.html"):
-        html = page.read_text(encoding="utf-8")
-        if "/assets/i18n.js" in html:
-            assert f"/assets/i18n.js?v={version}" in html, page.name
+    from app.asset_pipeline import STATIC_ASSETS
+    for entry in STATIC.glob("*.html"):
+        source = read(entry.name)
+        rendered = STATIC_ASSETS.page(entry.name).body.decode("utf-8")
+        assert "?v=" not in rendered, entry.name
+        for path in ("app.js", "admin.js", "customer.js", "i18n.js"):
+            public = "/assets/" + path
+            if public in source:
+                assert public + "?h=" + STATIC_ASSETS.hashes[public] in rendered, entry.name
     assert "ezthing-shell-__EZ_CONTENT_HASH__" in read("sw.js")
