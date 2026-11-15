@@ -157,14 +157,17 @@ window.EZOperationsV5=function(deps){
     return output;
   }
   function render(){return '<div id="ez-operations-v5" class="v5-wrap"><div class="v5-loading" role="status">'+
-    tx('Đang tải trung tâm vận hành...','Loading operations...')+'</div></div>'}
+    tx('Đang tải Lễ tân & xếp bàn...','Loading Front Desk...')+'</div></div>'}
   function paint(){
     var root=document.getElementById('ez-operations-v5');
     if(!root||current!==business().id)return;
     var errors=Object.keys(data).filter(x=>x.endsWith('Error'));
-    root.innerHTML='<header class="v5-intro"><h2>'+tx('Trung tâm vận hành','Operations center')+'</h2>'+
-      '<p>'+tx('Thông tin được phân tách theo doanh nghiệp. Công cụ đang triển khai theo từng ngành.',
-        'Business-scoped workflows, tailored to each industry.')+'</p>'+
+    root.innerHTML='<header class="v5-intro"><h2>'+(business().industry==='fnb'?tx('Lễ tân & xếp bàn','Front Desk & Seating'):tx('Công cụ quản lý','Management Tools'))+'</h2>'+
+      '<p>'+(business().industry==='fnb'?
+        tx('Tiếp đón khách, danh sách chờ, yêu cầu đặt cọc. Các công cụ kho, nhân sự và thu chi nằm bên dưới. Chưa tự động gửi thông báo hoặc thu tiền.',
+           'Host seating, waitlist and deposit requests. Inventory, staff and financial tools follow below. No automatic messaging or payment.')
+        :tx('Các công cụ nội bộ của doanh nghiệp, ngoài quy trình bán hàng chính.','Business administration beyond the main sales workflow.'))+'</p>'+
+      (business().industry==='fnb'?'<div class="v5-host-shortcuts"><button class="btn sm secondary" type="button" data-action="tab" data-value="reservations">📅 '+tx('Đặt bàn trước','Reservations')+'</button><button class="btn sm secondary" type="button" data-action="tab" data-value="tables">▦ '+tx('Sơ đồ bàn','Floorplan')+'</button><button class="btn sm secondary" type="button" data-action="tab" data-value="kitchen">☕ '+tx('Bếp & pha chế','Kitchen & Bar')+'</button></div>':'')+
       '<div class="v5-poll-status" id="v5-poll-status" aria-live="polite"></div>'+
       (errors.length?'<p class="v5-warning">'+tx('Một số dữ liệu chưa tải được.','Some data could not be loaded.')+'</p>':'')+
       '</header><div class="v5-grid">'+sections()+'</div>';
