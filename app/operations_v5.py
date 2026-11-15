@@ -53,6 +53,7 @@ def branch_stock_change(db,bid,branch_id,pid,delta):
     """Atomic branch change inside the caller's wider Product.stock transaction."""
     if not branch_inventory_enabled(db,bid):return
     if not branch_id:fail(422,"Thiếu chi nhánh khi theo dõi kho riêng")
+    lock_business(db,bid,"branch-inventory")
     in_branch(db,bid,branch_id)
     if delta>=0:
         row=db.get(BranchBalance,{"business_id":bid,"branch_id":branch_id,"product_id":pid})
