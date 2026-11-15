@@ -70,7 +70,15 @@ def test_public_homepage_versioned_and_no_store():
     main = (BASE / "app" / "main.py").read_text(encoding="utf-8")
     public = get("public.html")
     sw = get("sw.js")
-    assert 'FileResponse(ASSETS / "public.html", headers={"Cache-Control": "no-store, max-age=0"})' in main
-    assert 'premium.js?v=20261114-ui-21' in public
-    assert "data-ez-preview" in public and "data-preview-src" in public
-    assert "const SHELL='ezthing-shell-v6'" in sw
+    from app.main import app
+    from app.asset_pipeline import STATIC_ASSETS
+    from fastapi.testclient import TestClient
+    with TestClient(app) as client:
+        page = client.get("/")
+        assert page.status_code == 200
+        assert "no-store" in page.headers["Cache-Control"]
+        assert "/assets/premium.js?h=" + STATIC_ASSETS.hashes["/assets/premium.js"] in page.text
+        assert "data-ez-preview" in page.text and "data-preview-src" in page.text
+        worker = client.get("/sw.js")
+        assert "ezthing-shell-" + STATIC_ASSETS.shell_hash in worker.text
+        assert "no-store" in worker.headers["Cache-Control"]

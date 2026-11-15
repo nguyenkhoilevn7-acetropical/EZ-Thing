@@ -355,5 +355,5 @@ def owner_storefront_preview_page(
 ):
     tenant(bid, user, db)
     assert_owner(db, bid, user[0].id)
-    return FileResponse(ASSETS / "storefront-owner-preview.html",
-                        headers={"Cache-Control": "no-store"})
+    from .asset_pipeline import STATIC_ASSETS
+    return STATIC_ASSETS.page("storefront-owner-preview.html")

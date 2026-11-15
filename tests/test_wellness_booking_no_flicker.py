@@ -50,4 +50,6 @@ def test_inputs_and_translations_remain_stable():
     assert 'id="book-staff"' in source
     assert 'aria-pressed="${x===st.slot}"' in source
     assert 'aria-live="polite"' in source
-    assert 'customer.js?v=20261115-audit-01' in html
+    from app.asset_pipeline import STATIC_ASSETS
+    path = "/assets/customer.js"
+    assert path + "?h=" + STATIC_ASSETS.hashes[path] in STATIC_ASSETS.page("customer.html").body.decode("utf-8")

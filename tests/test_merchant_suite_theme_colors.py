@@ -48,11 +48,10 @@ def test_business_status_colors_are_not_overridden_as_brand_accents():
     assert "Table/booking semantic colors intentionally remain untouched" in scoped
 
 
-def test_new_stylesheet_version_is_loaded():
-    index = (STATIC / "index.html").read_text(encoding="utf-8")
-    # The stylesheet version must change when its contents change. Avoid
-    # pinning a single historical version: legitimate cache-busting updates
-    # should not break unrelated theme regressions.
-    assert '/assets/merchant-restaurant-suite.css?v=20261115-policy-01' in index
-    assert '/assets/merchant-restaurant-suite.js?v=20261115-policy-01' in index
-    assert 'merchant-restaurant-suite.css?v=20261114-ui-25' not in index
+def test_restaurant_suite_assets_use_current_content_hash_not_manual_version():
+    from app.asset_pipeline import STATIC_ASSETS
+    index = STATIC_ASSETS.page("index.html").body.decode("utf-8")
+    for asset in ("merchant-restaurant-suite.css", "merchant-restaurant-suite.js"):
+        path = "/assets/" + asset
+        assert path + "?h=" + STATIC_ASSETS.hashes[path] in index
+    assert "merchant-restaurant-suite.css?v=" not in index
