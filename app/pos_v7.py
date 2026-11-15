@@ -111,12 +111,12 @@ def show(db: Session, order: SaleOrder, meta: POSCheckMeta | None = None):
     return obj
 
 
-def previous_mutation(db: Session, bid: str, request_id: str, action: str, fingerprint: str):
+def previous_mutation(db: Session, bid: str, oid: str, request_id: str, action: str, fingerprint: str):
     past = db.scalar(select(POSMutation).where(
         POSMutation.business_id == bid, POSMutation.request_id == request_id))
     if past is None:
         return None
-    if past.action != action or past.fingerprint != fingerprint:
+    if past.order_id != oid or past.action != action or past.fingerprint != fingerprint:
         error(409, "Mã thao tác đã được dùng cho nội dung khác")
     return past.response
 
@@ -191,7 +191,7 @@ def replace_check(bid: str, oid: str, body: ReplaceOpenCheck,
     feature(b, "orders")
     role = allow(db, bid, user, ROLES)
     fp = fingerprint(body)
-    done = previous_mutation(db, bid, body.request_id, "replace", fp)
+    done = previous_mutation(db, bid, oid, body.request_id, "replace", fp)
     if done is not None:
         return done
     order = get_check(db, bid, oid, locked=True)
@@ -231,9 +231,7 @@ def replace_check(bid: str, oid: str, body: ReplaceOpenCheck,
     deltas = changed_stock(db, bid, oid, order.branch_id, requested_stock)
     old_items = db.scalars(select(SaleOrderItem).where(
         SaleOrderItem.business_id == bid, SaleOrderItem.order_id == oid)).all()
-    old_snapshot = [{"id": row.id, "product_id": row.product_id,
-                     "quantity": row.quantity, "unit_price_vnd": row.unit_price_vnd}
-                    for row in old_items]
+    old_snapshot = order_out(db, order, items=old_items)["items"]
     if old_items:
         db.execute(delete(SaleOrderItemModifier).where(
             SaleOrderItemModifier.business_id == bid,
@@ -269,7 +267,7 @@ def replace_check(bid: str, oid: str, body: ReplaceOpenCheck,
         db.commit()
     except IntegrityError:
         db.rollback()
-        done = previous_mutation(db, bid, body.request_id, "replace", fp)
+        done = previous_mutation(db, bid, oid, body.request_id, "replace", fp)
         if done is not None:
             return done
         error(409, "Thao tác trùng hoặc dữ liệu đơn đã thay đổi")
@@ -284,7 +282,7 @@ def move_table(bid: str, oid: str, body: MoveCheck,
     feature(b, "tables")
     allow(db, bid, user, MANAGE_ROLES)
     fp = fingerprint(body)
-    done = previous_mutation(db, bid, body.request_id, "move_table", fp)
+    done = previous_mutation(db, bid, oid, body.request_id, "move_table", fp)
     if done is not None:
         return done
     order = get_check(db, bid, oid, locked=True)
@@ -317,7 +315,7 @@ def move_table(bid: str, oid: str, body: MoveCheck,
         db.commit()
     except IntegrityError:
         db.rollback()
-        done = previous_mutation(db, bid, body.request_id, "move_table", fp)
+        done = previous_mutation(db, bid, oid, body.request_id, "move_table", fp)
         if done is not None:
             return done
         error(409, "Thao tác trùng hoặc dữ liệu bàn đã thay đổi")
