@@ -5,7 +5,7 @@
 'use strict';
 window.EZRestaurantSuite=function(deps){
   const E=deps.E, V=deps.V, fmt=deps.D;
-  const st={bid:null,branch:null,layout:null,bookings:[],inquiries:[],contact:{},policy:null,
+  const st={bid:null,branch:null,layout:null,bookings:[],inquiries:[],waitlist:[],contact:{},policy:null,
     activeZone:null,editing:false,dirty:false,search:'',filter:'all',date:'',
     loading:null,request:0,lastMoved:0,selected:null};
   const next=()=>globalThis.crypto?.randomUUID?.()||('req-'+Date.now()+'-'+Math.random().toString(36).slice(2));
@@ -27,7 +27,7 @@ window.EZRestaurantSuite=function(deps){
   function ensureBusiness(){
     const id=deps.getState().business?.id;
     if(id!==st.bid){
-      st.bid=id;st.branch=null;st.layout=null;st.bookings=[];st.inquiries=[];st.contact={};st.policy=null;
+      st.bid=id;st.branch=null;st.layout=null;st.bookings=[];st.inquiries=[];st.waitlist=[];st.contact={};st.policy=null;
       st.activeZone=null;st.editing=false;st.dirty=false;st.loading=null;st.request++;
     }
   }
@@ -40,15 +40,16 @@ window.EZRestaurantSuite=function(deps){
     const prefix='/businesses/'+encodeURIComponent(st.bid);
     const suffix=st.branch?'?branch_id='+encodeURIComponent(st.branch):'';
     st.loading=(async()=>{
-      const [floor,booking,inquiry,contact,policy]=await Promise.all([
+      const [floor,booking,inquiry,contact,policy,waiting]=await Promise.all([
         deps.api(prefix+'/floorplan'+suffix),
         deps.api(prefix+'/reservations'),
         deps.api(prefix+'/inquiries'),
         deps.api(prefix+'/reservations/contact'),
-        deps.api(prefix+'/reservations/policy'+(st.branch?'?branch_id='+encodeURIComponent(st.branch):''))
+        deps.api(prefix+'/reservations/policy'+(st.branch?'?branch_id='+encodeURIComponent(st.branch):'')),
+        deps.api(prefix+'/operations/waitlist')
       ]);
       if(generation!==st.request)return;
-      st.layout=floor;st.branch=floor.branch_id;st.bookings=booking;st.inquiries=inquiry;st.contact=contact;st.policy=st.branch?policy:await deps.api(prefix+'/reservations/policy?branch_id='+encodeURIComponent(floor.branch_id));
+      st.layout=floor;st.branch=floor.branch_id;st.bookings=booking;st.inquiries=inquiry;st.waitlist=waiting;st.contact=contact;st.policy=st.branch?policy:await deps.api(prefix+'/reservations/policy?branch_id='+encodeURIComponent(floor.branch_id));
       st.activeZone=st.activeZone&&floor.zones.some(z=>z.id===st.activeZone)?st.activeZone:floor.zones[0]?.id;
       st.dirty=false;
     })().finally(()=>{if(generation===st.request)st.loading=null});
@@ -76,6 +77,9 @@ window.EZRestaurantSuite=function(deps){
         ' data-zone="'+E(z.id)+'" class="'+(st.activeZone===z.id?'active':'')+'"')).join('')+'</div>';
   }
   function stateForTable(t){
+    const seated=st.waitlist.find(w=>w.status==='seated'&&
+      w.details?.table_id===t.id&&new Date(w.ends_at)>Date.now());
+    if(seated)return {code:'serving',text:'Đang nhận khách từ danh sách chờ',book:null};
     const linked=st.bookings.filter(r=>r.table_id===t.id&&['pending','confirmed','seated'].includes(r.status))
       .sort((a,b)=>new Date(a.scheduled_at)-new Date(b.scheduled_at));
     const nextBooking=linked.find(r=>new Date(r.scheduled_at)>=Date.now()-2*3600000)||linked[0];
@@ -520,7 +524,7 @@ window.EZRestaurantSuite=function(deps){
       }
   },true);
   return {renderFloorplan,renderReservations,mount,invalidate:()=>{
-    st.bid=null;st.layout=null;st.bookings=[];st.policy=null;st.dirty=false;st.editing=false;
+    st.bid=null;st.layout=null;st.bookings=[];st.waitlist=[];st.policy=null;st.dirty=false;st.editing=false;
   }, refresh:reload};
 };
 })();
