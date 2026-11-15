@@ -129,6 +129,34 @@ try:
      "(el)=>getComputedStyle(el).backgroundColor")
   assert card_bg!="rgb(255, 255, 255)", "V5 Graphite card is white"
   print("PASS /app?tab=operations: loaded live tenant sections, mobile nav and dark theme",flush=True)
+  # F&B mobile workflow: front-of-house first, KDS on main nav, secondary tabs
+  # only in More. Do not rebuild the page shell when tapping station chips.
+  page.goto(BASE+"/app?tab=operations",wait_until="domcontentloaded",timeout=15000)
+  page.locator("#ez-operations-v5 .v5-panel").first.wait_for(timeout=25000)
+  assert any(label in page.locator("#ez-operations-v5 .v5-intro").inner_text()
+             for label in ("Lễ tân & xếp bàn","Front Desk & Seating"))
+  mobile_tabs=page.locator(".mobile-nav [data-value]")
+  values=mobile_tabs.evaluate_all("(nodes)=>nodes.map(n=>n.dataset.value)")
+  assert values==["overview","orders","reservations","kitchen","settings"], values
+  page.goto(BASE+"/app?tab=kitchen",wait_until="domcontentloaded",timeout=15000)
+  page.locator("#ez-kds .kds-station").first.wait_for(timeout=25000)
+  assert page.locator("#ez-kds .kds-station").count()==5
+  assert page.locator("#ez-kds #kds-live").inner_text().strip()
+  assert page.locator("#ez-kds [data-kds-form=fire]").count() <= 1
+  page.evaluate("window.__kdsOriginal=document.querySelector('#ez-kds')")
+  page.locator('#ez-kds [data-kds="station"][data-value="bar"]').click()
+  assert page.locator('#ez-kds [data-kds="station"][data-value="bar"]').get_attribute("class").find("active")>=0
+  assert page.evaluate("window.__kdsOriginal===document.querySelector('#ez-kds')")
+  page.locator('#ez-kds [data-kds-filter="view"]').select_option("item")
+  assert page.evaluate("window.__kdsOriginal===document.querySelector('#ez-kds')")
+  page.locator('#ez-kds [data-kds="station"][data-value="all"]').click()
+  page.goto(BASE+"/app?tab=settings",wait_until="domcontentloaded",timeout=15000)
+  page.locator('.mobile-only [data-action="tab"]').first.wait_for(timeout=25000)
+  more=page.locator('.mobile-only [data-action="tab"]').evaluate_all("(nodes)=>nodes.map(n=>n.dataset.value)")
+  assert "operations" in more and "products" in more and "tables" in more,more
+  assert "kitchen" not in more and "reservations" not in more,more
+  print("PASS F&B mobile navigation, Front Desk name and KDS station/item controls",flush=True)
+
   # V6: actual browser modifier editor, independent size choices and POS total.
   page.goto(BASE+"/app?tab=products",wait_until="domcontentloaded",timeout=15000)
   page.locator('.product-card [data-action="edit-modifiers"]').first.wait_for(timeout=25000)

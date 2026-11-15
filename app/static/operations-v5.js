@@ -46,6 +46,7 @@ window.EZOperationsV5=function(deps){
             btn('waitlist',x.id,tx('Hủy','Cancel'),'cancelled'):
           x.status==='ready'?btn('waitlist',x.id,tx('Nhận khách','Seat party'),'seated')+
             btn('waitlist',x.id,tx('Hủy','Cancel'),'cancelled'):''));
+      if(role!=='staff'){
       output+=box(tx('Yêu cầu đặt cọc','Deposit requests'),
         tx('Chỉ tạo yêu cầu nội bộ. Không xác nhận đã thanh toán.','Internal requests only; no payment gateway charge.'),
         form('deposit',select('reservation_id',reservations.map(x=>opt(x.id,(x.customer_name||'')+' • '+x.scheduled_at?.slice(0,16))))+
@@ -63,6 +64,7 @@ window.EZOperationsV5=function(deps){
           '<p class="v5-note">'+tx('Lưu thay toàn bộ công thức; tối đa 30 nguyên liệu.','Save replaces the full recipe; up to 30 ingredients.')+'</p>',
           tx('Lưu công thức','Save recipe'))+
         list('recipes',x=>E((x.details.ingredients||[]).map(i=>(product.find(p=>p.id===i.product_id)?.name||i.product_id)+' ×'+i.quantity).join(' · '))));
+      }
     }
     if(role!=='staff'){
       output+=box(tx('Lịch ca nhân viên','Staff shifts'),
@@ -157,14 +159,17 @@ window.EZOperationsV5=function(deps){
     return output;
   }
   function render(){return '<div id="ez-operations-v5" class="v5-wrap"><div class="v5-loading" role="status">'+
-    tx('Đang tải trung tâm vận hành...','Loading operations...')+'</div></div>'}
+    tx('Đang tải Lễ tân & xếp bàn...','Loading Front Desk...')+'</div></div>'}
   function paint(){
     var root=document.getElementById('ez-operations-v5');
     if(!root||current!==business().id)return;
     var errors=Object.keys(data).filter(x=>x.endsWith('Error'));
-    root.innerHTML='<header class="v5-intro"><h2>'+tx('Trung tâm vận hành','Operations center')+'</h2>'+
-      '<p>'+tx('Thông tin được phân tách theo doanh nghiệp. Công cụ đang triển khai theo từng ngành.',
-        'Business-scoped workflows, tailored to each industry.')+'</p>'+
+    root.innerHTML='<header class="v5-intro"><h2>'+(business().industry==='fnb'?tx('Lễ tân & xếp bàn','Front Desk & Seating'):tx('Công cụ quản lý','Management Tools'))+'</h2>'+
+      '<p>'+(business().industry==='fnb'?
+        tx('Tiếp đón khách, danh sách chờ, yêu cầu đặt cọc. Các công cụ kho, nhân sự và thu chi nằm bên dưới. Chưa tự động gửi thông báo hoặc thu tiền.',
+           'Host seating, waitlist and deposit requests. Inventory, staff and financial tools follow below. No automatic messaging or payment.')
+        :tx('Các công cụ nội bộ của doanh nghiệp, ngoài quy trình bán hàng chính.','Business administration beyond the main sales workflow.'))+'</p>'+
+      (business().industry==='fnb'?'<div class="v5-host-shortcuts"><button class="btn sm secondary" type="button" data-action="tab" data-value="reservations">📅 '+tx('Đặt bàn trước','Reservations')+'</button><button class="btn sm secondary" type="button" data-action="tab" data-value="tables">▦ '+tx('Sơ đồ bàn','Floorplan')+'</button><button class="btn sm secondary" type="button" data-action="tab" data-value="kitchen">☕ '+tx('Bếp & pha chế','Kitchen & Bar')+'</button></div>':'')+
       '<div class="v5-poll-status" id="v5-poll-status" aria-live="polite"></div>'+
       (errors.length?'<p class="v5-warning">'+tx('Một số dữ liệu chưa tải được.','Some data could not be loaded.')+'</p>':'')+
       '</header><div class="v5-grid">'+sections()+'</div>';
@@ -176,7 +181,7 @@ window.EZOperationsV5=function(deps){
     function add(key,path){jobs.push(load(key,path))}
     add('sync');add('transfers');if(b.active_modules?.includes('products'))add('inventory');if(b.role!=='staff'){add('staff');add('shifts');add('notifications')}
     if(b.industry==='fnb'&&b.active_modules.includes('tables')){
-      add('waitlist');add('deposits');add('recipes');add('reservations','/businesses/'+bid()+'/reservations');
+      add('waitlist');if(b.role!=='staff'){add('deposits');add('recipes')};add('reservations','/businesses/'+bid()+'/reservations');
     }
     if(b.industry==='online'&&b.active_modules.includes('fulfillment'))
       add('deliveries','/businesses/'+bid()+'/industry/delivery');

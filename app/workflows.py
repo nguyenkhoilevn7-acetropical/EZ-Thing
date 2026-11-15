@@ -127,11 +127,18 @@ def create_item(bid: str, kind: str, body: CreateWorkItem,
                 Customer.business_id == bid)) if order.customer_id else None
             if not customer or not customer.address.strip():
                 fail(422, "Đơn giao hàng cần có khách hàng và địa chỉ nhận hàng")
+        details = {"note": body.note.strip() or (order.note if kind == "kitchen" else ""),
+                   **({"carrier": body.carrier, "tracking_number": body.tracking_number} if kind == "delivery" else {})}
+        if kind == "kitchen":
+            # A single immutable menu+modifier+station snapshot is created at
+            # firing time; no second ticket store, and POS edits stay blocked.
+            from .kds import ticket_lines
+            details["kds_lines"] = ticket_lines(db, bid, order)
+            details["kds_revision"] = 0
         row = IndustryWorkItem(id=new_id(), business_id=bid, kind=kind,
               reference_id=order.id, customer_id=order.customer_id,
               title=("Phiếu bếp • " if kind == "kitchen" else "Đơn giao • ") + order.id[:8].upper(),
-              status="pending", details={"note":body.note,
-                       **({"carrier":body.carrier,"tracking_number":body.tracking_number} if kind == "delivery" else {})})
+              status="pending", details=details)
     else:
         if not (body.customer_id and body.product_id and body.start_at and body.assignee.strip()):
             fail(422, "Cần chọn khách, dịch vụ, nhân viên và thời gian")
@@ -190,6 +197,22 @@ def change_status(bid: str, kind: str, item_id: str, body: NextStatus,
         item.status = body.status
     else:
         fail(409, "Trình tự trạng thái không hợp lệ")
+    if kind == "kitchen" and (item.details or {}).get("kds_lines"):
+        existing_states = {x.get("status") for x in item.details["kds_lines"]}
+        if len(existing_states) > 1:
+            fail(409, "Phiếu có nhiều trạng thái món; hãy xử lý từng món trên KDS")
+        # Preserve legacy bulk status endpoint and old tests without creating
+        # inconsistencies with new KDS per-item tickets.
+        changed = []
+        for entry in item.details["kds_lines"]:
+            line = dict(entry)
+            line["status"] = item.status
+            line["updated_at"] = now().isoformat()
+            changed.append(line)
+        details = dict(item.details)
+        details["kds_lines"] = changed
+        details["kds_revision"] = int(details.get("kds_revision", 0)) + 1
+        item.details = details
     audit(db, bid, user[0].id, f"{kind}.status", {"id":item.id, "status":item.status})
     db.commit()
     return output(item)

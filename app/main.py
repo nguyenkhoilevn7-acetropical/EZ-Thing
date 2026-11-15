@@ -845,3 +845,8 @@ app.include_router(modifiers_router)
 from .pos_v7 import router as pos_v7_router  # noqa: E402
 Base.metadata.create_all(bind=engine)  # Pilot only; migrate PostgreSQL via Alembic 20261115_07.
 app.include_router(pos_v7_router)
+
+# Kitchen / Bar display uses existing IndustryWorkItem ticket snapshots and
+# SaleOrder line IDs; no duplicate order/payment ledger and no new DB tables.
+from .kds import router as kds_router  # noqa: E402
+app.include_router(kds_router)
