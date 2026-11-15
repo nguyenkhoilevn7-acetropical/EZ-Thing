@@ -657,8 +657,9 @@ def financial_report(bid:str,start:date|None=None,end:date|None=None,
     if ids:
         for movement,product in db.execute(select(StockMovement,Product).join(
             Product,(Product.id==StockMovement.product_id)&(Product.business_id==bid))
-            .where(StockMovement.business_id==bid,StockMovement.reason=="sale",
-                   StockMovement.delta<0,StockMovement.ref.in_(ids))):
+            .where(StockMovement.business_id==bid,
+                   StockMovement.reason.in_(("sale","pos_adjust")),
+                   StockMovement.ref.in_(ids))):
             estimated_cogs+=(-movement.delta)*product.cost_vnd
     expenses=[x for x in db.scalars(select(IndustryWorkItem).where(
         IndustryWorkItem.business_id==bid,IndustryWorkItem.kind=="expense",
