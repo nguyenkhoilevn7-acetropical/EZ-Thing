@@ -83,7 +83,21 @@ window.EZOperationsV5=function(deps){
         list('notifications',x=>E(x.details.channel||'')+' • '+E(x.details.recipient||'')+' • '+tx('Chưa gửi','Not sent')));
     }
     if(business().active_modules?.includes('products')){
-      output+=box(tx('Phiếu điều chuyển chi nhánh','Branch transfer requests'),
+      var inventory=data.inventory||{};
+      var balances=inventory.balances||[];
+      output+=box(tx('Tồn kho từng chi nhánh','Per-branch inventory'),
+        tx('Kích hoạt riêng khi đã đối chiếu tồn kho thực tế.','Activate only after physically reconciling initial stock.'),
+        inventory.enabled?
+        '<p class="v5-note">'+tx('Đang bật sổ tồn kho theo chi nhánh.','Per-location stock tracking is active.')+'</p>'+
+        balances.slice(0,35).map(x=>'<div class="v5-entry"><strong>'+
+           E(product.find(p=>p.id===x.product_id)?.name||'Sản phẩm')+'</strong><p>'+
+           E(branches.find(y=>y.id===x.branch_id)?.name||'Chi nhánh')+
+           ' • '+E(x.quantity)+' '+tx('đơn vị','units')+'</p></div>').join(''):
+        '<p class="v5-note">'+tx('Chưa bật kho riêng; Product.stock hiện là tồn toàn doanh nghiệp.',
+          'Not enabled; Product.stock is currently business-wide.')+'</p>'+
+        (role==='owner'&&business().active_modules?.includes('multi_branch')?
+          btn('activate-inventory','',''+tx('Kích hoạt kho từng chi nhánh','Activate branch inventory')):''))+
+      box(tx('Phiếu điều chuyển chi nhánh','Branch transfer requests'),
         tx('Quy trình yêu cầu → duyệt → nhận. Tồn kho vẫn cấp doanh nghiệp, chưa có số dư từng kho.','Request → approve → receive. No per-branch quantity ledger yet.'),
         role==='staff'?'':form('transfer',select('product_id',options(tracked))+
           '<div class="v5-formrow"><label>'+tx('Kho nguồn','From')+select('from_branch_id',brOptions)+'</label>'+
@@ -156,7 +170,7 @@ window.EZOperationsV5=function(deps){
     current=b.id;var serial=++generation;data={};
     var jobs=[];
     function add(key,path){jobs.push(load(key,path))}
-    add('sync');add('transfers');if(b.role!=='staff'){add('staff');add('shifts');add('notifications')}
+    add('sync');add('transfers');if(b.active_modules?.includes('products'))add('inventory');if(b.role!=='staff'){add('staff');add('shifts');add('notifications')}
     if(b.industry==='fnb'&&b.active_modules.includes('tables')){
       add('waitlist');add('deposits');add('recipes');add('reservations','/businesses/'+bid()+'/reservations');
     }
@@ -195,6 +209,7 @@ window.EZOperationsV5=function(deps){
     if(kind==='expense')path='expenses';
     if(kind==='deposit')path='deposits';
     if(kind==='delivery')path='deliveries/'+encodeURIComponent(body.item_id)+'/events';
+    if(kind==='activate-inventory'){path='inventory/activate';body={confirmation:'ALLOCATE_ALL_TO_PRIMARY_BRANCH'};}
     if(id&&(kind==='waitlist'||kind==='transfer'))body={status:status};
     if(['waitlist','transfer','shift','notification','redeem','expense','deposit'].includes(kind)&&!id)body.request_id=uuid();
     for(var number of ['party_size','quantity','points','amount_vnd'])if(body[number]!=null)body[number]=Number(body[number]);
@@ -233,6 +248,11 @@ window.EZOperationsV5=function(deps){
     ev.preventDefault();ev.stopPropagation();if(busy||button.disabled)return;
     busy=true;button.disabled=true;
     var kind=button.dataset.v5Action;
+    if(kind==='activate-inventory'&&!confirm(tx(
+      'Xác nhận phân bổ toàn bộ tồn kho hiện có vào CHI NHÁNH CHÍNH? Kiểm kê và chuyển kho sau khi bật.',
+      'Allocate ALL current stock to the PRIMARY branch? Reconcile physical quantities afterward.'))){
+      busy=false;button.disabled=false;return;
+    }
     mutate(kind,{},button.dataset.id,button.dataset.status)
       .then(function(){toast(tx('Đã cập nhật','Updated'));return mount()})
       .catch(e=>toast(e.message,true)).finally(function(){busy=false;button.disabled=false});
