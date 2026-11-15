@@ -148,3 +148,47 @@ def test_restaurant_contact_and_inquiry(client, monkeypatch):
     assert write(client, f'/businesses/{bid}/inquiries/{r.json()["id"]}/status',
                  {'status': 'closed'}, csrf).status_code == 200
     assert client.get('/api/preview/online/reservations/contact').status_code == 404
+
+def test_merchant_preferred_time_zone_availability_and_table_validation(client, monkeypatch):
+    csrf = guest(client, monkeypatch)
+    business = next(x for x in client.get('/api/businesses').json() if x['industry'] == 'fnb')
+    bid = business['id']
+    floor = client.get(f'/api/businesses/{bid}/floorplan').json()
+    assert floor['branch_id'] and floor['tables']
+    day = (datetime.now(ZoneInfo('Asia/Ho_Chi_Minh')) +
+           timedelta(days=2)).date().isoformat()
+    url = f'/api/businesses/{bid}/reservations/availability'
+    base = {'day': day, 'party_size': 2, 'duration_minutes': 60,
+            'branch_id': floor['branch_id']}
+    zone = floor['tables'][0]['placement']['zone_id']
+    valid = client.get(url, params={**base, 'zone_id': zone})
+    assert valid.status_code == 200, valid.text
+    assert any(x['available'] for x in valid.json()['slots'])
+    other_zone = next(z['id'] for z in floor['zones'] if z['id'] != zone)
+    empty = client.get(url, params={**base, 'zone_id': other_zone})
+    assert empty.status_code == 200, empty.text
+    assert not any(x['available'] for x in empty.json()['slots'])
+    wrong = client.get(url, params={**base, 'zone_id': other_zone,
+                                    'table_id': floor['tables'][0]['id']})
+    assert wrong.status_code == 422
+    assert client.get(url, params={**base, 'zone_id': 'unknown-zone'}).status_code == 422
+    payload = {**body(req='merchant-preferred-zone-0001', start=slot(10)),
+               'zone_id': zone, 'branch_id': floor['branch_id'],
+               'duration_minutes': 60}
+    booked = write(client, f'/businesses/{bid}/reservations', payload, csrf)
+    assert booked.status_code == 201, booked.text
+    blocked = write(client, f'/businesses/{bid}/reservations',
+                    {**payload, 'request_id': 'merchant-preferred-zone-0002',
+                     'zone_id': other_zone}, csrf)
+    assert blocked.status_code == 409
+
+
+def test_merchant_booking_form_has_time_selection_retry_and_disabled_unverified_slot():
+    js = (Path(__file__).resolve().parents[1] /
+          'app/static/merchant-restaurant-suite.js').read_text()
+    assert 'name="preferred_time"' in js
+    assert 'name="start_at"' in js
+    assert 'data-suite=' in js
+    assert 'retry-slots' in js
+    assert "sel.disabled=true" in js
+    assert "branch_id" in js and "zone_id" in js
