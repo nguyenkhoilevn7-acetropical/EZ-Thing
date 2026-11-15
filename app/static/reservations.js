@@ -36,7 +36,7 @@ async function loadContact(){const data=await api('/preview/cafe/reservations/co
 async function loadGuestSlots(){const day=$('booking-day')?.value,size=$('booking-size')?.value,el=$('booking-slots');if(!day||!el)return;guestSlot='';el.innerHTML='<div class="muted-message">Đang kiểm tra lịch trống…</div>';
  try{const r=await api(`/preview/cafe/reservations/availability?day=${encodeURIComponent(day)}&party_size=${encodeURIComponent(size)}&duration_minutes=${guestDuration}`);
    const available=r.slots.filter(s=>s.available);
-   el.innerHTML=available.length?available.map(s=>`<button type="button" data-slot="${E(s.start_at)}" class="slot-button"><b>${E(formatTime(s.start_at))}</b><small>${s.available_tables} bàn phù hợp</small></button>`).join(''):'<div class="muted-message">Không có bàn phù hợp. Hãy chọn ngày/giờ hoặc số người khác.</div>';
+   el.innerHTML=available.length?available.map(s=>`<button type="button" data-slot="${E(s.start_at)}" class="slot-button"><b>${E(formatTime(s.start_at))}</b><small>${s.available_tables} bàn phù hợp</small></button>`).join(''):`<div class="muted-message">${E(r.closed_reason||'Không có bàn phù hợp. Hãy chọn ngày/giờ hoặc số người khác.')}</div>`;
  }catch(err){el.innerHTML=errorBlock(err.message);}
 }
 async function submitGuestBooking(form){if(!guestSlot){toast('Vui lòng chọn giờ còn chỗ',true);return;}
