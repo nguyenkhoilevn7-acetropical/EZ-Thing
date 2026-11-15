@@ -98,6 +98,21 @@ try:
   background=page.locator(".order-card").first.evaluate("(el)=>getComputedStyle(el).backgroundColor")
   assert background!="rgb(255, 255, 255)", "Dark order card remained white"
   print("PASS /app?tab=orders: cards, detail, paid badge, mobile and dark mode",flush=True)
+  # V5 is an integrated merchant tab: render real cards, load tenant data,
+  # keep the mobile navigation, and respect Graphite surfaces.
+  page.goto(BASE+"/app?tab=operations",wait_until="domcontentloaded",timeout=15000)
+  page.locator("#ez-operations-v5 .v5-panel").first.wait_for(timeout=25000)
+  assert page.locator("#ez-operations-v5 .v5-panel").count()>=2
+  assert page.locator(".mobile-nav").count()==1
+  assert page.locator("#ez-operations-v5 .v5-warning").count()==0, "Operations API failed"
+  page.evaluate("document.documentElement.setAttribute('data-ez-merchant-theme','graphite')")
+  card_bg=page.locator("#ez-operations-v5 .v5-panel").first.evaluate(
+     "(el)=>getComputedStyle(el).backgroundColor")
+  assert card_bg!="rgb(255, 255, 255)", "V5 Graphite card is white"
+  print("PASS /app?tab=operations: loaded live tenant sections, mobile nav and dark theme",flush=True)
+  page.goto(BASE+"/app?tab=orders",wait_until="domcontentloaded",timeout=15000)
+  page.locator(".order-card").first.wait_for(timeout=25000)
+
   # Verify the ACTUAL computed Restaurant/Reservations button and panel palette
   # under all three merchant themes; catches green CSS rules leaked after Apple blue.
   page.evaluate("""() => {
