@@ -5,6 +5,15 @@
 (() => {
 'use strict';
 const entries = [
+["PLUS trở lên · JPEG / PNG / WebP","PLUS and above · JPEG / PNG / WebP"],
+["↑ Tải banner từ thiết bị","↑ Upload banner from device"],
+["↑ Tải logo từ thiết bị","↑ Upload logo from device"],
+["Giá bên dưới chỉ là đề xuất trong giai đoạn pilot. Upload ảnh có giới hạn dung lượng ở gói PLUS/PRO. Tên miền riêng và thanh toán thuê bao chưa được triển khai.","Prices shown are estimates during the pilot. Image uploads have size limits on PLUS/PRO. Custom domains and subscription billing are not yet implemented."],
+["Xem nhanh ảnh banner","Banner quick preview"],
+["Kéo banner để chỉnh vị trí ảnh","Drag the banner to adjust its position"],
+["Kéo để chỉnh vị trí logo","Drag to adjust the logo position"],
+["Xem trước logo","Logo preview"],
+
 /* Brand Studio image uploads and Restaurant arrival-time controls. */
 ["Ảnh banner","Banner image"],
 ["Ảnh logo","Logo image"],
