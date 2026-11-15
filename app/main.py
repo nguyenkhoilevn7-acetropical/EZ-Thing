@@ -35,6 +35,7 @@ from .security import check_password, digest_password, session_pair, token_hash
 Base.metadata.create_all(bind=engine)  # Pilot only; production must use versioned migrations.
 app = FastAPI(title="EZ Thing Business MVP", version="0.5.0", docs_url="/api/docs")
 ASSETS = Path(__file__).parent / "static"
+from .asset_pipeline import STATIC_ASSETS  # Content digests; no manual client versions.
 app.mount("/assets", StaticFiles(directory=ASSETS), name="assets")
 
 @app.middleware("http")
@@ -723,22 +724,22 @@ def audits(bid: str, user=Depends(current_user), db: Session = Depends(db_sessio
 
 @app.get("/manifest.webmanifest")
 def manifest():
-    return FileResponse(ASSETS / "manifest.webmanifest", media_type="application/manifest+json")
+    return STATIC_ASSETS.manifest()
 
 
 @app.get("/sw.js")
 def sw():
-    return FileResponse(ASSETS / "sw.js", media_type="application/javascript")
+    return STATIC_ASSETS.service_worker()
 
 
 @app.get("/")
 def index():
-    return FileResponse(ASSETS / "public.html", headers={"Cache-Control": "no-store, max-age=0"})
+    return STATIC_ASSETS.page("public.html")
 
 
 @app.get("/app/storefront-design")
 def storefront_design_page():
-    return FileResponse(ASSETS / "brand-editor.html", headers={"Cache-Control": "no-store"})
+    return STATIC_ASSETS.page("brand-editor.html")
 
 
 @app.get("/app/reservations")
@@ -749,12 +750,12 @@ def restaurant_reservation_manager():
 @app.get("/app")
 @app.get("/app/{path:path}")
 def merchant_app(path: str = ""):
-    return FileResponse(ASSETS / "index.html", headers={"Cache-Control": "no-store"})
+    return STATIC_ASSETS.page("index.html")
 
 
 @app.get("/reserve/cafe")
 def public_restaurant_reservation():
-    return FileResponse(ASSETS / "reservation-public.html", headers={"Cache-Control": "no-store"})
+    return STATIC_ASSETS.page("reservation-public.html")
 
 
 @app.get("/menu/cafe")
@@ -762,12 +763,12 @@ def public_restaurant_reservation():
 @app.get("/store/online")
 @app.get("/booking/wellness")
 def customer_frontend():
-    return FileResponse(ASSETS / "customer.html", headers={"Cache-Control": "no-store"})
+    return STATIC_ASSETS.page("customer.html")
 
 
 @app.get("/admin")
 def super_admin_frontend():
-    return FileResponse(ASSETS / "admin.html", headers={"Cache-Control": "no-store"})
+    return STATIC_ASSETS.page("admin.html")
 
 
 # Register industry workflows only after core auth/tenant dependencies are defined.
