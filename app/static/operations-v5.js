@@ -46,6 +46,7 @@ window.EZOperationsV5=function(deps){
             btn('waitlist',x.id,tx('Hủy','Cancel'),'cancelled'):
           x.status==='ready'?btn('waitlist',x.id,tx('Nhận khách','Seat party'),'seated')+
             btn('waitlist',x.id,tx('Hủy','Cancel'),'cancelled'):''));
+      if(role!=='staff'){
       output+=box(tx('Yêu cầu đặt cọc','Deposit requests'),
         tx('Chỉ tạo yêu cầu nội bộ. Không xác nhận đã thanh toán.','Internal requests only; no payment gateway charge.'),
         form('deposit',select('reservation_id',reservations.map(x=>opt(x.id,(x.customer_name||'')+' • '+x.scheduled_at?.slice(0,16))))+
@@ -63,6 +64,7 @@ window.EZOperationsV5=function(deps){
           '<p class="v5-note">'+tx('Lưu thay toàn bộ công thức; tối đa 30 nguyên liệu.','Save replaces the full recipe; up to 30 ingredients.')+'</p>',
           tx('Lưu công thức','Save recipe'))+
         list('recipes',x=>E((x.details.ingredients||[]).map(i=>(product.find(p=>p.id===i.product_id)?.name||i.product_id)+' ×'+i.quantity).join(' · '))));
+      }
     }
     if(role!=='staff'){
       output+=box(tx('Lịch ca nhân viên','Staff shifts'),
@@ -179,7 +181,7 @@ window.EZOperationsV5=function(deps){
     function add(key,path){jobs.push(load(key,path))}
     add('sync');add('transfers');if(b.active_modules?.includes('products'))add('inventory');if(b.role!=='staff'){add('staff');add('shifts');add('notifications')}
     if(b.industry==='fnb'&&b.active_modules.includes('tables')){
-      add('waitlist');add('deposits');add('recipes');add('reservations','/businesses/'+bid()+'/reservations');
+      add('waitlist');if(b.role!=='staff'){add('deposits');add('recipes')};add('reservations','/businesses/'+bid()+'/reservations');
     }
     if(b.industry==='online'&&b.active_modules.includes('fulfillment'))
       add('deliveries','/businesses/'+bid()+'/industry/delivery');
