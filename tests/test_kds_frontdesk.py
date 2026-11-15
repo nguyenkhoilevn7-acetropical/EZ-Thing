@@ -248,3 +248,46 @@ def test_mobile_kds_assets_are_linked_without_page_reload(cli):
     assert "retail:['overview','orders','products','customers']" in src
     assert "services:['overview','appointments','products','customers']" in src
     assert "Lễ tân & xếp bàn" in src
+
+
+
+def test_expeditor_runner_call_and_supervised_station_transfer(cli):
+    csrf=signup(cli,"kds-expo@example.com")
+    bid=new_business(cli,csrf)
+    product=new_product(cli,bid,csrf,"Cold special","COLD-S","Món đặc biệt")
+    order=new_order(cli,bid,csrf,[{"product_id":product,"quantity":2}])
+    ticket=request(cli,"POST",kds(bid,"/fire"),{"order_id":order["id"]},csrf).json()
+    tid=ticket["id"]
+    line=cli.get("/api"+kds(bid,"/queue")).json()["tickets"][0]["lines"][0]
+    assert line["station"]=="expo"  # Unclassified item, needs explicit route.
+    path=kds(bid,f"/tickets/{tid}/lines/{line['id']}")
+    moved=request(cli,"POST",path+"/move-station",{
+        "station":"cold","reason":"Chuyển qua bếp lạnh",
+        "expected_revision":0},csrf)
+    assert moved.status_code==200,moved.text
+    assert moved.json()["lines"][0]["station"]=="cold"
+    assert moved.json()["revision"]==1
+    assert cli.get("/api"+kds(bid,"/queue")).json()["all_day"]=={"cold":2}
+    assert request(cli,"POST",path+"/call-runner",{"expected_revision":1},csrf).status_code==409
+    assert request(cli,"POST",path+"/move-station",{
+        "station":"bar","reason":"Đổi khu chế biến",
+        "expected_revision":0},csrf).status_code==409
+    assert request(cli,"POST",path+"/status",{
+        "status":"preparing","expected_revision":1},csrf).status_code==200
+    assert request(cli,"POST",path+"/status",{
+        "status":"ready","expected_revision":2},csrf).status_code==200
+    ready=cli.get("/api"+kds(bid,"/queue")).json()
+    assert ready["ready_for_expo"]==2
+    assert request(cli,"POST",path+"/move-station",{
+        "station":"bar","reason":"Đổi trạm sau khi xong",
+        "expected_revision":3},csrf).status_code==409
+    alerted=request(cli,"POST",path+"/call-runner",{"expected_revision":3},csrf)
+    assert alerted.status_code==200,alerted.text
+    called=alerted.json()["lines"][0]["runner_called_at"]
+    assert called and alerted.json()["revision"]==4
+    retried=request(cli,"POST",path+"/call-runner",{"expected_revision":3},csrf)
+    assert retried.status_code==200 and retried.json()["revision"]==4
+    assert retried.json()["lines"][0]["runner_called_at"]==called
+    assert request(cli,"POST",path+"/status",{
+        "status":"served","expected_revision":4},csrf).status_code==200
+    assert request(cli,"POST",path+"/call-runner",{"expected_revision":5},csrf).status_code==409
