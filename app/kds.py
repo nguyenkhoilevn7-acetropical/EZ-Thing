@@ -290,3 +290,29 @@ def change_line(bid: str, ticket_id: str, line_id: str, body: LineUpdate,
         "reason":body.reason.strip() if body.reason else None})
     db.commit()
     return ticket_view(job, order, lines)
+
+
+
+class AvailabilityUpdate(BaseModel):
+    available: bool
+    reason: str = Field(min_length=4, max_length=180)
+
+
+@router.post("/products/{product_id}/availability")
+def product_availability(
+        bid: str, product_id: str, body: AvailabilityUpdate,
+        user=Depends(current_user), db: Session = Depends(db_session)):
+    guard(db, bid, user)
+    allow(db, bid, user, MANAGE_ROLES)
+    row = db.scalar(select(Product).where(
+        Product.id == product_id, Product.business_id == bid).with_for_update())
+    if not row:
+        fail(404, "Món không tồn tại trong doanh nghiệp")
+    if row.active == body.available:
+        return {"product_id": product_id, "available": row.active}
+    row.active = body.available
+    audit(db, bid, user[0].id, "kds.product_availability", {
+        "product_id": product_id, "available": body.available,
+        "reason": body.reason.strip()})
+    db.commit()
+    return {"product_id": product_id, "available": row.active}
