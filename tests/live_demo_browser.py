@@ -110,6 +110,29 @@ try:
      "(el)=>getComputedStyle(el).backgroundColor")
   assert card_bg!="rgb(255, 255, 255)", "V5 Graphite card is white"
   print("PASS /app?tab=operations: loaded live tenant sections, mobile nav and dark theme",flush=True)
+  # V6: actual browser modifier editor, independent size choices and POS total.
+  page.goto(BASE+"/app?tab=products",wait_until="domcontentloaded",timeout=15000)
+  page.locator('.product-card [data-action="edit-modifiers"]').first.wait_for(timeout=25000)
+  page.locator('.product-card [data-action="edit-modifiers"]').first.click()
+  page.locator("#ez-modifier-form").wait_for(timeout=15000)
+  page.locator('[data-m6-action="add-size"]').click()
+  page.locator('#ez-modifier-form [data-m6-option-index="1"] [data-m6-price]').fill("7000")
+  page.locator('#ez-modifier-form [type="submit"]').click()
+  page.wait_for_function("!document.querySelector('#ez-modifier-form')",timeout=15000)
+  page.goto(BASE+"/app?tab=orders",wait_until="domcontentloaded",timeout=15000)
+  page.locator('[data-action="new-order"]').first.click()
+  page.locator('#order-form .m6-pos-group').first.wait_for(timeout=15000)
+  first=page.locator('#order-lines .order-line').first
+  first.locator('[data-pos-modifier]').first.check()
+  base_price=int(first.locator('select[name="product_id"] option:checked').get_attribute('data-price'))
+  page.locator('[data-action="add-line"]').click()
+  second=page.locator('#order-lines .order-line').nth(1)
+  second.locator('[data-pos-modifier]').last.check()
+  assert first.locator('[data-pos-modifier]').first.is_checked(), "Different order lines share one size-radio group"
+  assert second.locator('[data-pos-modifier]').last.is_checked()
+  assert page.locator('#order-total').inner_text().replace(".","").replace(",","").replace("đ","").strip()==str(base_price*2+7000)
+  page.keyboard.press("Escape")
+  print("PASS /app V6: editor saves sizes and POS keeps per-line modifiers and pricing",flush=True)
   page.goto(BASE+"/app?tab=orders",wait_until="domcontentloaded",timeout=15000)
   page.locator(".order-card").first.wait_for(timeout=25000)
 
