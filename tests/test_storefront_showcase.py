@@ -36,7 +36,7 @@ def test_storefront_does_not_swap_out_server_authoritative_demo_flow():
 
 def test_only_dedicated_photo_host_is_csp_allowed():
     api = (BASE / "app" / "main.py").read_text(encoding="utf-8")
-    assert "img-src 'self' data: https://images.unsplash.com;" in api
+    assert "img-src 'self' data: blob: https://images.unsplash.com;" in api
     assert "script-src 'self'" in api
     assert "frame-ancestors 'none'" in api
 
