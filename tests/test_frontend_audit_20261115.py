@@ -79,7 +79,7 @@ console.log(JSON.stringify(['Đơn mở 120 phút','MATCHA · Đang có hàng','
 
 def test_changed_scripts_are_cache_busted():
     version = "20261115-audit-01"
-    assert f"/assets/app.js?v=20261115-v6-01" in read("index.html")
+    assert f"/assets/app.js?v=20261115-v7-01" in read("index.html")
     assert f"/assets/admin.js?v={version}" in read("admin.html")
     assert f"/assets/customer.js?v={version}" in read("customer.html")
     for page in STATIC.glob("*.html"):

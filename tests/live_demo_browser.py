@@ -98,6 +98,25 @@ try:
   background=page.locator(".order-card").first.evaluate("(el)=>getComputedStyle(el).backgroundColor")
   assert background!="rgb(255, 255, 255)", "Dark order card remained white"
   print("PASS /app?tab=orders: cards, detail, paid badge, mobile and dark mode",flush=True)
+  # V7 actual browser smoke: open a check editor without page shell replacement.
+  page.locator('.order-card-edit').first.wait_for(timeout=15000)
+  page.locator('.order-card-edit').first.click()
+  page.locator('#pos-v7-editor .v7-line').first.wait_for(timeout=15000)
+  assert page.locator('#pos-v7-editor .v7-line').count()>=1
+  page.locator('#pos-v7-editor [data-pos7-action="add-line"]').click()
+  assert page.locator('#pos-v7-editor .v7-line').count()>=2
+  page.locator('#pos-v7-editor [data-pos7-action="remove-line"]').last.click()
+  assert page.locator('#pos-v7-editor .v7-line').count()>=1
+  assert page.locator('#pos-v7-total').inner_text().strip()
+  page.keyboard.press("Escape")
+  assert page.locator('#pos-v7-editor').count()==0
+  assert page.locator('.order-card').first.is_visible()
+  page.locator('.order-card-move').first.click()
+  page.locator('#pos-v7-move select[name=table_id]').wait_for(timeout=15000)
+  page.keyboard.press("Escape")
+  assert page.locator('.order-card').first.is_visible()
+  print("PASS /app?tab=orders V7: edit and move panels, responsive controls, no page shell flash",flush=True)
+
   # V5 is an integrated merchant tab: render real cards, load tenant data,
   # keep the mobile navigation, and respect Graphite surfaces.
   page.goto(BASE+"/app?tab=operations",wait_until="domcontentloaded",timeout=15000)
@@ -118,7 +137,7 @@ try:
   page.locator('[data-m6-action="add-size"]').click()
   page.locator('#ez-modifier-form [data-m6-option-index="1"] [data-m6-price]').fill("7000")
   page.locator('#ez-modifier-form [type="submit"]').click()
-  page.wait_for_function("!document.querySelector('#ez-modifier-form')",timeout=15000)
+  page.locator("#ez-modifier-form").wait_for(state="detached",timeout=15000)
   page.goto(BASE+"/app?tab=orders",wait_until="domcontentloaded",timeout=15000)
   page.locator('[data-action="new-order"]').first.click()
   page.locator('#order-form .m6-pos-group').first.wait_for(timeout=15000)
