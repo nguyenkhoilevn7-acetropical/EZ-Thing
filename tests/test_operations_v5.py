@@ -228,3 +228,92 @@ def test_operations_ui_and_csrf(cli):
         "request_id":"draft-00000003","channel":"email",
         "recipient":"x@example.com","message":"Hello world"},None).status_code==403
     assert cli.get("/api"+op(bid,"sync")).json()["transport"]=="polling"
+
+
+def test_branch_inventory_opt_in_sale_transfer_return_stock_invariants(cli):
+    """Stock must remain globally conserved and allocated across branches."""
+    csrf=signup(cli,"branch-ledger@example.com")
+    bid=make_business(cli,csrf,industry="retail")
+    branches=cli.get(f"/api/businesses/{bid}/branches").json()
+    primary=branches[0]["id"]
+    second=post(cli,f"/businesses/{bid}/branches",{"name":"Second store"},csrf).json()["id"]
+    pid=create_product(cli,bid,csrf,"Soap","SOAP-01",stock=15,price=30000)
+    base=op(bid,"inventory")
+    assert cli.get("/api"+base).json()["enabled"] is False
+    assert post(cli,base+"/activate",{},csrf).status_code==422
+    init=post(cli,base+"/activate",{"confirmation":"ALLOCATE_ALL_TO_PRIMARY_BRANCH"},csrf)
+    assert init.status_code==200,init.text
+    assert init.json()["initial_branch_id"]==primary
+    assert post(cli,base+"/activate",{"confirmation":"ALLOCATE_ALL_TO_PRIMARY_BRANCH"},csrf).status_code==200
+    def snap():
+        x=cli.get("/api"+base).json()
+        return {(v["branch_id"],v["product_id"]):v["quantity"] for v in x["balances"]}
+    assert snap()=={(primary,pid):15}
+    req={"request_id":"transfer-real-stock-001","product_id":pid,
+         "from_branch_id":primary,"to_branch_id":second,"quantity":5}
+    r=post(cli,op(bid,"transfers"),req,csrf)
+    assert r.status_code==201,r.text
+    ident=r.json()["id"]
+    assert post(cli,op(bid,f"transfers/{ident}/status"),
+                {"status":"approved"},csrf).status_code==200
+    received=post(cli,op(bid,f"transfers/{ident}/status"),
+                  {"status":"received"},csrf)
+    assert received.status_code==200,received.text
+    assert received.json()["details"]["inventory_applied"] is True
+    assert post(cli,op(bid,f"transfers/{ident}/status"),
+                {"status":"received"},csrf).status_code==200
+    assert snap()=={(primary,pid):10,(second,pid):5}
+    order=post(cli,f"/businesses/{bid}/orders",{
+        "idempotency_key":"branch-order-00001","branch_id":second,
+        "lines":[{"product_id":pid,"quantity":3}]},csrf)
+    assert order.status_code==201,order.text
+    assert snap()=={(primary,pid):10,(second,pid):2}
+    assert post(cli,f"/businesses/{bid}/orders",{
+        "idempotency_key":"branch-order-00002","branch_id":second,
+        "lines":[{"product_id":pid,"quantity":3}]},csrf).status_code==409
+    assert post(cli,f"/businesses/{bid}/orders/{order.json()['id']}/cancel",
+                {"confirmed":True,"reason":"Return to shelf"},csrf).status_code==200
+    assert snap()=={(primary,pid):10,(second,pid):5}
+    adjustment=post(cli,f"/businesses/{bid}/products/{pid}/stock",
+                    {"delta":-1,"reason":"Damaged","branch_id":second},csrf)
+    assert adjustment.status_code==200,adjustment.text
+    assert snap()=={(primary,pid):10,(second,pid):4}
+    assert adjustment.json()["stock"]==14
+    unauthorized=post(cli,op(bid,"inventory/activate"),
+                      {"confirmation":"ALLOCATE_ALL_TO_PRIMARY_BRANCH"},None)
+    assert unauthorized.status_code==403
+    with TestClient(app) as outsider:
+        signup(outsider,"branch-outsider@example.com")
+        assert outsider.get("/api"+base).status_code==404
+        assert post(outsider,op(bid,"transfers"),req,None).status_code==403
+
+
+def test_recipe_sold_on_secondary_branch_updates_ingredient_location(cli):
+    csrf=signup(cli,"branch-recipe@example.com")
+    bid=make_business(cli,csrf)
+    branches=cli.get(f"/api/businesses/{bid}/branches").json()
+    primary=branches[0]["id"]
+    second=post(cli,f"/businesses/{bid}/branches",{"name":"Second FNB"},csrf).json()["id"]
+    milk=create_product(cli,bid,csrf,"Milk","MILK-SECOND",stock=20)
+    latte=create_product(cli,bid,csrf,"Latte","LATTE-SECOND",stock=0,track_stock=False)
+    assert put(cli,op(bid,f"recipes/{latte}"),{
+        "ingredients":[{"product_id":milk,"quantity":2}]},csrf).status_code==200
+    assert post(cli,op(bid,"inventory/activate"),
+                {"confirmation":"ALLOCATE_ALL_TO_PRIMARY_BRANCH"},csrf).status_code==200
+    transfer=post(cli,op(bid,"transfers"),{
+        "request_id":"branch-recipe-transfer1","product_id":milk,
+        "from_branch_id":primary,"to_branch_id":second,"quantity":8},csrf).json()
+    assert post(cli,op(bid,f"transfers/{transfer['id']}/status"),
+                {"status":"approved"},csrf).status_code==200
+    assert post(cli,op(bid,f"transfers/{transfer['id']}/status"),
+                {"status":"received"},csrf).status_code==200
+    order=post(cli,f"/businesses/{bid}/orders",{
+        "idempotency_key":"branch-recipe-order1","branch_id":second,
+        "lines":[{"product_id":latte,"quantity":3}]},csrf)
+    assert order.status_code==201,order.text
+    balances=cli.get("/api"+op(bid,"inventory")).json()["balances"]
+    assert next(x for x in balances if x["branch_id"]==second)["quantity"]==2
+    assert post(cli,f"/businesses/{bid}/orders/{order.json()['id']}/cancel",{
+        "confirmed":True,"reason":"Refund before kitchen"},csrf).status_code==200
+    balances=cli.get("/api"+op(bid,"inventory")).json()["balances"]
+    assert next(x for x in balances if x["branch_id"]==second)["quantity"]==8
