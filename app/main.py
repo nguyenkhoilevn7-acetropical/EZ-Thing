@@ -559,7 +559,7 @@ def order_out(db, o, items=None, selections=None):
             "customer_id": o.customer_id, "status": o.status, "total_vnd": o.total_vnd,
             "note": o.note, "created_at": o.created_at.isoformat(),
             "paid_at": o.paid_at.isoformat() if o.paid_at else None,
-            "items": [{"product_id": x.product_id, "name": x.product_name,
+            "items": [{"id": x.id, "product_id": x.product_id, "name": x.product_name,
                        "quantity": x.quantity, "unit_price_vnd": x.unit_price_vnd,
                        "total_vnd": x.total_vnd,
                        "modifiers": selections.get(x.id, [])} for x in items]}
@@ -839,3 +839,8 @@ app.include_router(operations_v5_router)
 from .modifiers import router as modifiers_router  # noqa: E402
 Base.metadata.create_all(bind=engine)  # Pilot; apply Alembic 20261115_06 for production.
 app.include_router(modifiers_router)
+
+# V7: additional open-order POS actions use the existing ledgers and role checks.
+from .pos_v7 import router as pos_v7_router  # noqa: E402
+Base.metadata.create_all(bind=engine)  # Pilot only; migrate PostgreSQL via Alembic 20261115_07.
+app.include_router(pos_v7_router)
