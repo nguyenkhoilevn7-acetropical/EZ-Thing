@@ -35,8 +35,8 @@ from .security import check_password, digest_password, session_pair, token_hash
 Base.metadata.create_all(bind=engine)  # Pilot only; production must use versioned migrations.
 app = FastAPI(title="EZ Thing Business MVP", version="0.5.0", docs_url="/api/docs")
 ASSETS = Path(__file__).parent / "static"
-from .asset_pipeline import STATIC_ASSETS  # Content digests; no manual client versions.
-app.mount("/assets", StaticFiles(directory=ASSETS), name="assets")
+from .asset_pipeline import STATIC_ASSETS, RefreshableStaticFiles  # Hashes; no manual versions.
+app.mount("/assets", RefreshableStaticFiles(directory=ASSETS), name="assets")
 
 @app.middleware("http")
 async def security_headers(request: Request, call_next):
