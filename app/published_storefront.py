@@ -136,8 +136,8 @@ def public_site_page(slug: str):
     # This HTML is static; product, branding and publish state are checked by API.
     if not SLUG_PATTERN.fullmatch(slug) or len(slug) > 60:
         raise HTTPException(404, "Địa chỉ không hợp lệ")
-    return FileResponse(ASSETS / "public-shop.html",
-                        headers={"Cache-Control": "no-store"})
+    from .asset_pipeline import STATIC_ASSETS
+    return STATIC_ASSETS.page("public-shop.html")
 
 
 @router.get("/api/public/shops/{slug}")
