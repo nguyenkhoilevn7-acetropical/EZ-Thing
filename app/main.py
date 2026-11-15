@@ -436,7 +436,11 @@ def products(bid: str, user=Depends(current_user), db: Session = Depends(db_sess
     from .team import role_for
     can_view_cost = role_for(db, bid, user[0].id) in ("owner", "manager")
     products = db.scalars(select(Product).where(Product.business_id == bid).order_by(Product.created_at.desc())).all()
-    return [{**product_out(p), **({} if can_view_cost else {"cost_vnd": None})} for p in products]
+    from .modifiers import configs, exposed_groups
+    modifier_map = configs(db, bid, [p.id for p in products])
+    return [{**product_out(p),
+             "modifier_groups": exposed_groups(modifier_map.get(p.id, [])),
+             **({} if can_view_cost else {"cost_vnd": None})} for p in products]
 
 
 def product_out(p):
