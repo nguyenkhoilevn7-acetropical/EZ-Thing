@@ -6,17 +6,21 @@ This is owner-only preview functionality. It never publishes a public shop.
 from __future__ import annotations
 
 import re
+import secrets
+from io import BytesIO
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import FileResponse
+from PIL import Image, ImageOps, UnidentifiedImageError
+
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
+from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from .catalog import PLANS
 from .database import db_session
-from .models import Business, Membership, Product
+from .models import Business, Membership, Product, StorefrontMedia
 from .main import ASSETS, audit, current_user, tenant
 from .i18n import selected_language
 
@@ -33,7 +37,9 @@ BANNERS = {
 DEFAULT_PRESET = {"fnb": "dining", "retail": "retail", "online": "online", "services": "wellness"}
 
 BASE_FIELDS = {"display_name", "description", "phone", "address", "banner_preset"}
-PLUS_FIELDS = BASE_FIELDS | {"hero_title", "accent_color", "banner_url", "logo_url"}
+PLUS_FIELDS = BASE_FIELDS | {"hero_title", "accent_color", "banner_url", "logo_url",
+                             "banner_position_x", "banner_position_y",
+                             "logo_position_x", "logo_position_y"}
 PRO_FIELDS = PLUS_FIELDS | {"layout_style", "footer_note"}
 TIER_FIELDS = {"BASIC": BASE_FIELDS, "PLUS": PLUS_FIELDS, "PRO": PRO_FIELDS}
 ALLOWED_ACCENTS = {"#147D64", "#BF506C", "#2B62A9", "#7556A8", "#C26D30"}
@@ -69,6 +75,10 @@ class StorefrontUpdate(BaseModel):
     accent_color: Literal["#147D64", "#BF506C", "#2B62A9", "#7556A8", "#C26D30"] | None = None
     banner_url: str | None = Field(default=None, max_length=350)
     logo_url: str | None = Field(default=None, max_length=350)
+    banner_position_x: int | None = Field(default=None, ge=0, le=100)
+    banner_position_y: int | None = Field(default=None, ge=0, le=100)
+    logo_position_x: int | None = Field(default=None, ge=0, le=100)
+    logo_position_y: int | None = Field(default=None, ge=0, le=100)
     layout_style: Literal["classic", "editorial", "gallery"] | None = None
     footer_note: str | None = Field(default=None, max_length=160)
 
@@ -108,10 +118,20 @@ def effective_brand(b: Business) -> dict:
         "accent_color": saved.get("accent_color", "#147D64") if "accent_color" in allowed else "#147D64",
         "banner_url": saved.get("banner_url", "") if "banner_url" in allowed else "",
         "logo_url": saved.get("logo_url", "") if "logo_url" in allowed else "",
+        "banner_position_x": saved.get("banner_position_x", 50) if "banner_position_x" in allowed else 50,
+        "banner_position_y": saved.get("banner_position_y", 50) if "banner_position_y" in allowed else 50,
+        "logo_position_x": saved.get("logo_position_x", 50) if "logo_position_x" in allowed else 50,
+        "logo_position_y": saved.get("logo_position_y", 50) if "logo_position_y" in allowed else 50,
         "layout_style": saved.get("layout_style", "classic") if "layout_style" in allowed else "classic",
         "footer_note": saved.get("footer_note", "") if "footer_note" in allowed else "",
     }
-    result["banner_image"] = result["banner_url"] or BANNERS[preset]
+    result["banner_uploaded"] = bool(saved.get("banner_uploaded")) if "banner_url" in allowed else False
+    result["logo_uploaded"] = bool(saved.get("logo_uploaded")) if "logo_url" in allowed else False
+    banner_asset = f"/api/businesses/{b.id}/storefront-media/banner?v={saved.get('banner_asset_rev', '')}"
+    logo_asset = f"/api/businesses/{b.id}/storefront-media/logo?v={saved.get('logo_asset_rev', '')}"
+    result["banner_image"] = (banner_asset if result["banner_uploaded"]
+                              else result["banner_url"] or BANNERS[preset])
+    result["logo_image"] = logo_asset if result["logo_uploaded"] else result["logo_url"]
     return result
 
 
@@ -180,11 +200,128 @@ def edit_storefront(bid: str, body: StorefrontUpdate, request: Request,
         b.name = changes.pop("display_name")
     setup = dict(b.setup or {})
     saved = dict(setup.get("storefront") or {})
+    # A newly selected external URL supersedes an earlier upload. Empty URL
+    # fields do not disable an existing uploaded asset.
+    if changes.get("banner_url"):
+        saved["banner_uploaded"] = False
+    if changes.get("logo_url"):
+        saved["logo_uploaded"] = False
     saved.update(changes)
     setup["storefront"] = saved
     b.setup = setup
     audit(db, bid, user[0].id, "storefront.updated",
           {"changed": sorted(set(body.model_fields_set))})
+    db.commit()
+    db.refresh(b)
+    return result_for_business(b)
+
+
+MAX_INPUT_BYTES = 6 * 1024 * 1024
+MEDIA_LIMITS = {"banner": (1920, 1200, 850_000),
+                "logo": (800, 800, 350_000)}
+
+
+def _normalized_image(content: bytes, kind: str) -> bytes:
+    """Decode and re-encode to trusted WebP, strip metadata, bound disk/DB size."""
+    if not content or len(content) > MAX_INPUT_BYTES:
+        raise HTTPException(413, "Ảnh không được vượt quá 6 MB")
+    try:
+        with Image.open(BytesIO(content)) as original:
+            if original.format not in ("JPEG", "PNG", "WEBP"):
+                raise HTTPException(422, "Chỉ hỗ trợ ảnh JPEG, PNG hoặc WebP")
+            if original.width * original.height > 20_000_000:
+                raise HTTPException(413, "Kích thước ảnh quá lớn")
+            original.load()
+            edited = ImageOps.exif_transpose(original)
+            edited.thumbnail(MEDIA_LIMITS[kind][:2], Image.Resampling.LANCZOS)
+            if edited.mode in ("RGBA", "LA") or "transparency" in edited.info:
+                edited = edited.convert("RGBA")
+            else:
+                edited = edited.convert("RGB")
+            limit = MEDIA_LIMITS[kind][2]
+            for quality in (84, 74, 62, 50):
+                result = BytesIO()
+                edited.save(result, format="WEBP", quality=quality, method=4)
+                if result.tell() <= limit:
+                    return result.getvalue()
+            raise HTTPException(413, "Ảnh quá phức tạp, vui lòng chọn ảnh nhỏ hơn")
+    except (UnidentifiedImageError, OSError, ValueError, Image.DecompressionBombError) as err:
+        raise HTTPException(422, "Dữ liệu ảnh không hợp lệ") from err
+
+
+def _edit_media_owner(db, bid, user):
+    business = tenant(bid, user, db)
+    assert_owner(db, bid, user[0].id)
+    if business.plan not in ("PLUS", "PRO"):
+        raise HTTPException(403, "Gói PLUS trở lên mới có quyền tải ảnh riêng")
+    return business
+
+
+@router.put("/api/businesses/{bid}/storefront-media/{kind}")
+async def upload_storefront_media(
+    bid: str, kind: Literal["banner", "logo"], file: UploadFile = File(...),
+    user=Depends(current_user), db: Session = Depends(db_session),
+):
+    b = _edit_media_owner(db, bid, user)
+    if file.content_type not in ("image/jpeg", "image/png", "image/webp"):
+        raise HTTPException(422, "Chỉ hỗ trợ JPEG, PNG hoặc WebP")
+    raw = await file.read(MAX_INPUT_BYTES + 1)
+    await file.close()
+    image = _normalized_image(raw, kind)
+    revision = secrets.token_hex(8)
+    media = db.get(StorefrontMedia, (bid, kind))
+    if media is None:
+        media = StorefrontMedia(business_id=bid, kind=kind,
+                               content_type="image/webp", data=image, revision=revision)
+        db.add(media)
+    else:
+        media.data = image
+        media.content_type = "image/webp"
+        media.revision = revision
+    setup = dict(b.setup or {})
+    saved = dict(setup.get("storefront") or {})
+    saved[f"{kind}_uploaded"] = True
+    saved[f"{kind}_asset_rev"] = revision
+    saved[f"{kind}_url"] = ""
+    setup["storefront"] = saved
+    b.setup = setup
+    audit(db, bid, user[0].id, "storefront.media.uploaded",
+          {"kind": kind, "byte_size": len(image)})
+    db.commit()
+    db.refresh(b)
+    return result_for_business(b)
+
+
+@router.get("/api/businesses/{bid}/storefront-media/{kind}")
+def get_storefront_media(
+    bid: str, kind: Literal["banner", "logo"],
+    user=Depends(current_user), db: Session = Depends(db_session),
+):
+    tenant(bid, user, db)
+    media = db.get(StorefrontMedia, (bid, kind))
+    if media is None:
+        raise HTTPException(404, "Ảnh chưa được tải lên")
+    return Response(content=media.data, media_type=media.content_type,
+                    headers={"Cache-Control": "private, max-age=300",
+                             "X-Content-Type-Options": "nosniff"})
+
+
+@router.delete("/api/businesses/{bid}/storefront-media/{kind}")
+def delete_storefront_media(
+    bid: str, kind: Literal["banner", "logo"],
+    user=Depends(current_user), db: Session = Depends(db_session),
+):
+    b = _edit_media_owner(db, bid, user)
+    media = db.get(StorefrontMedia, (bid, kind))
+    if media is not None:
+        db.delete(media)
+    setup = dict(b.setup or {})
+    saved = dict(setup.get("storefront") or {})
+    saved[f"{kind}_uploaded"] = False
+    saved[f"{kind}_asset_rev"] = ""
+    setup["storefront"] = saved
+    b.setup = setup
+    audit(db, bid, user[0].id, "storefront.media.deleted", {"kind": kind})
     db.commit()
     db.refresh(b)
     return result_for_business(b)
