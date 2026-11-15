@@ -160,6 +160,8 @@ def progress_waitlist(bid: str, item_id: str, body: WaitlistStatus,
         details["table_id"] = free[0].id
         details["table_label"] = free[0].label
         row.details = details
+        row.scheduled_at = at
+        row.ends_at = at + timedelta(minutes=90)
     row.status = body.status
     audit(db, bid, user[0].id, "waitlist.status", {"id":item_id,"status":body.status})
     db.commit()
