@@ -137,7 +137,7 @@ try:
   page.locator('[data-m6-action="add-size"]').click()
   page.locator('#ez-modifier-form [data-m6-option-index="1"] [data-m6-price]').fill("7000")
   page.locator('#ez-modifier-form [type="submit"]').click()
-  page.wait_for_function("!document.querySelector('#ez-modifier-form')",timeout=15000)
+  page.locator("#ez-modifier-form").wait_for(state="detached",timeout=15000)
   page.goto(BASE+"/app?tab=orders",wait_until="domcontentloaded",timeout=15000)
   page.locator('[data-action="new-order"]').first.click()
   page.locator('#order-form .m6-pos-group').first.wait_for(timeout=15000)
