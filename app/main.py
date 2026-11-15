@@ -544,17 +544,21 @@ def branch_for(db, bid, branch_id):
     return br
 
 
-def order_out(db, o, items=None):
+def order_out(db, o, items=None, selections=None):
     if items is None:
         items = db.scalars(select(SaleOrderItem).where(SaleOrderItem.order_id == o.id,
                                                       SaleOrderItem.business_id == o.business_id)).all()
+    from .modifiers import order_selection_map
+    if selections is None:
+        selections = order_selection_map(db, o.business_id, items)
     return {"id": o.id, "branch_id": o.branch_id, "table_id": o.table_id,
             "customer_id": o.customer_id, "status": o.status, "total_vnd": o.total_vnd,
             "note": o.note, "created_at": o.created_at.isoformat(),
             "paid_at": o.paid_at.isoformat() if o.paid_at else None,
             "items": [{"product_id": x.product_id, "name": x.product_name,
                        "quantity": x.quantity, "unit_price_vnd": x.unit_price_vnd,
-                       "total_vnd": x.total_vnd} for x in items]}
+                       "total_vnd": x.total_vnd,
+                       "modifiers": selections.get(x.id, [])} for x in items]}
 
 
 @app.get("/api/businesses/{bid}/orders")
@@ -571,7 +575,9 @@ def orders(bid: str, user=Depends(current_user), db: Session = Depends(db_sessio
     by_order = defaultdict(list)
     for item in items:
         by_order[item.order_id].append(item)
-    return [order_out(db, o, items=by_order[o.id]) for o in rows]
+    from .modifiers import order_selection_map
+    selections = order_selection_map(db, bid, items)
+    return [order_out(db, o, items=by_order[o.id], selections=selections) for o in rows]
 
 
 @app.post("/api/businesses/{bid}/orders", status_code=201)
@@ -600,7 +606,19 @@ def order_create(bid: str, body: CreateOrder, user=Depends(current_user), db: Se
         p = db.scalar(select(Product).where(Product.id == pid, Product.business_id == bid, Product.active.is_(True)))
         if not p: fail(404, "Sản phẩm không tồn tại hoặc đã ngừng bán")
         products_by_id[pid] = p
-    total = sum(products_by_id[pid].price_vnd * qty for pid, qty in quantities.items())
+    # Price each original line separately: different toppings on the same base
+    # product must not be merged. All prices and group rules come from the DB.
+    from .modifiers import price_line, write_item_selection
+    priced_lines = []
+    stock_quantities = defaultdict(int, quantities)
+    total = 0
+    for line in body.lines:
+        p = products_by_id[line.product_id]
+        unit, selections, extras = price_line(db, bid, p, line.selected_options)
+        priced_lines.append((p, line.quantity, unit, selections))
+        total += unit * line.quantity
+        for ingredient_id, ingredient_qty in extras.items():
+            stock_quantities[ingredient_id] += ingredient_qty * line.quantity
     if total > 9_000_000_000_000: fail(422, "Giá trị đơn vượt giới hạn")
     o = SaleOrder(id=new_id(), business_id=bid, branch_id=branch.id, table_id=body.table_id,
                   customer_id=body.customer_id, total_vnd=total, note=body.note,
@@ -609,12 +627,13 @@ def order_create(bid: str, body: CreateOrder, user=Depends(current_user), db: Se
         db.add(o)
         db.flush()
         from .operations_v5 import consume_stock_for_sale
-        consume_stock_for_sale(db, bid, o.id, quantities, branch.id)
-        for pid, qty in quantities.items():
-            p = products_by_id[pid]
-            db.add(SaleOrderItem(id=new_id(), business_id=bid, order_id=o.id, product_id=pid,
-                                 product_name=p.name, quantity=qty, unit_price_vnd=p.price_vnd,
-                                 total_vnd=qty * p.price_vnd))
+        consume_stock_for_sale(db, bid, o.id, stock_quantities, branch.id)
+        for p, qty, unit, selections in priced_lines:
+            line_id = new_id()
+            db.add(SaleOrderItem(id=line_id, business_id=bid, order_id=o.id, product_id=p.id,
+                                 product_name=p.name, quantity=qty, unit_price_vnd=unit,
+                                 total_vnd=qty * unit))
+            write_item_selection(db, bid, line_id, selections)
         audit(db, bid, user[0].id, "order.created", {"order_id": o.id, "total_vnd": total})
         db.commit()
     except IntegrityError:
@@ -811,3 +830,8 @@ app.include_router(public_order_requests_router)
 from .operations_v5 import router as operations_v5_router  # noqa: E402
 Base.metadata.create_all(bind=engine)  # Pilot compatibility; Alembic migration for production.
 app.include_router(operations_v5_router)
+
+# V6 product option groups reuse the same product, order and stock ledgers.
+from .modifiers import router as modifiers_router  # noqa: E402
+Base.metadata.create_all(bind=engine)  # Pilot; apply Alembic 20261115_06 for production.
+app.include_router(modifiers_router)
