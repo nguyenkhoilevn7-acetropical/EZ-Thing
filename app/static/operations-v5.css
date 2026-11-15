@@ -39,3 +39,6 @@
 @media(max-width:950px){.v5-grid{grid-template-columns:1fr}}
 @media(max-width:520px){.v5-panel{padding:13px}.v5-formrow{grid-template-columns:1fr}.v5-figures b{font-size:15px}}
 @media(prefers-reduced-motion:reduce){.v5-wrap *{scroll-behavior:auto!important;transition:none!important}}
+
+.v5-form [data-v5-ingredients]{display:grid;gap:9px}
+.v5-form button[data-v5-add-ingredient]{min-height:36px;border:1px dashed var(--v5-line);border-radius:10px;background:var(--v5-panel);color:var(--v5-accent);font-weight:650;cursor:pointer}
