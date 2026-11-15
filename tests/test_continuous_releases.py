@@ -124,3 +124,20 @@ def test_admin_hides_public_version_and_keeps_private_deployment_view():
     assert "Triển khai liên tục" in admin_js
     assert "d.release?.commit" in admin_js
     assert "d.release?.asset_fingerprint" in admin_js
+
+
+
+def test_static_response_cache_policy_distinguishes_real_fingerprints():
+    with TestClient(app) as client:
+        good = client.get("/assets/app.js?h=" + hash_for("app.js"))
+        assert good.status_code == 200
+        assert good.headers["Cache-Control"] == "public, max-age=3600"
+        legacy = client.get("/assets/app.js?v=historical")
+        assert legacy.status_code == 200
+        assert legacy.headers["Cache-Control"] == "no-cache, must-revalidate"
+        unversioned = client.get("/assets/app.js")
+        assert unversioned.status_code == 200
+        assert unversioned.headers["Cache-Control"] == "no-cache, must-revalidate"
+        stale = client.get("/assets/app.js?h=0000000000000000")
+        assert stale.status_code == 200
+        assert stale.headers["Cache-Control"] == "no-cache, must-revalidate"
