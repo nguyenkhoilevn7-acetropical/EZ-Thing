@@ -86,4 +86,4 @@ def test_changed_scripts_are_cache_busted():
         html = page.read_text(encoding="utf-8")
         if "/assets/i18n.js" in html:
             assert f"/assets/i18n.js?v={version}" in html, page.name
-    assert "ezthing-shell-v6" in read("sw.js")
+    assert "ezthing-shell-__EZ_CONTENT_HASH__" in read("sw.js")
