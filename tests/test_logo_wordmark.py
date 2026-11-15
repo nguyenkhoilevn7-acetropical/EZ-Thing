@@ -67,8 +67,8 @@ def test_site_favicons_and_pwa_icons_use_minimal_ez_artwork():
         assert 'href="/assets/icons/icon-192.png"' not in html, name
     manifest = json.loads((STATIC / "manifest.webmanifest").read_text(encoding="utf-8"))
     assert len(manifest["icons"]) == 2
-    assert manifest["icons"][0]["src"].endswith("ez-mark-light.svg?v=minimal-01")
-    assert manifest["icons"][1]["src"].endswith("ez-mark-maskable.svg?v=minimal-01")
+    assert manifest["icons"][0]["src"].endswith("ez-mark-light.svg")
+    assert manifest["icons"][1]["src"].endswith("ez-mark-maskable.svg")
     assert manifest["icons"][1]["purpose"] == "maskable"
     ET.parse(ICON_PATH / "ez-mark-maskable.svg")
 
