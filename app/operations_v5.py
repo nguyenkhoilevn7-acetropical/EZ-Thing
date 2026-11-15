@@ -536,14 +536,15 @@ def financial_report(bid:str,start:date|None=None,end:date|None=None,
         SaleOrder.paid_at>=begin,SaleOrder.paid_at<finish)).all()
     ids=[x.id for x in orders]
     total_revenue=sum(x.total_vnd for x in orders)
-    # Existing ledger lacks historical unit COGS snapshots. This metric uses
-    # CURRENT cost (explicitly labeled estimate); not accounting-grade P&L.
+    # Current-cost estimate from exact sale stock movements, including recipe
+    # ingredients. Historic unit cost is not snapshotted by the pilot ledger.
     estimated_cogs=0
     if ids:
-        for line,prod in db.execute(select(SaleOrderItem,Product).join(
-            Product,(Product.id==SaleOrderItem.product_id)&(Product.business_id==bid))
-            .where(SaleOrderItem.business_id==bid,SaleOrderItem.order_id.in_(ids))):
-            estimated_cogs+=line.quantity*prod.cost_vnd
+        for movement,product in db.execute(select(StockMovement,Product).join(
+            Product,(Product.id==StockMovement.product_id)&(Product.business_id==bid))
+            .where(StockMovement.business_id==bid,StockMovement.reason=="sale",
+                   StockMovement.delta<0,StockMovement.ref.in_(ids))):
+            estimated_cogs+=(-movement.delta)*product.cost_vnd
     expenses=[x for x in db.scalars(select(IndustryWorkItem).where(
         IndustryWorkItem.business_id==bid,IndustryWorkItem.kind=="expense",
         IndustryWorkItem.created_at>=begin,IndustryWorkItem.created_at<finish)).all()]
