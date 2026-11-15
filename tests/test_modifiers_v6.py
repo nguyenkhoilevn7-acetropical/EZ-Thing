@@ -108,7 +108,7 @@ def test_server_pricing_stock_and_receipt_snapshot(client):
     products=client.get(f"/api/businesses/{bid}/products").json()
     assert next(x for x in products if x["id"]==ingredient)["stock"]==16
     second=post(client,f"/businesses/{bid}/orders",valid,csrf)
-    assert second.status_code==200,second.text
+    assert second.status_code==201,second.text
     assert second.json()["id"]==result["id"]
     assert len(client.get(f"/api/businesses/{bid}/order-dashboard").json()["orders"][0]["items"])==2
 
