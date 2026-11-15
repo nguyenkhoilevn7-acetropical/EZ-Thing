@@ -84,12 +84,12 @@ window.EZOperationsV5=function(deps){
     }
     if(business().active_modules?.includes('products')){
       var inventory=data.inventory||{};
-      var balances=inventory.balances||[];
+      var branchBalances=inventory.balances||[];
       output+=box(tx('Tồn kho từng chi nhánh','Per-branch inventory'),
         tx('Kích hoạt riêng khi đã đối chiếu tồn kho thực tế.','Activate only after physically reconciling initial stock.'),
         inventory.enabled?
         '<p class="v5-note">'+tx('Đang bật sổ tồn kho theo chi nhánh.','Per-location stock tracking is active.')+'</p>'+
-        balances.slice(0,35).map(x=>'<div class="v5-entry"><strong>'+
+        branchBalances.slice(0,35).map(x=>'<div class="v5-entry"><strong>'+
            E(product.find(p=>p.id===x.product_id)?.name||'Sản phẩm')+'</strong><p>'+
            E(branches.find(y=>y.id===x.branch_id)?.name||'Chi nhánh')+
            ' • '+E(x.quantity)+' '+tx('đơn vị','units')+'</p></div>').join(''):
