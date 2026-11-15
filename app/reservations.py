@@ -312,11 +312,13 @@ def update_reservation(bid: str, rid: str, body: ReservationStatus,
 
 @router.get("/businesses/{bid}/reservations/availability")
 def merchant_slots(bid: str, day: date = Query(...), party_size: int = Query(ge=1, le=20),
-                   duration_minutes: Literal[60, 90, 120] = 90,
+                   duration_minutes: int = Query(default=90, ge=60, le=120),
                    table_id: str | None = Query(default=None, max_length=36),
                    zone_id: str | None = Query(default=None, max_length=32),
                    branch_id: str | None = Query(default=None, max_length=36),
                    user=Depends(current_user), db: Session = Depends(db_session)):
+    if duration_minutes not in (60, 90, 120):
+        fail(422, "Thời lượng chỉ hỗ trợ 60, 90 hoặc 120 phút")
     business = fnb_scope(bid, user, db)
     allowed_ids = eligible_area_tables(db, business, zone_id, branch_id)
     if table_id and db.scalar(select(DiningTable.id).where(
@@ -330,8 +332,10 @@ def merchant_slots(bid: str, day: date = Query(...), party_size: int = Query(ge=
 
 @router.get("/preview/cafe/reservations/availability")
 def demo_slots(day: date = Query(...), party_size: int = Query(ge=1, le=20),
-               duration_minutes: Literal[60, 90, 120] = 90,
+               duration_minutes: int = Query(default=90, ge=60, le=120),
                user=Depends(current_user), db: Session = Depends(db_session)):
+    if duration_minutes not in (60, 90, 120):
+        fail(422, "Thời lượng chỉ hỗ trợ 60, 90 hoặc 120 phút")
     b = preview_scope(db, user, "cafe")
     return availability(db, b, day, party_size, duration_minutes)
 
