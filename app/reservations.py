@@ -80,9 +80,9 @@ class ReservationPolicy(BaseModel):
     Times use Asia/Ho_Chi_Minh local time and 30-minute increments. All new
     reservations are enforced on the server, not just filtered in the UI.
     """
-    open_time: str = Field(default="08:00", pattern=r"^(?:[01]\\d|2[0-3]):(?:00|30)$")
-    last_seating_time: str = Field(default="20:30", pattern=r"^(?:[01]\\d|2[0-3]):(?:00|30)$")
-    close_time: str = Field(default="22:00", pattern=r"^(?:[01]\\d|2[0-3]):(?:00|30)$")
+    open_time: str = Field(default="08:00", pattern=r"^(?:[01]\d|2[0-3]):(?:00|30)$")
+    last_seating_time: str = Field(default="20:30", pattern=r"^(?:[01]\d|2[0-3]):(?:00|30)$")
+    close_time: str = Field(default="22:00", pattern=r"^(?:[01]\d|2[0-3]):(?:00|30)$")
     closed_weekdays: list[int] = Field(default_factory=list, max_length=7)
     blocked_dates: list[date] = Field(default_factory=list, max_length=60)
 
