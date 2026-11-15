@@ -56,10 +56,12 @@ window.EZOperationsV5=function(deps){
       output+=box(tx('Định lượng nguyên liệu','Ingredient recipes'),
         tx('Món bán phải tắt theo dõi tồn; nguyên liệu phải bật tồn kho.','Menu item must be non-stock; ingredients must track inventory.'),
         form('recipe',select('finished_id',options(untracked))+
-          '<div class="v5-formrow">'+select('ingredient_id',options(tracked))+
-          '<label>'+tx('Đơn vị tiêu hao','Usage units')+'<input type="number" name="quantity" min="1" max="100000" value="1" required></label></div>'+
-          '<p class="v5-note">'+tx('Mỗi lần lưu sẽ thay toàn bộ công thức của món.','Saving replaces this item recipe. Other ingredients can be added in a later edit.')+'</p>',
-          tx('Lưu công thức 1 nguyên liệu','Save single-ingredient recipe'))+
+          '<div data-v5-ingredients><div class="v5-formrow" data-v5-ingredient>'+
+          select('ingredient_id',options(tracked))+
+          '<label>'+tx('Đơn vị tiêu hao','Usage units')+'<input type="number" name="quantity" min="1" max="100000" value="1" required></label></div></div>'+
+          '<button type="button" data-v5-add-ingredient>'+tx('+ Thêm nguyên liệu','+ Add ingredient')+'</button>'+
+          '<p class="v5-note">'+tx('Lưu thay toàn bộ công thức; tối đa 30 nguyên liệu.','Save replaces the full recipe; up to 30 ingredients.')+'</p>',
+          tx('Lưu công thức','Save recipe'))+
         list('recipes',x=>E((x.details.ingredients||[]).map(i=>(product.find(p=>p.id===i.product_id)?.name||i.product_id)+' ×'+i.quantity).join(' · '))));
     }
     if(role!=='staff'){
@@ -178,7 +180,7 @@ window.EZOperationsV5=function(deps){
   async function mutate(kind,body,id,status){
     var path=kind,method='POST';
     if(kind==='recipe'){path='recipes/'+encodeURIComponent(body.finished_id);method='PUT';
-      body={ingredients:[{product_id:body.ingredient_id,quantity:Number(body.quantity)}]};}
+      body={ingredients:body.ingredients};}
     if(kind==='waitlist')path=id?'waitlist/'+encodeURIComponent(id)+'/status':'waitlist';
     if(kind==='shift')path='shifts';
     if(kind==='transfer')path=id?'transfers/'+encodeURIComponent(id)+'/status':'transfers';
@@ -199,11 +201,28 @@ window.EZOperationsV5=function(deps){
     if(!form||state().tab!=='operations')return;
     ev.preventDefault();ev.stopPropagation();if(busy)return;
     var kind=form.dataset.v5Form,button=form.querySelector('[type=submit]');
-    var values=Object.fromEntries(new FormData(form));busy=true;if(button)button.disabled=true;
+    var values=Object.fromEntries(new FormData(form));
+    if(kind==='recipe')values.ingredients=Array.from(form.querySelectorAll('[data-v5-ingredient]')).map(row=>({
+      product_id:row.querySelector('select[name=ingredient_id]').value,
+      quantity:Number(row.querySelector('input[name=quantity]').value)
+    }));
+    busy=true;if(button)button.disabled=true;
     mutate(kind,values).then(function(){toast(tx('Đã lưu thành công','Saved'));return mount()})
       .catch(e=>toast(e.message,true)).finally(function(){busy=false;if(button)button.disabled=false});
   },true);
   document.addEventListener('click',function(ev){
+    var add=ev.target.closest('button[data-v5-add-ingredient]');
+    if(add&&state().tab==='operations'){
+      ev.preventDefault();ev.stopPropagation();
+      var wrap=add.closest('form')?.querySelector('[data-v5-ingredients]');
+      var template=wrap?.querySelector('[data-v5-ingredient]');
+      if(wrap&&template&&wrap.children.length<30){
+        var copy=template.cloneNode(true);
+        copy.querySelector('input[name=quantity]').value='1';
+        wrap.append(copy);
+      }
+      return;
+    }
     var button=ev.target.closest('button[data-v5-action]');
     if(!button||state().tab!=='operations')return;
     ev.preventDefault();ev.stopPropagation();if(busy||button.disabled)return;
