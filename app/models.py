@@ -1,6 +1,6 @@
 """Shared schema. Every business-owned record carries business_id and is scope-checked."""
 from datetime import datetime, timezone
-from sqlalchemy import String, Integer, BigInteger, Boolean, ForeignKey, UniqueConstraint, DateTime, JSON, Text, Index
+from sqlalchemy import String, Integer, BigInteger, Boolean, ForeignKey, UniqueConstraint, DateTime, JSON, Text, Index, LargeBinary
 from sqlalchemy.orm import Mapped, mapped_column
 from .database import Base
 
@@ -34,6 +34,18 @@ class Business(Base):
     setup: Mapped[dict] = mapped_column(JSON, default=dict)
     active_modules: Mapped[list] = mapped_column(JSON, default=list)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+
+class StorefrontMedia(Base):
+    """Bounded tenant brand-image content, persisted in PostgreSQL (no ephemeral disk)."""
+    __tablename__ = "storefront_media"
+    business_id: Mapped[str] = mapped_column(
+        ForeignKey("businesses.id", ondelete="CASCADE"), primary_key=True)
+    kind: Mapped[str] = mapped_column(String(10), primary_key=True)
+    content_type: Mapped[str] = mapped_column(String(40), default="image/webp")
+    data: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+    revision: Mapped[str] = mapped_column(String(32), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+
 
 class Membership(Base):
     __tablename__ = "memberships"
