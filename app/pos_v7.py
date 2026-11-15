@@ -195,6 +195,11 @@ def replace_check(bid: str, oid: str, body: ReplaceOpenCheck,
     if done is not None:
         return done
     order = get_check(db, bid, oid, locked=True)
+    # A concurrent identical retry may have committed while this call waited
+    # on the order lock. Check again before testing the revision.
+    done = previous_mutation(db, bid, oid, body.request_id, "replace", fp)
+    if done is not None:
+        return done
     editable(db, bid, oid, order)
     meta = metadata(db, bid, oid)
     check_revision(meta, body.expected_revision)
@@ -286,6 +291,11 @@ def move_table(bid: str, oid: str, body: MoveCheck,
     if done is not None:
         return done
     order = get_check(db, bid, oid, locked=True)
+    # A concurrent identical retry may have committed while this call waited
+    # on the order lock. Check again before testing the revision.
+    done = previous_mutation(db, bid, oid, body.request_id, "move_table", fp)
+    if done is not None:
+        return done
     editable(db, bid, oid, order)
     meta = metadata(db, bid, oid)
     check_revision(meta, body.expected_revision)
