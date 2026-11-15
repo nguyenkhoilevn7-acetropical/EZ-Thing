@@ -98,7 +98,11 @@ window.EZOperationsV5=function(deps){
         (role==='owner'&&business().active_modules?.includes('multi_branch')?
           btn('activate-inventory','',''+tx('Kích hoạt kho từng chi nhánh','Activate branch inventory')):''))+
       box(tx('Phiếu điều chuyển chi nhánh','Branch transfer requests'),
-        tx('Quy trình yêu cầu → duyệt → nhận. Tồn kho vẫn cấp doanh nghiệp, chưa có số dư từng kho.','Request → approve → receive. No per-branch quantity ledger yet.'),
+        inventory.enabled?
+          tx('Khi xác nhận nhận hàng, số lượng chuyển giữa kho nguồn và kho đích; tổng tồn doanh nghiệp không đổi.',
+             'Receiving updates source and destination stock, preserving business-wide total.'):
+          tx('Đang dùng sổ kho chung. Hãy bật kho chi nhánh sau khi kiểm kê thực tế.',
+             'Using shared stock. Enable branch inventory only after a physical count.'),
         role==='staff'?'':form('transfer',select('product_id',options(tracked))+
           '<div class="v5-formrow"><label>'+tx('Kho nguồn','From')+select('from_branch_id',brOptions)+'</label>'+
           '<label>'+tx('Kho đích','To')+select('to_branch_id',brOptions)+'</label></div>'+
