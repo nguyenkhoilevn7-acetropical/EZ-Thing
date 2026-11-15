@@ -14,17 +14,108 @@ from typing import Literal
 
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field, field_validator
-from sqlalchemy import select, func, text, update
-from sqlalchemy.orm import Session
+from sqlalchemy import select, func, text, update, String, Integer, ForeignKey, UniqueConstraint
+from sqlalchemy.orm import Session, Mapped, mapped_column
 
-from .database import db_session
+from .database import Base, db_session
 from .main import current_user, tenant, feature, fail, audit, new_id
-from .models import Branch, Customer, Membership, Product, SaleOrder, SaleOrderItem, StockMovement, User, now
+from .models import Branch, Business, Customer, Membership, Product, SaleOrder, SaleOrderItem, StockMovement, User, now
 from .team import allow, MANAGE_ROLES
 from .workflows import IndustryWorkItem
 
 router = APIRouter(prefix="/api/businesses/{bid}/operations", tags=["EZ Thing operations v5"])
 UTC = timezone.utc
+
+
+class BranchBalance(Base):
+    """Optional physically allocated stock; global Product.stock stays authoritative."""
+    __tablename__ = "branch_stock_balances"
+    __table_args__ = (UniqueConstraint("business_id","branch_id","product_id"),)
+    business_id:Mapped[str]=mapped_column(ForeignKey("businesses.id",ondelete="CASCADE"),primary_key=True)
+    branch_id:Mapped[str]=mapped_column(ForeignKey("branches.id",ondelete="CASCADE"),primary_key=True)
+    product_id:Mapped[str]=mapped_column(ForeignKey("products.id",ondelete="CASCADE"),primary_key=True)
+    quantity:Mapped[int]=mapped_column(Integer,default=0,nullable=False)
+
+
+def branch_inventory_enabled(db:Session,bid:str):
+    business=db.get(Business,bid)
+    return bool((business.setup or {}).get("branch_inventory_enabled")) if business else False
+
+
+def primary_branch(db,bid):
+    row=db.scalar(select(Branch).where(Branch.business_id==bid).order_by(
+        Branch.created_at,Branch.id))
+    if not row:fail(422,"Doanh nghiệp chưa có chi nhánh")
+    return row
+
+
+def branch_stock_change(db,bid,branch_id,pid,delta):
+    """Atomic branch change inside the caller's wider Product.stock transaction."""
+    if not branch_inventory_enabled(db,bid):return
+    if not branch_id:fail(422,"Thiếu chi nhánh khi theo dõi kho riêng")
+    in_branch(db,bid,branch_id)
+    if delta>=0:
+        row=db.get(BranchBalance,{"business_id":bid,"branch_id":branch_id,"product_id":pid})
+        if row:
+            row.quantity+=delta
+        else:
+            db.add(BranchBalance(business_id=bid,branch_id=branch_id,product_id=pid,quantity=delta))
+    else:
+        changed=db.execute(update(BranchBalance).where(
+            BranchBalance.business_id==bid,BranchBalance.branch_id==branch_id,
+            BranchBalance.product_id==pid,
+            BranchBalance.quantity>=-delta).values(quantity=BranchBalance.quantity+delta))
+        if changed.rowcount!=1:
+            fail(409,"Tồn kho tại chi nhánh không đủ")
+
+
+class ActivateBranchInventory(BaseModel):
+    confirmation:Literal["ALLOCATE_ALL_TO_PRIMARY_BRANCH"]
+
+
+@router.get("/inventory")
+def inventory_balances(bid:str,user=Depends(current_user),db:Session=Depends(db_session)):
+    scope(db,bid,user,permission="products")
+    enabled=branch_inventory_enabled(db,bid)
+    results=[]
+    if enabled:
+        balances=db.scalars(select(BranchBalance).where(BranchBalance.business_id==bid)).all()
+        results=[{"branch_id":x.branch_id,"product_id":x.product_id,
+                  "quantity":x.quantity} for x in balances]
+    return {"enabled":enabled,"balances":results,
+            "activation_policy":"All existing tracked Product.stock is initially allocated to primary branch; explicit owner consent required."}
+
+
+@router.post("/inventory/activate")
+def activate_branch_inventory(bid:str,body:ActivateBranchInventory,
+                              user=Depends(current_user),db:Session=Depends(db_session)):
+    b=scope(db,bid,user,permission="multi_branch")
+    allow(db,bid,user,{"owner"})
+    lock_business(db,bid,"branch-inventory")
+    b=db.scalar(select(Business).where(Business.id==bid).with_for_update())
+    if branch_inventory_enabled(db,bid):
+        return {"enabled":True,"message":"Kho chi nhánh đã được kích hoạt"}
+    main=primary_branch(db,bid)
+    products=db.scalars(select(Product).where(
+        Product.business_id==bid,Product.track_stock.is_(True)).with_for_update()).all()
+    for p in products:
+        db.add(BranchBalance(business_id=bid,branch_id=main.id,
+                             product_id=p.id,quantity=p.stock))
+    settings=dict(b.setup or {})
+    settings["branch_inventory_enabled"]=True
+    b.setup=settings
+    audit(db,bid,user[0].id,"stock.branch_inventory_activated",
+          {"initial_branch":main.id,"product_count":len(products)})
+    db.commit()
+    return {"enabled":True,"initial_branch_id":main.id,"product_count":len(products)}
+
+
+def new_product_branch_balance(db:Session,bid:str,p:Product):
+    if branch_inventory_enabled(db,bid) and p.track_stock:
+        branch=primary_branch(db,bid)
+        db.add(BranchBalance(business_id=bid,branch_id=branch.id,
+                             product_id=p.id,quantity=p.stock))
+
 
 
 def lock_business(db: Session, bid: str, subject: str = "operation"):
@@ -323,7 +414,7 @@ def consumption_for_sale(db:Session,bid:str,quantities:dict[str,int]):
     return used
 
 
-def consume_stock_for_sale(db:Session,bid:str,oid:str,quantities:dict[str,int]):
+def consume_stock_for_sale(db:Session,bid:str,oid:str,quantities:dict[str,int],branch_id:str|None=None):
     used=consumption_for_sale(db,bid,quantities)
     for pid,qty in sorted(used.items()):
         changed=db.execute(update(Product).where(
@@ -331,6 +422,7 @@ def consume_stock_for_sale(db:Session,bid:str,oid:str,quantities:dict[str,int]):
             Product.stock>=qty).values(stock=Product.stock-qty))
         if changed.rowcount!=1:
             fail(409,"Không đủ nguyên liệu hoặc tồn kho cho đơn hàng")
+        branch_stock_change(db,bid,branch_id,pid,-qty)
         db.add(StockMovement(id=new_id(),business_id=bid,product_id=pid,
             delta=-qty,reason="sale",ref=oid))
     return used
@@ -395,8 +487,20 @@ def transfer_status(bid:str,item_id:str,body:TransferStatus,
     allowed={"requested":{"approved","cancelled"},"approved":{"received","cancelled"}}
     if body.status not in allowed.get(row.status,set()):
         fail(409,"Trạng thái yêu cầu không hợp lệ")
+    if body.status=="received" and branch_inventory_enabled(db,bid):
+        lock_business(db,bid,"branch-inventory")
+        props=row.details or {}
+        src=props["from_branch_id"]
+        dst=props["to_branch_id"]
+        qty=int(props["quantity"])
+        branch_stock_change(db,bid,src,row.product_id,-qty)
+        branch_stock_change(db,bid,dst,row.product_id,qty)
+        details=dict(props)
+        details["inventory_applied"]=True
+        row.details=details
     row.status=body.status
-    audit(db,bid,user[0].id,"stock.transfer_status",{"id":row.id,"status":body.status})
+    audit(db,bid,user[0].id,"stock.transfer_status",{"id":row.id,"status":body.status,
+        "inventory_applied":(row.details or {}).get("inventory_applied",False)})
     db.commit()
     return item_out(row)
 
