@@ -147,6 +147,8 @@ def public_catalog(slug: str, db: Session = Depends(db_session)):
     products = db.scalars(select(Product).where(
         Product.business_id == b.id, Product.active.is_(True))
         .order_by(Product.category, Product.name).limit(100)).all()
+    from .modifiers import configs, exposed_groups
+    modifier_configs = configs(db, b.id, [p.id for p in products])
     # No costs, raw stock numbers, customer records, staff or private settings.
     brand = {k: photos.get(k, "") for k in
              ("display_name", "description", "phone", "address",
@@ -162,7 +164,8 @@ def public_catalog(slug: str, db: Session = Depends(db_session)):
         "branding": brand,
         "products": [{"id": p.id, "name": p.name, "category": p.category,
                       "price_vnd": p.price_vnd,
-                      "available": not p.track_stock or p.stock > 0}
+                      "available": not p.track_stock or p.stock > 0,
+                      "modifier_groups": exposed_groups(modifier_configs.get(p.id, []))}
                      for p in products],
         "contact_only": True, "online_payment": False,
     }
