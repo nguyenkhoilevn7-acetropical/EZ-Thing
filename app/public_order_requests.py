@@ -250,7 +250,7 @@ def review_request(bid: str,rid: str,body: ReviewOrder,
         p=db.scalar(select(Product).where(
             Product.business_id==bid,Product.id==pid,
             Product.active.is_(True)).with_for_update())
-        if p is None or p.price_vnd!=next(x["unit_price_vnd"] for x in item.lines if x["product_id"]==pid):
+        if p is None:
             reject(409,"Giá hoặc sản phẩm đã thay đổi, cần từ chối và báo khách đặt lại")
         products[pid]=p
     from .modifiers import price_line, write_item_selection
