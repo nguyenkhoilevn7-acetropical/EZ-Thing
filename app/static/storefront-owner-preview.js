@@ -26,16 +26,20 @@ async function run(){
     safeText('footer-phone',brand.phone);
     safeText('footer-note',brand.footer_note);
     const hero=$('store-hero');
-    // The API validates this against the approved image CDN.
+    const crop=n=>Math.min(100,Math.max(0,Number(n)??50));
+    hero.style.backgroundPosition=crop(brand.banner_position_x)+'% '+crop(brand.banner_position_y)+'%';
+    // The API supplies either an approved CDN URL or a tenant-scoped upload URL.
     const image=new Image();
     image.onload=()=>{hero.style.backgroundImage='url("'+brand.banner_image+'")'};
     image.onerror=()=>{hero.style.backgroundImage='url("'+fallback+'")'};
     image.src=brand.banner_image||fallback;
     const mark=$('brand-mark');
-    if(brand.logo_url){
-      const logo=new Image();logo.alt='Logo';logo.onload=()=>{mark.textContent='';mark.appendChild(logo)};
+    if(brand.logo_image){
+      const logo=new Image();logo.alt='Logo';
+      logo.style.objectPosition=crop(brand.logo_position_x)+'% '+crop(brand.logo_position_y)+'%';
+      logo.onload=()=>{mark.textContent='';mark.appendChild(logo)};
       logo.onerror=()=>{mark.textContent=(brand.display_name||'EZ').slice(0,2).toUpperCase()};
-      logo.src=brand.logo_url;
+      logo.src=brand.logo_image;
     }else mark.textContent=(brand.display_name||'EZ').slice(0,2).toUpperCase();
     document.title=brand.display_name+' · EZ Thing preview';
     const grid=$('product-grid');

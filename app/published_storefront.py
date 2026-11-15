@@ -13,14 +13,14 @@ import unicodedata
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import Boolean, DateTime, ForeignKey, String, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Mapped, Session, mapped_column
 
 from .database import Base, db_session
-from .models import Business, LoginFailure, Product, now
+from .models import Business, LoginFailure, Product, StorefrontMedia, now
 from .main import ASSETS, audit, current_user, tenant
 from .team import owner_only, allow, MANAGE_ROLES
 from .storefront_brand import effective_brand
@@ -148,17 +148,43 @@ def public_catalog(slug: str, db: Session = Depends(db_session)):
         Product.business_id == b.id, Product.active.is_(True))
         .order_by(Product.category, Product.name).limit(100)).all()
     # No costs, raw stock numbers, customer records, staff or private settings.
+    brand = {k: photos.get(k, "") for k in
+             ("display_name", "description", "phone", "address",
+              "banner_image", "hero_title", "accent_color", "logo_url",
+              "logo_image", "banner_position_x", "banner_position_y",
+              "logo_position_x", "logo_position_y", "footer_note")}
+    if photos.get("banner_uploaded"):
+        brand["banner_image"] = f"/api/public/shops/{slug}/media/banner"
+    if photos.get("logo_uploaded"):
+        brand["logo_image"] = f"/api/public/shops/{slug}/media/logo"
     return {
         "name": b.name, "industry": b.industry,
-        "branding": {k: photos.get(k, "") for k in
-                     ("display_name", "description", "phone", "address",
-                      "banner_image", "hero_title", "accent_color", "logo_url", "footer_note")},
+        "branding": brand,
         "products": [{"id": p.id, "name": p.name, "category": p.category,
                       "price_vnd": p.price_vnd,
                       "available": not p.track_stock or p.stock > 0}
                      for p in products],
         "contact_only": True, "online_payment": False,
     }
+
+
+@router.get("/api/public/shops/{slug}/media/{kind}")
+def public_brand_media(
+    slug: str, kind: str, db: Session = Depends(db_session),
+):
+    # Only explicitly published, eligible storefronts expose their branding.
+    business = valid_public(db, slug)
+    if kind not in ("banner", "logo"):
+        raise HTTPException(404, "Không tìm thấy loại ảnh")
+    branding = effective_brand(business)
+    if not branding.get(f"{kind}_uploaded"):
+        raise HTTPException(404, "Ảnh chưa được xuất bản")
+    image = db.get(StorefrontMedia, (business.id, kind))
+    if image is None:
+        raise HTTPException(404, "Ảnh không tồn tại")
+    return Response(content=image.data, media_type="image/webp",
+                    headers={"Cache-Control": "public, max-age=300",
+                             "X-Content-Type-Options": "nosniff"})
 
 
 @router.post("/api/public/shops/{slug}/inquiries", status_code=201)

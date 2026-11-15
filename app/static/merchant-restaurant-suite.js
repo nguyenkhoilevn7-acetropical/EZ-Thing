@@ -292,7 +292,11 @@ window.EZRestaurantSuite=function(deps){
       '<div class="formfield"><label>Số khách</label><input name="party_size" type="number" min="1" max="20" value="2" required></div></div>'+
       '<div class="formrow"><div class="formfield"><label>Thời lượng</label><select name="duration_minutes">'+
       option('60','60 phút','90')+option('90','90 phút','90')+option('120','120 phút','90')+'</select></div>'+
-      '<div class="formfield"><label>Giờ còn bàn</label><select name="start_at" required><option value="">Đang tải...</option></select></div></div>'+
+      '<div class="formfield"><label>Giờ khách muốn đến</label><select name="preferred_time" aria-label="Giờ khách muốn đến">'+
+      Array.from({length:26},(_,i)=>{const hh=String(8+Math.floor(i/2)).padStart(2,'0');const mm=i%2?'30':'00';const t=hh+':'+mm;return option(t,t,'18:00')}).join('')+
+      '</select></div></div>'+
+      '<div class="formrow"><div class="formfield"><label>Giờ còn bàn (đã xác minh)</label><select name="start_at" required aria-describedby="suite-time-status"><option value="">Đang tải...</option></select>'+
+      '<div id="suite-time-status" role="status" aria-live="polite" class="suite-slot-status">Đang kiểm tra khả dụng...</div></div></div>'+
       '<div class="formrow"><div class="formfield"><label>Khu vực đặt bàn</label><select name="zone_id">'+
       option('auto','Để hệ thống tự xếp','auto')+
       st.layout.zones.map(z=>option(z.id,z.name,'auto')).join('')+'</select></div>'+
@@ -311,23 +315,52 @@ window.EZRestaurantSuite=function(deps){
     const available=st.layout.tables.filter(t=>t.seats>=count&&(area==='auto'||t.placement.zone_id===area));
     choice.innerHTML='<option value="">'+(area==='auto'?'Để hệ thống tự xếp':'Chọn bàn trong khu vực')+'</option>'+
       available.map(t=>option(t.id,t.label+' • '+t.seats+' chỗ',previous)).join('');
-    if(area!=='auto'&&!available.some(t=>t.id===previous))choice.value=available[0]?.id||'';
+    if(!available.some(t=>t.id===previous))choice.value='';
   }
   async function slots(){
     const form=q('[data-suite-form="new-booking"]');if(!form)return;
-    const serial=++slotRequest;
-    const sel=form.elements.start_at;sel.innerHTML='<option value="">Đang kiểm tra...</option>';
-    const path='/businesses/'+encodeURIComponent(st.bid)+'/reservations/availability?day='+
-      encodeURIComponent(form.elements.day.value)+'&party_size='+encodeURIComponent(form.elements.party_size.value)+
-      '&duration_minutes='+encodeURIComponent(form.elements.duration_minutes.value)+
-      (form.elements.table_id.value?'&table_id='+encodeURIComponent(form.elements.table_id.value):'');
+    const serial=++slotRequest,sel=form.elements.start_at;
+    const status=form.querySelector('#suite-time-status');
+    const preferred=form.elements.preferred_time.value;
+    const original=sel.value;
+    sel.disabled=true;
+    sel.innerHTML='<option value="">Đang kiểm tra...</option>';
+    status.textContent='Đang kiểm tra bàn trống theo ngày, giờ và khu vực đã chọn...';
+    const day=form.elements.day.value;
+    const count=Number(form.elements.party_size.value);
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(day)||!Number.isInteger(count)||count<1||count>20){
+      status.textContent='Hãy chọn ngày và số khách hợp lệ.';return;
+    }
+    const params=new URLSearchParams({day,party_size:String(count),
+      duration_minutes:form.elements.duration_minutes.value});
+    if(st.branch)params.set('branch_id',st.branch);
+    if(form.elements.zone_id.value!=='auto')params.set('zone_id',form.elements.zone_id.value);
+    if(form.elements.table_id.value)params.set('table_id',form.elements.table_id.value);
     try{
-      const data=await deps.api(path);
-      if(!q('[data-suite-form="new-booking"]')||serial!==slotRequest)return;
-      const free=(data.slots||[]).filter(s=>s.available);
-      sel.innerHTML=free.length?free.map(s=>option(s.start_at,time(s.start_at)+' ('+s.available_tables+' bàn)','')).join(''):
-        '<option value="">Không còn bàn trong ngày</option>';
-    }catch(err){sel.innerHTML='<option value="">Không tải được giờ</option>';deps.toast(err.message,true)}
+      const data=await deps.api('/businesses/'+encodeURIComponent(st.bid)+'/reservations/availability?'+params);
+      if(form!==q('[data-suite-form="new-booking"]')||serial!==slotRequest)return;
+      const free=(data.slots||[]).filter(slot=>slot.available);
+      sel.innerHTML='<option value="">Chọn giờ còn bàn</option>'+
+        free.map(slot=>option(slot.start_at,time(slot.start_at)+' • '+slot.available_tables+' bàn','')).join('');
+      const desired=free.find(slot=>slot.start_at.slice(11,16)===preferred);
+      const previous=free.find(slot=>slot.start_at===original);
+      if(desired||previous)sel.value=(desired||previous).start_at;
+      sel.disabled=!free.length;
+      if(!free.length){
+        status.textContent='Không có bàn trống phù hợp trong ngày. Thử ngày, khu vực hoặc số khách khác.';
+      }else if(!desired){
+        status.textContent='Giờ mong muốn chưa còn bàn. Chọn một trong '+free.length+' khung giờ trống bên trên.';
+      }else{
+        status.textContent='✓ Giờ khách muốn đến có bàn trống. Hệ thống sẽ xác minh lại khi xác nhận.';
+      }
+    }catch(err){
+      if(form!==q('[data-suite-form="new-booking"]')||serial!==slotRequest)return;
+      sel.disabled=true;sel.innerHTML='<option value="">Chưa xác minh được giờ</option>';
+      status.textContent='Không thể kiểm tra giờ trống: '+(err.message||'Lỗi kết nối')+'. ';
+      const retry=document.createElement('button');retry.type='button';
+      retry.dataset.suite='retry-slots';retry.className='suite-slot-retry';retry.textContent='Thử lại';
+      status.append(retry);
+    }
   }
   async function reload(){
     st.layout=null;st.dirty=false;await fetchAll(true);draw();
@@ -335,6 +368,7 @@ window.EZRestaurantSuite=function(deps){
   async function action(type,element){
     const id=element.dataset.id||'';
     if(type==='reload')return reload();
+    if(type==='retry-slots')return slots();
     if(type==='zone')return setZone(element.dataset.zone);
     if(type==='edit')return editZones();
     if(type==='new-zone')return newZone();
@@ -389,7 +423,9 @@ window.EZRestaurantSuite=function(deps){
       body.request_id=next();body.party_size=Number(body.party_size);
       body.duration_minutes=Number(body.duration_minutes);
       delete body.day;
-      delete body.zone_id;
+      delete body.preferred_time;
+      if(body.zone_id==='auto')delete body.zone_id;
+      if(st.branch)body.branch_id=st.branch;
       if(!body.table_id)delete body.table_id;
       await deps.api('/businesses/'+encodeURIComponent(st.bid)+'/reservations',
         {method:'POST',body:JSON.stringify(body)});
@@ -434,13 +470,15 @@ window.EZRestaurantSuite=function(deps){
       if(typeof selection==='number')fresh?.setSelectionRange(selection,selection);
     }
     if(el.closest('[data-suite-form="new-booking"]')){
-      if(['zone_id','party_size'].includes(el.name))updateBookingTables();
-      if(['day','party_size','duration_minutes','zone_id','table_id'].includes(el.name))slots();
+      if(el.name==='party_size'){updateBookingTables();slots();}
     }
   },true);
   document.addEventListener('change',event=>{
     if(event.target.closest('[data-suite-form="new-booking"]')&&
-      ['day','party_size','duration_minutes','zone_id','table_id'].includes(event.target.name))slots();
+      ['day','party_size','duration_minutes','zone_id','table_id','preferred_time'].includes(event.target.name)){
+        if(event.target.name==='zone_id')updateBookingTables();
+        if(event.target.name!=='party_size')slots();
+      }
   },true);
   return {renderFloorplan,renderReservations,mount,invalidate:()=>{
     st.bid=null;st.layout=null;st.bookings=[];st.dirty=false;st.editing=false;

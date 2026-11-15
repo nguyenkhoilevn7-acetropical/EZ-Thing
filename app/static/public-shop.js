@@ -53,7 +53,7 @@
     const symbol = symbols[data.industry] || "✦";
     root.innerHTML = `<header class="shop-header"><div class="shop-container shop-header-inner">
       <a class="shop-brand" href="#home">
-        <span class="shop-logo">${brand.logo_url ? `<img src="${E(brand.logo_url)}" alt="${E(title)}">` : symbol}</span>
+        <span class="shop-logo">${(brand.logo_image || brand.logo_url) ? `<img src="${E(brand.logo_image || brand.logo_url)}" alt="${E(title)}">` : symbol}</span>
         <span><strong>${E(title)}</strong><small>POWERED BY EZ THING</small></span>
       </a><div class="shop-actions">
         <button class="shop-language" type="button" data-action="switch-language" aria-label="Switch language">
@@ -64,7 +64,7 @@
       </div></div></header>
       <main id="home" class="shop-container">
       <section class="shop-hero" aria-labelledby="shop-headline">
-        <div class="shop-hero-bg" style="background-image:url('${E(brand.banner_image || "")}')"></div>
+        <div class="shop-hero-bg" style="background-image:url('${E(brand.banner_image || "")}');background-position:${Math.max(0,Math.min(100,Number(brand.banner_position_x??50)))}% ${Math.max(0,Math.min(100,Number(brand.banner_position_y??50)))}%"></div>
         <div class="shop-hero-shade"></div>
         <div class="shop-hero-content">
           <div class="shop-eyebrow">EZ THING · ${E(data.industry.toUpperCase())}</div>

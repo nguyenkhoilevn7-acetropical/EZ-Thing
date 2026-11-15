@@ -5,6 +5,37 @@
 (() => {
 'use strict';
 const entries = [
+["PLUS trở lên · JPEG / PNG / WebP","PLUS and above · JPEG / PNG / WebP"],
+["↑ Tải banner từ thiết bị","↑ Upload banner from device"],
+["↑ Tải logo từ thiết bị","↑ Upload logo from device"],
+["Giá bên dưới chỉ là đề xuất trong giai đoạn pilot. Upload ảnh có giới hạn dung lượng ở gói PLUS/PRO. Tên miền riêng và thanh toán thuê bao chưa được triển khai.","Prices shown are estimates during the pilot. Image uploads have size limits on PLUS/PRO. Custom domains and subscription billing are not yet implemented."],
+["Xem nhanh ảnh banner","Banner quick preview"],
+["Kéo banner để chỉnh vị trí ảnh","Drag the banner to adjust its position"],
+["Kéo để chỉnh vị trí logo","Drag to adjust the logo position"],
+["Xem trước logo","Logo preview"],
+
+/* Brand Studio image uploads and Restaurant arrival-time controls. */
+["Ảnh banner","Banner image"],
+["Ảnh logo","Logo image"],
+["Tải banner từ thiết bị","Upload banner from device"],
+["Tải logo từ thiết bị","Upload logo from device"],
+["Bỏ ảnh tải lên","Remove uploaded image"],
+["Chọn ảnh để xem trước ngay; lưu để áp dụng.","Choose an image for an instant preview; save to apply."],
+["Logo hiển thị trực tiếp trong preview.","The logo updates directly in the preview."],
+["Hoặc nhập đường dẫn Unsplash; ảnh tải lên được ưu tiên.","Or provide an Unsplash URL; uploaded images take priority."],
+["Giờ khách muốn đến","Preferred arrival time"],
+["Giờ còn bàn (đã xác minh)","Verified available times"],
+["Đang kiểm tra khả dụng...","Checking availability..."],
+["Chọn giờ còn bàn","Choose an available time"],
+["Chưa xác minh được giờ","Could not verify times"],
+["Thử lại","Retry"],
+["↔ ↕ Kéo trên ảnh để căn banner ·","↔ ↕ Drag the image to position the banner ·"],
+["Căn giữa","Center"],
+["Logo preview","Logo preview"],
+["Kéo ngang/dọc để căn logo","Drag to position the logo"],
+["Preview cập nhật ngay; nhấn Lưu thay đổi để áp dụng.","Preview updates instantly; press Save changes to apply."],
+["Upload ảnh có giới hạn dung lượng ở gói PLUS/PRO. Tên miền riêng và thanh toán thuê bao chưa được triển khai.","Image uploads have size limits on PLUS/PRO. Custom domains and subscription billing are not yet implemented."],
+
 /* Frontend audit 2026-11-15: strings found untranslated in English mode. */
 ["Sản phẩm nổi bật","Featured products"],
 ["Đặt bàn trước","Reservations"],
