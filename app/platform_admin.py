@@ -542,7 +542,12 @@ def plans(user=Depends(admin_required)):
 @router.get("/system")
 def system_status(user=Depends(admin_required), db: Session = Depends(db_session)):
     db.execute(text("SELECT 1"))
+    from .asset_pipeline import STATIC_ASSETS
+    build_commit = (os.getenv("RENDER_GIT_COMMIT") or os.getenv("GITHUB_SHA") or "local").strip()
     return {"api": "healthy", "database": "reachable", "environment": os.getenv("EZ_THING_ENVIRONMENT", "unset"),
+            "release": {"policy": "continuous", "commit": build_commit[:12],
+                        "asset_fingerprint": STATIC_ASSETS.shell_hash,
+                        "cache": "sha256-content"},
             "demo_enabled": demo_enabled(), "admin_unlock_ttl_minutes": 30,
             "billing": "not_integrated", "email_verification": "not_integrated",
             "admin_mfa": "second_secret_only", "migrations": "pilot_create_all",
