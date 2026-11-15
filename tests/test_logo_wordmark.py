@@ -90,5 +90,5 @@ def test_compact_merchant_sidebar_uses_real_ez_symbol_instead_of_cropped_wordmar
     assert ".sidebar .merchant-home-link .wordmark{display:none}" in css
     assert "display:block;width:47px;height:33px" in css
     assert '[data-ez-merchant-theme="graphite"] .sidebar .merchant-home-link .sidebar-ez-icon-dark{display:block}' in css
-    assert 'app.js?v=20261115-v5-01' in index
+    assert 'app.js?v=20261115-v6-01' in index
     assert "brand-logo.css?v=20261115-audit-02" in index
