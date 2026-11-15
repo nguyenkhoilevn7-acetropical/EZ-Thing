@@ -5,6 +5,7 @@ provider is called. A paid or already-processed order must use a future
 supervised return/refund workflow, never this endpoint.
 """
 from typing import Literal
+from collections import defaultdict
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field, field_validator
@@ -62,26 +63,32 @@ def cancel_unpaid_order(
     if any(job.status != "pending" for job in linked):
         fail(409, "Đơn đã vào bếp hoặc giao vận, không thể tự động hủy")
 
-    # Restore ONLY units actually deducted when this order was created.
-    # This preserves the distinction between tracked goods and services.
-    original_moves = db.scalars(select(StockMovement).where(
+    # Net consumption from original sale and all subsequent POS corrections.
+    # POS edits are append-only signed stock movements, not replacements.
+    stock_moves = db.scalars(select(StockMovement).where(
         StockMovement.business_id == bid,
         StockMovement.ref == oid,
-        StockMovement.reason == "sale",
-        StockMovement.delta < 0,
+        StockMovement.reason.in_(("sale", "pos_adjust")),
     )).all()
-    for movement in original_moves:
+    net_consumption = defaultdict(int)
+    for movement in stock_moves:
+        net_consumption[movement.product_id] -= movement.delta
+    if any(qty < 0 for qty in net_consumption.values()):
+        fail(409, "Không thể hoàn đơn có sổ kho không cân bằng")
+    from .operations_v5 import branch_stock_change
+    for product_id, qty in sorted(net_consumption.items()):
+        if not qty:
+            continue
         changed = db.execute(update(Product).where(
-            Product.id == movement.product_id, Product.business_id == bid,
-        ).values(stock=Product.stock - movement.delta))
+            Product.id == product_id, Product.business_id == bid,
+        ).values(stock=Product.stock + qty))
         if changed.rowcount != 1:
             db.rollback()
             fail(409, "Không thể đối soát sản phẩm khi hoàn tồn kho")
-        from .operations_v5 import branch_stock_change
-        branch_stock_change(db,bid,order.branch_id,movement.product_id,-movement.delta)
+        branch_stock_change(db,bid,order.branch_id,product_id,qty)
         db.add(StockMovement(
-            id=new_id(), business_id=bid, product_id=movement.product_id,
-            delta=-movement.delta, reason="order_cancelled", ref=oid,
+            id=new_id(), business_id=bid, product_id=product_id,
+            delta=qty, reason="order_cancelled", ref=oid,
         ))
 
     order.status = "cancelled"
@@ -89,7 +96,7 @@ def cancel_unpaid_order(
         job.status = "cancelled"
     audit(db, bid, user[0].id, "order.cancelled", {
         "order_id": oid, "reason": body.reason,
-        "restored_units": sum(-x.delta for x in original_moves),
+        "restored_units": sum(net_consumption.values()),
     })
     db.commit()
     return order_out(db, order)
