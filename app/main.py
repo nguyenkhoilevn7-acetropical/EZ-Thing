@@ -456,6 +456,8 @@ def product_create(bid: str, body: ProductCreate, user=Depends(current_user), db
         db.flush()
     except IntegrityError:
         db.rollback(); fail(409, "Mã SKU đã tồn tại trong doanh nghiệp")
+    from .operations_v5 import new_product_branch_balance
+    new_product_branch_balance(db,bid,p)
     if body.track_stock and body.stock:
         db.add(StockMovement(id=new_id(), business_id=bid, product_id=p.id,
                              delta=body.stock, reason="opening_stock"))
@@ -478,6 +480,8 @@ def stock_adjust(bid: str, pid: str, body: StockAdjust, user=Depends(current_use
                                                 Product.stock + body.delta >= 0).values(stock=Product.stock + body.delta))
     if not updated.rowcount:
         fail(409, "Số lượng tồn kho không đủ")
+    from .operations_v5 import branch_stock_change,primary_branch
+    branch_stock_change(db,bid,body.branch_id or primary_branch(db,bid).id,pid,body.delta)
     db.add(StockMovement(id=new_id(), business_id=bid, product_id=pid,
                          delta=body.delta, reason=body.reason))
     audit(db, bid, user[0].id, "stock.adjusted", {"product_id": pid, "delta": body.delta})
@@ -605,7 +609,7 @@ def order_create(bid: str, body: CreateOrder, user=Depends(current_user), db: Se
         db.add(o)
         db.flush()
         from .operations_v5 import consume_stock_for_sale
-        consume_stock_for_sale(db, bid, o.id, quantities)
+        consume_stock_for_sale(db, bid, o.id, quantities, branch.id)
         for pid, qty in quantities.items():
             p = products_by_id[pid]
             db.add(SaleOrderItem(id=new_id(), business_id=bid, order_id=o.id, product_id=pid,
@@ -805,4 +809,5 @@ app.include_router(public_order_requests_router)
 
 # V5 operations reuse existing industry_work_items; no duplicate payment or order ledger.
 from .operations_v5 import router as operations_v5_router  # noqa: E402
+Base.metadata.create_all(bind=engine)  # Pilot compatibility; Alembic migration for production.
 app.include_router(operations_v5_router)
