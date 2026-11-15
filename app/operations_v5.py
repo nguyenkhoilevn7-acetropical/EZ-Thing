@@ -639,5 +639,9 @@ def operational_sync(bid:str,user=Depends(current_user),db:Session=Depends(db_se
         counts[kind]=int(db.scalar(select(func.count()).select_from(IndustryWorkItem).where(
             IndustryWorkItem.business_id==bid,IndustryWorkItem.kind==kind,
             IndustryWorkItem.status.not_in(("cancelled","completed","delivered","no_show")))) or 0)
+    revision,last_count=db.execute(select(
+        func.max(IndustryWorkItem.updated_at),func.count(IndustryWorkItem.id)
+    ).where(IndustryWorkItem.business_id==bid)).one()
+    version=hashlib.sha256(f"{revision or ''}:{last_count}".encode()).hexdigest()[:16]
     return {"server_time":now().isoformat(),"active_counts":counts,
-            "poll_after_seconds":15,"transport":"polling"}
+            "version":version,"poll_after_seconds":15,"transport":"polling"}
