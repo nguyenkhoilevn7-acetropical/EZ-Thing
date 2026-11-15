@@ -217,8 +217,9 @@ def test_pos_editor_is_accessible_and_uses_csrf(client):
     assert client.get("/assets/pos-v7.js").status_code==200
     assert client.get("/assets/pos-v7.css").status_code==200
     index=client.get("/app").text
-    assert "pos-v7.js?v=20261115-v7-01" in index
-    assert "pos-v7.css?v=20261115-v7-01" in index
+    from app.asset_pipeline import STATIC_ASSETS
+    for asset in ("pos-v7.js", "pos-v7.css"):
+        assert "/assets/" + asset + "?h=" + STATIC_ASSETS.hashes["/assets/" + asset] in index
 
 
 def test_staff_edits_plain_items_but_cannot_discount_or_move_table(client):
