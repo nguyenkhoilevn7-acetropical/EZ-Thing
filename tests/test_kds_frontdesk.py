@@ -254,7 +254,7 @@ def test_mobile_kds_assets_are_linked_without_page_reload(cli):
 def test_expeditor_runner_call_and_supervised_station_transfer(cli):
     csrf=signup(cli,"kds-expo@example.com")
     bid=new_business(cli,csrf)
-    product=new_product(cli,bid,csrf,"Cold special","COLD-S","Món đặc biệt")
+    product=new_product(cli,bid,csrf,"House special","HOUSE-S","Món đặc biệt")
     order=new_order(cli,bid,csrf,[{"product_id":product,"quantity":2}])
     ticket=request(cli,"POST",kds(bid,"/fire"),{"order_id":order["id"]},csrf).json()
     tid=ticket["id"]
