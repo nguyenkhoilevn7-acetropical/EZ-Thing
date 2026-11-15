@@ -58,6 +58,7 @@ class PublicOrderRequest(Base):
 class PublicLine(BaseModel):
     product_id: str=Field(min_length=1,max_length=36)
     quantity: int=Field(ge=1,le=15)
+    selected_options: list[str]=Field(default_factory=list,max_length=30)
 
 
 class GuestOrder(BaseModel):
@@ -81,7 +82,8 @@ def reject(status: int, message: str):
 def stored(row: PublicOrderRequest, private: bool = False):
     out={"id":row.id,"status":row.status,"total_vnd":row.total_vnd,
          "items":[{"product_id":x["product_id"],"name":x["name"],"quantity":x["quantity"],
-                   "unit_price_vnd":x["unit_price_vnd"]} for x in row.lines],
+                   "unit_price_vnd":x["unit_price_vnd"],
+                   "modifiers":x.get("modifiers",[])} for x in row.lines],
          "created_at":row.created_at.isoformat()}
     if private:
         out.update({"customer_name":row.customer_name,"phone":row.phone,"address":row.address,
@@ -160,9 +162,22 @@ def create_guest_order(slug: str, body: GuestOrder, request: Request,
         p=products[pid]
         if p.track_stock and p.stock<qty:
             reject(409,"Một sản phẩm đã tạm hết hàng")
-    lines=[{"product_id":pid,"name":products[pid].name,"quantity":qty,
-            "unit_price_vnd":products[pid].price_vnd}
-           for pid,qty in sorted(quantities.items())]
+    from .modifiers import price_line
+    lines = []
+    extra_stock = defaultdict(int)
+    for entry in body.lines:
+        p = products[entry.product_id]
+        unit, selections, extras = price_line(db, business.id, p, entry.selected_options)
+        lines.append({"product_id":p.id, "name":p.name, "quantity":entry.quantity,
+                      "unit_price_vnd":unit, "selected_options":entry.selected_options,
+                      "modifiers":selections})
+        for stock_id, amount in extras.items():
+            extra_stock[stock_id] += amount * entry.quantity
+    for stock_id, amount in extra_stock.items():
+        stock = db.scalar(select(Product).where(
+            Product.business_id==business.id, Product.id==stock_id))
+        if not stock or stock.stock < amount:
+            reject(409, "Topping đã tạm hết hàng")
     total=sum(x["unit_price_vnd"]*x["quantity"] for x in lines)
     if total>50_000_000:
         reject(422,"Giá trị yêu cầu vượt giới hạn của website")
@@ -227,7 +242,9 @@ def review_request(bid: str,rid: str,body: ReviewOrder,
         return stored(item,private=True)
     # Accepted requests must use the same price originally displayed to guest.
     # Price changes require rejection and guest re-submission; no silent repricing.
-    quantities={line["product_id"]:line["quantity"] for line in item.lines}
+    quantities=defaultdict(int)
+    for line in item.lines:
+        quantities[line["product_id"]] += line["quantity"]
     products={}
     for pid in sorted(quantities):
         p=db.scalar(select(Product).where(
@@ -236,6 +253,15 @@ def review_request(bid: str,rid: str,body: ReviewOrder,
         if p is None or p.price_vnd!=next(x["unit_price_vnd"] for x in item.lines if x["product_id"]==pid):
             reject(409,"Giá hoặc sản phẩm đã thay đổi, cần từ chối và báo khách đặt lại")
         products[pid]=p
+    from .modifiers import price_line, write_item_selection
+    stock_quantities = defaultdict(int, quantities)
+    for line in item.lines:
+        unit, snapshots, extras = price_line(
+            db, bid, products[line["product_id"]], line.get("selected_options", []))
+        if unit != line["unit_price_vnd"] or snapshots != line.get("modifiers", []):
+            reject(409, "Topping hoặc giá đã đổi, hãy từ chối để khách đặt lại")
+        for stock_id, amount in extras.items():
+            stock_quantities[stock_id] += amount * line["quantity"]
     branch=branch_for(db,bid,None)
     customer=Customer(id=str(uuid.uuid4()),business_id=bid,
                       name=item.customer_name,phone=item.phone,address=item.address)
@@ -251,16 +277,18 @@ def review_request(bid: str,rid: str,body: ReviewOrder,
     db.add(sale)
     db.flush()
     from .operations_v5 import consume_stock_for_sale
-    consume_stock_for_sale(db,bid,sale.id,quantities,branch.id)
+    consume_stock_for_sale(db,bid,sale.id,stock_quantities,branch.id)
     for line in item.lines:
         pid=line["product_id"]
-        qty=quantities[pid]
+        qty=line["quantity"]
         p=products[pid]
+        entry_id=str(uuid.uuid4())
         db.add(SaleOrderItem(
-            id=str(uuid.uuid4()),business_id=bid,order_id=sale.id,
+            id=entry_id,business_id=bid,order_id=sale.id,
             product_id=pid,product_name=p.name,quantity=qty,
-            unit_price_vnd=p.price_vnd,total_vnd=p.price_vnd*qty,
+            unit_price_vnd=line["unit_price_vnd"],total_vnd=line["unit_price_vnd"]*qty,
         ))
+        write_item_selection(db,bid,entry_id,line.get("modifiers",[]))
     kind={"online":"delivery","fnb":"kitchen"}.get(b.industry)
     if kind:
         db.add(IndustryWorkItem(
