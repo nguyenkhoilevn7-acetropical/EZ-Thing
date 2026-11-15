@@ -41,7 +41,7 @@ function init({api,getState,E,V,toast,modal,closeModal,refresh}){
      '<div class="kds-dish-foot"><span class="kds-chip kds-chip-'+esc(item.status)+'">'+esc(states[item.status]||item.status)+'</span><div class="kds-dish-actions">'+actions(item,t)+'</div></div></article>';
  }
  function filterRows(){
-  return (data?.tickets||[]).map(t=>({...t,lines:t.lines.filter(x=>(station==="all"||x.station===station)&&(showDone||x.status!=="served"))})).filter(t=>t.lines.length);
+  return (data?.tickets||[]).map(t=>({...t,lines:t.lines.filter(x=>(station==="all"||x.station===station||(station==="expo"&&x.status==="ready"))&&(showDone||x.status!=="served"))})).filter(t=>t.lines.length);
  }
  function markup(){
   const rows=filterRows();
@@ -59,7 +59,7 @@ function init({api,getState,E,V,toast,modal,closeModal,refresh}){
   return '<div class="kds-grid">'+cards.join("")+'</div>';
  }
  function fireControl(){
-   const orders=(st().cache?.orders||[]).filter(x=>x.status!=="cancelled"&&!(data?.tickets||[]).some(t=>t.order_id===x.id));
+   const orders=(st().cache?.orders||[]).filter(x=>x.status!=="cancelled"&&(branch==="all"||x.branch_id===branch)&&!(data?.tickets||[]).some(t=>t.order_id===x.id));
    if(!orders.length)return '<span class="subtle">'+tx("Không có đơn chưa gửi bếp","No unfired orders")+'</span>';
    return '<form data-kds-form="fire" class="kds-fire-form"><select name="order_id" required aria-label="Đơn hàng">'+orders.map(x=>'<option value="'+esc(x.id)+'">#'+esc(x.id.slice(0,8).toUpperCase())+' · '+V(x.total_vnd)+'</option>').join("")+'</select><button class="btn sm" type="submit">'+tx("Gửi bếp","Fire")+'</button></form>';
  }
@@ -90,7 +90,7 @@ function init({api,getState,E,V,toast,modal,closeModal,refresh}){
   root.querySelector("#kds-item-count").textContent=items.reduce((s,x)=>s+Number(x.quantity),0);
   root.querySelector("#kds-late-count").textContent=activeTickets.filter(x=>age(x)==="late").length;
   for(const key of Object.keys(stations)){
-    const count=items.filter(x=>key==="all"||x.station===key).reduce((s,x)=>s+Number(x.quantity),0);
+    const count=items.filter(x=>key==="all"||x.station===key||(key==="expo"&&x.status==="ready")).reduce((s,x)=>s+Number(x.quantity),0);
     const badge=root.querySelector('[data-count="'+key+'"]');if(badge)badge.textContent=count;
   }
   root.querySelector("#kds-content").innerHTML=markup();
