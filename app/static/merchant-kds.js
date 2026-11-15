@@ -29,6 +29,13 @@ function init({api,getState,E,V,toast,modal,closeModal,refresh}){
   for(const status of next[item.status]||[]){
    out+='<button class="kds-act kds-act-'+status+'" data-kds="status" data-ticket="'+esc(t.id)+'" data-line="'+esc(item.id)+'" data-rev="'+t.revision+'" data-status="'+status+'">'+tx(labels[status],status)+'</button>';
   }
+  if(item.status==="ready"){
+    out+=item.runner_called_at?'<span class="kds-runner-called">'+tx("🔔 Đã gọi phục vụ","Runner called")+'</span>'
+      :'<button class="kds-act kds-act-runner" data-kds="runner" data-ticket="'+esc(t.id)+'" data-line="'+esc(item.id)+'" data-rev="'+t.revision+'">'+tx("🔔 Gọi phục vụ","Call runner")+'</button>';
+  }
+  if(manager()&&["pending","preparing","held"].includes(item.status)){
+    out+='<button class="kds-act kds-act-recall" data-kds="transfer" data-ticket="'+esc(t.id)+'" data-line="'+esc(item.id)+'" data-rev="'+t.revision+'">'+tx("Chuyển trạm","Move station")+'</button>';
+  }
   if(manager()&&["served","ready"].includes(item.status)){
     out+='<button class="kds-act kds-act-recall" data-kds="recall" data-ticket="'+esc(t.id)+'" data-line="'+esc(item.id)+'" data-rev="'+t.revision+'" data-status="'+(item.status==="served"?"ready":"preparing")+'">'+tx("Hoàn tác","Recall")+'</button>';
   }
@@ -147,6 +154,11 @@ function init({api,getState,E,V,toast,modal,closeModal,refresh}){
       await api(url("/tickets/"+encodeURIComponent(input.ticket)+"/lines/"+encodeURIComponent(input.line)+"/status"),{
         method:"POST",body:JSON.stringify({status:input.status,expected_revision:Number(input.rev),reason:input.reason})});
       closeModal();
+    }else if(form.dataset.kdsForm==="transfer"){
+      await api(url("/tickets/"+encodeURIComponent(input.ticket)+"/lines/"+encodeURIComponent(input.line)+"/move-station"),{
+        method:"POST",body:JSON.stringify({station:input.station,expected_revision:Number(input.rev),reason:input.reason})});
+      closeModal();
+      toast(tx("Đã chuyển trạm chế biến","Prep station changed"));
     }
     if(st().tab==="kitchen")await load(true);
   }catch(err){toast(err.message,true)}
@@ -177,6 +189,17 @@ function init({api,getState,E,V,toast,modal,closeModal,refresh}){
   else if(action==="recall"){
     modal(tx("Hoàn tác trạng thái món","Recall item"),
       '<form data-kds-form="recall"><p>'+tx("Quản lý phải ghi lý do hoàn tác.","Manager reason required.")+'</p><input type="hidden" name="ticket" value="'+esc(button.dataset.ticket)+'"><input type="hidden" name="line" value="'+esc(button.dataset.line)+'"><input type="hidden" name="status" value="'+esc(button.dataset.status)+'"><input type="hidden" name="rev" value="'+Number(button.dataset.rev)+'"><div class="formfield"><label>'+tx("Lý do","Reason")+'</label><textarea name="reason" required minlength="4" maxlength="160"></textarea></div><div class="modal-footer"><button type="button" class="btn secondary" data-action="close-modal">'+tx("Đóng","Close")+'</button><button class="btn" type="submit">'+tx("Xác nhận","Confirm")+'</button></div></form>');
+  }else if(action==="transfer"){
+    const names=Object.keys(stations).filter(x=>x!=="all").map(x=>'<option value="'+x+'">'+esc(stations[x])+'</option>').join("");
+    modal(tx("Chuyển trạm món","Move item to station"),'<form data-kds-form="transfer"><input type="hidden" name="ticket" value="'+esc(button.dataset.ticket)+'"><input type="hidden" name="line" value="'+esc(button.dataset.line)+'"><input type="hidden" name="rev" value="'+Number(button.dataset.rev)+'"><div class="formfield"><label>'+tx("Trạm mới","Destination station")+'</label><select name="station">'+names+'</select></div><div class="formfield"><label>'+tx("Lý do","Reason")+'</label><textarea name="reason" required minlength="4" maxlength="160"></textarea></div><div class="modal-footer"><button type="button" class="btn secondary" data-action="close-modal">'+tx("Đóng","Close")+'</button><button class="btn" type="submit">'+tx("Chuyển trạm","Move")+'</button></div></form>');
+  }else if(action==="runner"){
+    if(busy)return;
+    busy=true;button.disabled=true;
+    api(url("/tickets/"+encodeURIComponent(button.dataset.ticket)+"/lines/"+encodeURIComponent(button.dataset.line)+"/call-runner"),{
+      method:"POST",body:JSON.stringify({expected_revision:Number(button.dataset.rev)})})
+      .then(()=>load(true)).then(()=>toast(tx("Đã gọi phục vụ nội bộ","Runner alerted in KDS")))
+      .catch(err=>toast(err.message,true))
+      .finally(()=>{busy=false;button.disabled=false});
   }else if(action==="sound"){
     sound=!sound;button.setAttribute("aria-pressed",String(sound));
     button.textContent=sound?tx("🔔 Đã bật","🔔 Sound on"):tx("🔕 Bật âm báo","🔕 Enable sound");
