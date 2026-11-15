@@ -372,7 +372,7 @@ window.EZRestaurantSuite=function(deps){
       if(desired||previous)sel.value=(desired||previous).start_at;
       sel.disabled=!free.length;
       if(!free.length){
-        status.textContent='Không có bàn trống phù hợp trong ngày. Thử ngày, khu vực hoặc số khách khác.';
+        status.textContent=data.closed_reason||'Không có bàn trống phù hợp trong ngày. Thử ngày, khu vực hoặc số khách khác.';
       }else if(!desired){
         status.textContent='Giờ mong muốn chưa còn bàn. Chọn một trong '+free.length+' khung giờ trống bên trên.';
       }else{
