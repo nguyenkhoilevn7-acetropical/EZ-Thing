@@ -184,6 +184,14 @@ class ShiftCreate(BaseModel):
         return v
 
 
+@router.get("/staff")
+def staff_for_shift(bid:str,user=Depends(current_user),db:Session=Depends(db_session)):
+    scope(db,bid,user,manage=True)
+    return [{"id":u.id,"name":u.name,"role":m.role} for m,u in db.execute(
+        select(Membership,User).join(User,Membership.user_id==User.id).where(
+            Membership.business_id==bid).order_by(User.name))]
+
+
 @router.get("/shifts")
 def list_shifts(bid: str, user=Depends(current_user), db: Session=Depends(db_session)):
     scope(db, bid, user)
