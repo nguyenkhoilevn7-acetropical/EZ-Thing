@@ -91,13 +91,16 @@
   }
   function lineOptions(p){
     if(!p?.modifier_groups?.length)return '';
-    return '<div class="m6-pos-groups">'+p.modifier_groups.map(g=>
-      '<fieldset class="m6-pos-group" data-pos-group="'+E(g.id)+'" data-pos-min="'+g.min_select+'" data-pos-max="'+g.max_select+'">'
-      +'<legend>'+E(g.name)+' <small>'+(g.min_select?t('Bắt buộc','Required')+' · ':'')+(g.max_select===1?t('Chọn 1','Choose 1'):t('Tối đa','Up to')+' '+g.max_select)+'</small></legend>'
-      +(g.min_select===0&&g.max_select===1?'<label><input type="radio" name="pos_'+E(g.id)+'_'+uid()+'" value="" checked> '+t('Không chọn','None')+'</label>':'')
-      +g.options.map(o=>'<label><input data-pos-modifier type="'+(g.max_select===1?'radio':'checkbox')+'" '
-        +'name="posgroup_'+E(g.id)+'" value="'+E(o.id)+'"> '+E(o.name)+' <small>'+(o.price_vnd?'+'+fmt(o.price_vnd):t('Miễn phí','Free'))+'</small></label>').join('')
-      +'</fieldset>').join('')+'</div>';
+    return '<div class="m6-pos-groups">'+p.modifier_groups.map(g=>{
+      // Every order line owns a unique radio-group namespace.
+      const fieldName='pos_'+uid();
+      return '<fieldset class="m6-pos-group" data-pos-group="'+E(g.id)+'" data-pos-min="'+g.min_select+'" data-pos-max="'+g.max_select+'">'
+        +'<legend>'+E(g.name)+' <small>'+(g.min_select?t('Bắt buộc','Required')+' · ':'')+(g.max_select===1?t('Chọn 1','Choose 1'):t('Tối đa','Up to')+' '+g.max_select)+'</small></legend>'
+        +(g.min_select===0&&g.max_select===1?'<label><input type="radio" name="'+fieldName+'" value="" checked> '+t('Không chọn','None')+'</label>':'')
+        +g.options.map(o=>'<label><input data-pos-modifier type="'+(g.max_select===1?'radio':'checkbox')+'" '
+          +'name="'+fieldName+'" value="'+E(o.id)+'"> '+E(o.name)+' <small>'+(o.price_vnd?'+'+fmt(o.price_vnd):t('Miễn phí','Free'))+'</small></label>').join('')
+        +'</fieldset>';
+    }).join('')+'</div>';
   }
   function updateLine(row){
     const p=product(row.querySelector('select[name=product_id]')?.value);
