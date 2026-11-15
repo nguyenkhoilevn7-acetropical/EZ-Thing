@@ -232,7 +232,7 @@ def free_tables(db, bid, start, end, party_size, requested_table=None, allowed_i
                        .order_by(DiningTable.seats, DiningTable.label)).all()
     overlaps = db.scalars(select(IndustryWorkItem).where(
         IndustryWorkItem.business_id == bid,
-        IndustryWorkItem.kind == "reservations",
+        IndustryWorkItem.kind.in_(("reservations", "waitlist")),
         IndustryWorkItem.status.in_(BUSY),
         IndustryWorkItem.scheduled_at < end,
         IndustryWorkItem.ends_at > start)).all()
