@@ -604,15 +604,10 @@ def order_create(bid: str, body: CreateOrder, user=Depends(current_user), db: Se
     try:
         db.add(o)
         db.flush()
+        from .operations_v5 import consume_stock_for_sale
+        consume_stock_for_sale(db, bid, o.id, quantities)
         for pid, qty in quantities.items():
             p = products_by_id[pid]
-            if p.track_stock:
-                changed = db.execute(update(Product).where(Product.id == pid, Product.business_id == bid,
-                                         Product.stock >= qty).values(stock=Product.stock - qty))
-                if not changed.rowcount:
-                    db.rollback(); fail(409, f"Không đủ tồn kho: {p.name}")
-                db.add(StockMovement(id=new_id(), business_id=bid, product_id=pid,
-                                     delta=-qty, reason="sale", ref=o.id))
             db.add(SaleOrderItem(id=new_id(), business_id=bid, order_id=o.id, product_id=pid,
                                  product_name=p.name, quantity=qty, unit_price_vnd=p.price_vnd,
                                  total_vnd=qty * p.price_vnd))
@@ -642,6 +637,8 @@ def order_paid(bid: str, oid: str, body: ConfirmPayment, user=Depends(current_us
         fail(409, "Đơn đã hủy, không thể xác nhận thanh toán")
     if o.status == "open":
         o.status = "paid"; o.paid_at = now()
+        from .operations_v5 import loyalty_earn_on_paid
+        loyalty_earn_on_paid(db, bid, o)
         audit(db, bid, user[0].id, "order.marked_paid_manual", {"order_id": oid})
         db.commit()
     return order_out(db, o)
@@ -805,3 +802,7 @@ app.include_router(email_verification_router)
 from .public_order_requests import router as public_order_requests_router  # noqa: E402
 Base.metadata.create_all(bind=engine)
 app.include_router(public_order_requests_router)
+
+# V5 operations reuse existing industry_work_items; no duplicate payment or order ledger.
+from .operations_v5 import router as operations_v5_router  # noqa: E402
+app.include_router(operations_v5_router)
