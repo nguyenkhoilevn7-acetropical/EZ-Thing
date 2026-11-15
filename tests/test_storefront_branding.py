@@ -155,3 +155,78 @@ def test_demo_customer_frontend_uses_its_own_saved_brand(monkeypatch):
         assert branding["display_name"] == "Tropical Garden"
         assert branding["banner_preset"] == "coffee"
         assert customer.json()["business"]["name"] == "Tropical Garden"
+
+def test_plus_uploaded_images_persist_preview_crops_and_tenant_isolation():
+    from io import BytesIO
+    from PIL import Image
+    from app.models import StorefrontMedia
+
+    photo = BytesIO()
+    Image.new("RGB", (160, 100), (31, 92, 166)).save(photo, format="PNG")
+    content = photo.getvalue()
+
+    with TestClient(app) as owner, TestClient(app) as other:
+        csrf = register(owner, "uploader")
+        bid = create(owner, csrf, "Upload Cafe", "PLUS")
+        other_csrf = register(other, "otheruploader")
+        other_bid = create(other, other_csrf, "Other Cafe", "PLUS")
+        upload_url = f"/api/businesses/{bid}/storefront-media/banner"
+
+        assert owner.put(upload_url, files={"file": ("banner.png", content, "image/png")}).status_code == 403
+        invalid = owner.put(upload_url, files={"file": ("script.svg", b"<svg/>", "image/svg+xml")},
+                            headers={"x-csrf-token": csrf})
+        assert invalid.status_code == 422
+        response = owner.put(upload_url, files={"file": ("banner.png", content, "image/png")},
+                             headers={"x-csrf-token": csrf})
+        assert response.status_code == 200, response.text
+        branding = response.json()["branding"]
+        assert branding["banner_uploaded"] is True
+        assert branding["banner_image"].startswith(upload_url + "?v=")
+        assert owner.get(upload_url).content[:4] == b"RIFF"
+        assert owner.get(upload_url).headers["content-type"].startswith("image/webp")
+        assert other.get(upload_url).status_code == 404
+        assert other.get(f"/api/businesses/{other_bid}/storefront-media/banner").status_code == 404
+
+        cropped = patch(owner, bid, csrf, {
+            "banner_position_x": 17, "banner_position_y": 83,
+            "logo_position_x": 5, "logo_position_y": 92,
+        })
+        assert cropped.status_code == 200, cropped.text
+        brand = owner.get(f"/api/businesses/{bid}/storefront-preview").json()["business"]["branding"]
+        assert brand["banner_position_x"] == 17
+        assert brand["banner_position_y"] == 83
+        assert brand["banner_uploaded"] is True
+        assert patch(owner, bid, csrf, {"banner_position_x": 101}).status_code == 422
+
+        logo_url = f"/api/businesses/{bid}/storefront-media/logo"
+        logo = owner.put(logo_url, files={"file": ("logo.png", content, "image/png")},
+                         headers={"x-csrf-token": csrf})
+        assert logo.status_code == 200, logo.text
+        assert logo.json()["branding"]["logo_image"].startswith(logo_url)
+        with SessionLocal() as db:
+            media = db.get(StorefrontMedia, (bid, "banner"))
+            assert media and len(media.data) <= 850_000
+
+        remove = owner.delete(upload_url, headers={"x-csrf-token": csrf})
+        assert remove.status_code == 200
+        assert remove.json()["branding"]["banner_uploaded"] is False
+        assert owner.get(upload_url).status_code == 404
+
+    with TestClient(app) as basic:
+        token = register(basic, "basicuploader")
+        basic_id = create(basic, token, "Basic Cafe", "BASIC")
+        result = basic.put(f"/api/businesses/{basic_id}/storefront-media/banner",
+                           files={"file": ("photo.png", content, "image/png")},
+                           headers={"x-csrf-token": token})
+        assert result.status_code == 403
+
+
+def test_brand_editor_upload_controls_and_position_preview_are_wired():
+    html = (Path(__file__).resolve().parents[1] / "app/static/brand-editor.html").read_text()
+    js = (Path(__file__).resolve().parents[1] / "app/static/brand-editor.js").read_text()
+    owner = (Path(__file__).resolve().parents[1] / "app/static/storefront-owner-preview.js").read_text()
+    assert 'id="brand-banner-file"' in html and 'id="brand-logo-file"' in html
+    assert 'data-drag-image="banner"' in html and 'data-drag-image="logo"' in html
+    assert "URL.createObjectURL" in js and "pointermove" in js
+    assert "storefront-media/" in js and "new FormData()" in js
+    assert "brand.banner_position_x" in owner and "brand.logo_image" in owner
