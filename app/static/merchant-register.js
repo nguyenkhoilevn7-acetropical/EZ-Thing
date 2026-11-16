@@ -13,6 +13,7 @@
       optionIds:[],busy:false,requestId:uid(),last:null
     });
     let s=defaultState();
+    let lastProductTap=null,addedNoticeTimer=null;
     const business=()=>getState().business||{};
     const products=()=>getState().cache.products||[];
     const branches=()=>getState().cache.branches||[];
@@ -103,17 +104,24 @@
     }
     function productHtml(p){
       const soldOut=!available(p);
+      const inCart=s.cart.filter(line=>line.productId===p.id)
+        .reduce((sum,line)=>sum+line.quantity,0);
+      const recentlyAdded=s.recentProduct===p.id&&Date.now()-s.recentAt<1100;
       return '<button type="button" class="ezreg-product '+(soldOut?"sold-out":"")+
         '" data-ezreg="product" data-value="'+E(p.id)+'" '+(soldOut?"disabled":"")+
-        ' aria-label="'+E(p.name+" "+fmt(price(p)))+'">'+
+        ' aria-label="'+E(p.name+" "+fmt(price(p))+
+          (inCart?" · "+inCart+" "+t("trong giỏ","in cart"):""))+'">'+
         '<span class="ezreg-product-top">'+iconBlock(p)+
         (p.track_stock?'<span class="ezreg-stock '+(Number(p.stock)<=5?"low":"")+
         '">'+(soldOut?t("Hết hàng","Out of stock"):t("Còn ","Stock ")+E(p.stock))+'</span>':
         '<span class="ezreg-stock neutral">'+t("Sẵn bán","Available")+'</span>')+
         '</span><span class="ezreg-product-name">'+E(p.name)+'</span>'+
         '<span class="ezreg-product-sub">'+E(category(p))+'</span>'+
+        (inCart?'<span class="ezreg-product-in-cart">'+
+          t("✓ Trong giỏ: ","✓ In cart: ")+inCart+'</span>':'')+
         '<span class="ezreg-product-bottom"><strong>'+fmt(price(p))+'</strong>'+
-        '<span class="ezreg-product-plus" aria-hidden="true">+</span></span></button>';
+        '<span class="ezreg-product-plus '+(recentlyAdded?"just-added":"")+
+          '" aria-hidden="true">'+(recentlyAdded?"✓":"+")+'</span></span></button>';
     }
     function catalogHtml(){
       const list=visibleProducts();
@@ -125,18 +133,21 @@
     function cartLineHtml(line){
       const p=byId(line.productId);
       if(!p)return "";
+      const unit=price(p),extra=modifierPrice(p,line.optionIds);
       return '<article class="ezreg-cart-line" data-line-id="'+E(line.id)+'">'+
         '<div class="ezreg-cart-icon">'+glyph(p)+'</div>'+
         '<div class="ezreg-cart-description"><strong>'+E(p.name)+'</strong>'+
-        (line.optionIds.length?'<small>'+E(optionText(p,line.optionIds))+'</small>':
-          '<small>'+E(category(p))+'</small>')+
+        '<small>'+E(category(p))+(p.sku?' · '+E(p.sku):"")+'</small>'+
+        (line.optionIds.length?'<span class="ezreg-line-mods">'+E(optionText(p,line.optionIds))+'</span>':"")+
+        '<small class="ezreg-line-price">'+t("Đơn giá ","Unit ")+fmt(unit)+
+        (extra?' + '+t("Topping ","Add-ons ")+fmt(extra):"")+' × '+line.quantity+'</small>'+
         '<div class="ezreg-line-actions"><button type="button" data-ezreg="decrease" data-value="'+E(line.id)+
         '" aria-label="'+t("Giảm số lượng","Decrease")+'">−</button>'+
         '<b>'+line.quantity+'</b><button type="button" data-ezreg="increase" data-value="'+E(line.id)+
         '" aria-label="'+t("Tăng số lượng","Increase")+'">+</button>'+
         ((p.modifier_groups||[]).length?'<button type="button" class="ezreg-edit-line" data-ezreg="edit" data-value="'+E(line.id)+
-        '">'+t("Tùy chọn","Options")+'</button>':"")+'</div></div>'+
-        '<div class="ezreg-line-side"><strong>'+fmt((price(p)+modifierPrice(p,line.optionIds))*line.quantity)+'</strong>'+
+        '">'+t("Sửa topping","Edit add-ons")+'</button>':"")+'</div></div>'+
+        '<div class="ezreg-line-side"><strong>'+fmt((unit+extra)*line.quantity)+'</strong>'+
         '<button type="button" data-ezreg="remove" data-value="'+E(line.id)+
         '" aria-label="'+t("Xóa món","Remove item")+'">✕</button></div></article>';
     }
@@ -146,51 +157,72 @@
     function cartInnerHtml(){
       const activeTables=tables().filter(x=>x.branch_id===s.branch);
       const hasTables=business().active_modules?.includes("tables");
+      const baseTotal=s.cart.reduce((sum,line)=>sum+price(byId(line.productId))*line.quantity,0);
+      const extrasTotal=s.cart.reduce((sum,line)=>sum+
+        modifierPrice(byId(line.productId),line.optionIds)*line.quantity,0);
+      const count=totalQty();
+      const disabled=!s.cart.length||s.busy||!navigator.onLine;
       return '<div class="ezreg-cart-head"><div><span class="ezreg-kicker">'+
         t("ĐƠN BÁN HÀNG","CURRENT CHECK")+'</span><h3>'+
-        t("Giỏ hàng","Cart")+' <span class="ezreg-count">'+totalQty()+'</span></h3></div>'+
+        t("Giỏ hàng","Cart")+' <span class="ezreg-count">'+count+'</span></h3>'+
+        '<small class="ezreg-check-caption">'+s.cart.length+' '+
+        t("dòng món","item lines")+' · '+count+' '+t("phần","units")+'</small></div>'+
         '<button type="button" class="ezreg-cart-close" data-ezreg="cart-close" aria-label="'+
         t("Đóng giỏ hàng","Close cart")+'">✕</button></div>'+
-        '<div class="ezreg-cart-meta"><label>'+t("Chi nhánh","Branch")+
-        '<select data-ezreg-select="branch" aria-label="'+t("Chọn chi nhánh","Select branch")+'">'+
+        '<div class="ezreg-cart-scroll"><div class="ezreg-cart-meta"><label>'+t("Chi nhánh","Branch")+
+        '<select data-ezreg-select="branch" '+(s.busy?"disabled":"")+
+        ' aria-label="'+t("Chọn chi nhánh","Select branch")+'">'+
         branches().filter(b=>!getState().workstation?.branch_id||
           getState().workstation.branch_id===b.id).map(b=>
           '<option value="'+E(b.id)+'"'+(b.id===s.branch?" selected":"")+">"+
           E(b.name)+'</option>').join("")+'</select></label>'+
         (hasTables?'<label>'+t("Hình thức / bàn","Service / table")+
-          '<select data-ezreg-select="table" aria-label="'+t("Chọn bàn","Select table")+'">'+
-          '<option value="">'+t("Mang đi / Giao hàng","Takeaway / delivery")+'</option>'+
+          '<select data-ezreg-select="table" '+(s.busy?"disabled":"")+
+          ' aria-label="'+t("Chọn bàn","Select table")+'">'+
+          '<option value="">'+t("Không chọn bàn · mang đi / giao hàng","No table · takeaway / delivery")+'</option>'+
           activeTables.map(tab=>'<option value="'+E(tab.id)+'"'+
           (s.table===tab.id?" selected":"")+">"+E(tab.label)+
           (tab.occupied?" · "+t("Đang dùng","Occupied"):"")+"</option>").join("")+
           '</select></label>':"")+
-        '<label>'+t("Khách hàng","Customer")+'<select data-ezreg-select="customer">'+
+        '<label>'+t("Khách hàng","Customer")+'<select data-ezreg-select="customer" '+
+        (s.busy?"disabled":"")+'>'+
         '<option value="">'+t("Khách lẻ","Walk-in")+'</option>'+
         customers().map(c=>'<option value="'+E(c.id)+'"'+
           (s.customer===c.id?" selected":"")+">"+E(c.name)+"</option>").join("")+
         '</select></label></div>'+
+        '<div class="ezreg-cart-list-heading"><strong>'+t("Chi tiết món","Order items")+
+        '</strong><span>'+count+' '+t("phần","units")+'</span></div>'+
         '<div class="ezreg-cart-items">'+(s.cart.length?s.cart.map(cartLineHtml).join(""):
           '<div class="ezreg-cart-empty"><span>🧾</span><strong>'+
           t("Chưa có món nào","No items yet")+'</strong><p>'+
-          t("Chạm sản phẩm bên trái để thêm nhanh vào đơn.","Tap any item to add it to this check.")+
+          t("Chạm dấu + trên món để thêm. Số lượng sẽ hiển thị ngay trên món và giỏ.",
+            "Tap + to add an item. Its quantity appears immediately on the item and cart.")+
           '</p></div>')+'</div>'+
         '<label class="ezreg-note-label">'+t("Ghi chú cho đơn","Order note")+
-        '<textarea data-ezreg-note maxlength="300" rows="2" placeholder="'+
-        t("Ví dụ: Ít đá, giao trước 15:00...","For example: Less ice, pickup at 3 PM...")+'">'+
-        E(s.note)+'</textarea></label>'+
-        '<div class="ezreg-cart-footer"><div class="ezreg-subtotal"><span>'+
-        t("Tạm tính","Estimated subtotal")+'</span><strong>'+fmt(total())+'</strong></div>'+
-        '<div class="ezreg-finance-hint">'+t("Giá cuối cùng được xác nhận trên máy chủ. Chưa thu tiền.",
-        "Final prices are verified on the server. No payment collected.")+'</div>'+
+        '<textarea data-ezreg-note maxlength="300" rows="2" '+(s.busy?"disabled":"")+
+        ' placeholder="'+t("Ví dụ: Ít đá, giao trước 15:00...",
+          "For example: Less ice, pickup at 3 PM...")+'">'+
+        E(s.note)+'</textarea></label></div>'+
+        '<div class="ezreg-cart-footer">'+
+        '<div class="ezreg-summary-row"><span>'+t("Tiền món","Menu items")+
+        '</span><strong>'+fmt(baseTotal)+'</strong></div>'+
+        '<div class="ezreg-summary-row"><span>'+t("Size / topping","Size / add-ons")+
+        '</span><strong>'+fmt(extrasTotal)+'</strong></div>'+
+        '<div class="ezreg-subtotal"><span>'+t("Tạm tính · "+count+" phần","Subtotal · "+count+" units")+
+        '</span><strong>'+fmt(total())+'</strong></div>'+
+        '<div class="ezreg-finance-hint">'+
+        t("Đơn chưa lưu · Chưa thu tiền. Không tự cộng giảm giá, thuế hoặc phụ phí. Máy chủ xác nhận tổng tiền khi lưu.",
+          "Not saved · Unpaid. Discounts, tax and surcharges are not automatically added. Server verifies the amount when saving.")+
+        '</div>'+
         (orderOnly()?"":'<button type="button" class="ezreg-create ezreg-pay-primary" data-ezreg="checkout" '+
-        (!s.cart.length||s.busy||!navigator.onLine?"disabled":"")+'>'+
+        (disabled?"disabled":"")+'>'+
         (s.busy?t("Đang xử lý...","Processing..."):
           t("Thanh toán","Checkout"))+
         '<span>'+fmt(total())+'</span></button>')+
         '<button type="button" class="ezreg-save-check" data-ezreg="create" '+
-        (!s.cart.length||s.busy||!navigator.onLine?"disabled":"")+'>'+t("Lưu đơn · Chưa thu tiền","Save check · Unpaid")+'</button>'+
+        (disabled?"disabled":"")+'>'+t("Lưu đơn · Chưa thu tiền","Save check · Unpaid")+'</button>'+
         '<div class="ezreg-secondary-actions"><button type="button" data-ezreg="clear" '+
-        (!s.cart.length?"disabled":"")+'>'+t("Xóa giỏ hàng","Clear cart")+'</button>'+
+        (!s.cart.length||s.busy?"disabled":"")+'>'+t("Xóa giỏ hàng","Clear cart")+'</button>'+
         (!orderOnly()?'<button type="button" data-ezreg="orders">'+
         t("Xem đơn đã tạo","View orders")+'</button>':"")+'</div></div>';
     }
@@ -249,6 +281,7 @@
         '<button class="ezreg-mobile-cartbar" data-ezreg="cart-toggle" type="button">'+
         '<span>🛒 '+totalQty()+' '+t("món","items")+'</span><strong>'+fmt(total())+
         '</strong><span>'+t("Xem giỏ ↑","View cart ↑")+'</span></button>'+
+        '<div class="ezreg-added-live" id="ezreg-added-live" role="status" aria-live="polite" aria-atomic="true"></div>'+
         '<div class="ezreg-cart-backdrop '+(s.mobileCart?"visible":"")+
         '" data-ezreg="cart-close"></div>'+
         '<div id="ezreg-option-mount"></div><div id="ezreg-payment-mount">'+(checkout?.render()||"")+'</div></section>';
@@ -274,12 +307,58 @@
     function syncCart(){
       const element=document.getElementById("ezreg-cart");
       if(!element)return;
+      const oldScroll=element.querySelector(".ezreg-cart-scroll")?.scrollTop||0;
       element.innerHTML=cartInnerHtml();
+      const scroll=element.querySelector(".ezreg-cart-scroll");
+      if(scroll)scroll.scrollTop=oldScroll;
       element.classList.toggle("mobile-open",s.mobileCart);
       const bar=document.querySelector(".ezreg-mobile-cartbar");
       if(bar)bar.innerHTML='<span>🛒 '+totalQty()+' '+t("món","items")+'</span>'+
         '<strong>'+fmt(total())+'</strong><span>'+t("Xem giỏ ↑","View cart ↑")+'</span>';
       document.querySelector(".ezreg-cart-backdrop")?.classList.toggle("visible",s.mobileCart);
+    }
+    function animateIntoCart(source,product){
+      const mobile=document.querySelector(".ezreg-mobile-cartbar");
+      const destination=mobile&&getComputedStyle(mobile).display!=="none"
+        ?mobile:document.querySelector("#ezreg-cart .ezreg-count");
+      if(!source||!destination)return;
+      const src=(source.querySelector(".ezreg-visual")||source).getBoundingClientRect();
+      const dst=destination.getBoundingClientRect();
+      const reduced=window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+      if(!reduced&&src.width&&dst.width){
+        const floater=document.createElement("span");
+        floater.className="ezreg-fly-item";
+        floater.setAttribute("aria-hidden","true");
+        const photo=source.querySelector(".ezreg-visual img");
+        if(photo)floater.appendChild(photo.cloneNode(true));
+        else floater.textContent=glyph(product);
+        floater.style.left=(src.left+src.width/2-24)+"px";
+        floater.style.top=(src.top+src.height/2-24)+"px";
+        document.body.appendChild(floater);
+        if(typeof floater.animate==="function"){
+          const dx=dst.left+dst.width/2-(src.left+src.width/2);
+          const dy=dst.top+dst.height/2-(src.top+src.height/2);
+          const movement=floater.animate([
+            {transform:"translate(0,0) scale(1)",opacity:1,offset:0},
+            {transform:"translate("+dx*.48+"px,"+(dy*.48-70)+"px) scale(.95)",opacity:1,offset:.52},
+            {transform:"translate("+dx+"px,"+dy+"px) scale(.28)",opacity:.15,offset:1}
+          ],{duration:620,easing:"cubic-bezier(.2,.72,.25,1)",fill:"forwards"});
+          movement.onfinish=()=>floater.remove();
+          movement.oncancel=()=>floater.remove();
+        }else floater.remove();
+      }
+      destination.classList.remove("ezreg-cart-bump");
+      void destination.offsetWidth;
+      destination.classList.add("ezreg-cart-bump");
+    }
+    function announceAdded(product){
+      const notice=document.getElementById("ezreg-added-live");
+      if(!notice)return;
+      if(addedNoticeTimer)clearTimeout(addedNoticeTimer);
+      notice.textContent="✓ "+t("Đã thêm ","Added ")+product.name+
+        " · "+totalQty()+" "+t("phần trong giỏ","units in cart");
+      notice.classList.add("visible");
+      addedNoticeTimer=setTimeout(()=>notice.classList.remove("visible"),1700);
     }
     function validOptionCount(p,chosen){
       return (p.modifier_groups||[]).every(g=>{
@@ -337,7 +416,7 @@
       const item=s.cart.find(x=>x.id===editId);
       if(!item&&s.cart.length>=50)return toast(t("Đơn tối đa 50 dòng","Maximum 50 lines"),true);
       if(!(p.modifier_groups||[]).length&&!editId){
-        addLine(pid,[],1);
+        addLine(pid,[],1,document.querySelector('[data-ezreg="product"][data-value="'+CSS.escape(pid)+'"]'));
         return;
       }
       s.optionProduct=pid;s.optionId=editId;
@@ -346,7 +425,7 @@
       paintOptions();
       document.getElementById("ezreg-option-title")?.scrollIntoView({block:"nearest"});
     }
-    function addLine(pid,ids,quantity){
+    function addLine(pid,ids,quantity,origin=null){
       const product=byId(pid);
       if(!product||!available(product))return;
       if(!validOptionCount(product,ids))
@@ -359,7 +438,11 @@
         s.cart.push({id:uid(),productId:pid,quantity,optionIds:[...ids]});
       }
       s.last=null;
-      syncCart();
+      animateIntoCart(origin,product);
+      s.recentProduct=pid;s.recentAt=Date.now();
+      syncCart();paintCatalog();announceAdded(product);
+      setTimeout(()=>{if(s.recentProduct===pid&&Date.now()-s.recentAt>=1000)
+        {s.recentProduct="";paintCatalog()}},1150);
     }
     function saveOptions(){
       const p=byId(s.optionProduct);
@@ -370,9 +453,10 @@
       if(s.optionId){
         const item=s.cart.find(x=>x.id===s.optionId);
         if(item){item.optionIds=[...s.optionIds];item.quantity=s.optionQty}
-      }else addLine(s.optionProduct,s.optionIds,s.optionQty);
+      }else addLine(s.optionProduct,s.optionIds,s.optionQty,
+        document.querySelector(".ezreg-option-dialog .ezreg-option-title"));
       s.optionProduct="";s.optionId="";s.optionIds=[];
-      paintOptions();syncCart();
+      paintOptions();syncCart();paintCatalog();
     }
     function toggleOption(groupId,optionId){
       const p=byId(s.optionProduct);
@@ -397,7 +481,7 @@
       if(!line)return;
       if(line.quantity+diff<1)s.cart=s.cart.filter(x=>x.id!==id);
       else line.quantity=Math.min(1000,line.quantity+diff);
-      s.last=null;syncCart();
+      s.last=null;syncCart();paintCatalog();
     }
     function ensureValid(){
       if(!s.cart.length)throw Error(t("Chưa chọn sản phẩm","No products in cart"));
@@ -435,6 +519,7 @@
         });
         if(bid!==business().id)return;
         s.cart=[];s.note="";s.optionProduct="";s.mobileCart=false;
+        paintCatalog();
         s.requestId=uid();
         s.last={id:order.id,total_vnd:order.total_vnd,paid:false,
           kdsStatus:order.kds_dispatch?.status||null};
@@ -475,7 +560,7 @@
     }
     function closeDraft(){
       if(!s.cart.length||confirm(t("Xóa toàn bộ món khỏi giỏ hiện tại?","Clear this cart?"))){
-        s.cart=[];s.requestId=uid();s.last=null;syncCart();
+        s.cart=[];s.requestId=uid();s.last=null;syncCart();paintCatalog();
       }
     }
     document.addEventListener("click",event=>{
@@ -483,11 +568,17 @@
       if(!button||!document.getElementById("ez-register")?.contains(button))return;
       event.preventDefault();event.stopPropagation();
       const action=button.dataset.ezreg,value=button.dataset.value;
+      if(s.busy&&["product","increase","decrease","remove","edit","option-save","clear"].includes(action))return;
       if(action==="category"){s.category=value;paintCatalog()}
-      else if(action==="product")openProduct(value);
+      else if(action==="product"){
+        const now=Date.now();
+        if(lastProductTap?.id===value&&now-lastProductTap.at<550)return;
+        lastProductTap={id:value,at:now};
+        openProduct(value);
+      }
       else if(action==="increase")changeQty(value,1);
       else if(action==="decrease")changeQty(value,-1);
-      else if(action==="remove"){s.cart=s.cart.filter(x=>x.id!==value);s.last=null;syncCart()}
+      else if(action==="remove"){s.cart=s.cart.filter(x=>x.id!==value);s.last=null;syncCart();paintCatalog()}
       else if(action==="edit"){const line=s.cart.find(x=>x.id===value);if(line)openProduct(line.productId,line.id)}
       else if(action==="option")toggleOption(button.dataset.group,value);
       else if(action==="option-qty-up"){s.optionQty=Math.min(1000,s.optionQty+1);paintOptions()}
