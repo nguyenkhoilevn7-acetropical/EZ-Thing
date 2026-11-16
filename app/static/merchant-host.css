@@ -1,0 +1,192 @@
+/* EZ Thing Host workstation — true operations, booking and floorplan modes. */
+.ezhost-room{--hr-line:var(--merchant-line,#dce5ed);
+ --hr-ink:var(--merchant-ink,#15243a);
+ --hr-muted:var(--merchant-muted,#69798e);
+ --hr-bg:var(--merchant-panel,#fff);
+ --hr-tint:var(--merchant-panel-alt,#f5f7fb);
+ --hr-blue:var(--merchant-accent,#086dd7);
+ min-width:0;width:100%;max-width:1800px;margin-inline:auto;display:grid;gap:14px;
+ color:var(--hr-ink);padding:0 0 30px;
+}
+.ezhost-room *{box-sizing:border-box}
+.ezhost-room button{font:inherit;cursor:pointer}
+.ezhost-room button:disabled{cursor:not-allowed;opacity:.5}
+.ezhost-room :is(button,input,select,textarea):focus-visible{
+ outline:3px solid color-mix(in srgb,var(--hr-blue) 60%,transparent);outline-offset:2px
+}
+.ezhost-room-header{background:var(--hr-bg);border:1px solid var(--hr-line);
+ display:flex;justify-content:space-between;align-items:center;gap:18px;
+ border-radius:17px;padding:19px 23px
+}
+.ezhost-room-header>div:first-child{min-width:0}
+.ezhost-room-header>div:first-child>span{
+ font-size:11px;font-weight:870;letter-spacing:.1em;color:var(--hr-blue)
+}
+.ezhost-room-header h2{font-size:clamp(24px,2.7vw,32px);letter-spacing:-.045em;
+ margin:5px 0 6px;font-weight:880;line-height:1.2
+}
+.ezhost-room-header p{color:var(--hr-muted);font-size:13px;line-height:1.5;margin:0}
+.ezhost-room-header-actions{display:flex;gap:9px;align-items:end;flex-wrap:wrap}
+.ezhost-room-header-actions>button,
+.ezhost-room-header-actions select{
+ border:1px solid var(--hr-line);border-radius:11px;
+ background:var(--hr-tint);color:var(--hr-ink);min-height:45px;padding:9px 14px;
+ font-weight:760;font-size:13px
+}
+.ezhost-room-header-actions>label{font-size:11px;display:grid;gap:5px;color:var(--hr-muted);
+ font-weight:760}
+.ezhost-room-tabs{display:flex;gap:9px;overflow-x:auto;padding:2px;scrollbar-width:thin}
+.ezhost-room-tabs button{padding:13px 18px;font-size:13px;font-weight:810;
+ border-radius:11px;white-space:nowrap;background:var(--hr-bg);
+ color:var(--hr-ink);border:1px solid var(--hr-line);min-height:48px
+}
+.ezhost-room-tabs button.active{color:#fff;background:var(--hr-blue);border-color:var(--hr-blue);
+ box-shadow:0 4px 12px color-mix(in srgb,var(--hr-blue) 24%,transparent)}
+.ezhost-room-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:11px}
+.ezhost-room-kpi{background:var(--hr-bg);border:1px solid var(--hr-line);
+ border-top:3px solid var(--hr-line);border-radius:14px;text-align:left;
+ display:grid;gap:5px;padding:15px 19px;min-width:0;color:var(--hr-ink)
+}
+.ezhost-room-kpi>span{font-size:12px;font-weight:770;color:var(--hr-muted)}
+.ezhost-room-kpi>strong{font-size:32px;line-height:1.15;font-weight:900}
+.ezhost-room-kpi.available{border-top-color:#17a779}
+.ezhost-room-kpi.occupied{border-top-color:#eaad41}
+.ezhost-room-kpi.cleaning{border-top-color:#4a9ccf}
+.ezhost-room-kpi.blocked{border-top-color:#d46e69}
+.ezhost-room-kpi.selected{outline:2px solid var(--hr-blue);outline-offset:1px}
+.ezhost-room-section{background:var(--hr-bg);border:1px solid var(--hr-line);
+ border-radius:17px;padding:19px;min-width:0
+}
+.ezhost-room-toolbar{display:flex;align-items:center;justify-content:space-between;
+ flex-wrap:wrap;gap:13px;margin-bottom:16px}
+.ezhost-room-toolbar>h3,.ezhost-room-toolbar h3{font-weight:850;font-size:19px;margin:0}
+.ezhost-room-toolbar h3 small{font-size:12px;font-weight:700;color:var(--hr-muted)}
+.ezhost-room-toolbar p{font-size:12px;color:var(--hr-muted);margin:5px 0 0}
+.ezhost-room-toolbar-actions{display:flex;align-items:center;flex-wrap:wrap;gap:8px;min-width:0}
+.ezhost-room-toolbar-actions>button{min-height:44px;font-weight:770;font-size:13px;
+ border-radius:10px;background:var(--hr-tint);border:1px solid var(--hr-line);
+ padding:9px 13px;color:var(--hr-ink)}
+.ezhost-room-toolbar-actions>button.selected{
+ background:var(--hr-blue);border-color:var(--hr-blue);color:#fff
+}
+.ezhost-room-primary,.ezhost-room-toolbar-actions>.ezhost-room-primary{
+ background:var(--hr-blue)!important;border-color:var(--hr-blue)!important;
+ color:#fff!important;font-weight:830!important
+}
+.ezhost-room-search{height:45px;display:flex;gap:8px;align-items:center;
+ border:1px solid var(--hr-line);border-radius:11px;padding:0 12px;
+ background:var(--hr-tint);min-width:min(260px,100%)
+}
+.ezhost-room-search input{border:0!important;outline:0!important;box-shadow:none!important;
+ font-size:14px;background:transparent!important;color:var(--hr-ink);
+ min-width:0;width:100%}
+.ezhost-room-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(240px,100%),1fr));gap:12px}
+.ezhost-room-table{display:grid;grid-template-rows:auto 1fr auto;
+ gap:13px;padding:17px;min-height:194px;border-radius:14px;
+ border:1px solid var(--hr-line);border-left:4px solid #1aaa78;
+ background:var(--hr-tint);min-width:0;
+}
+.ezhost-room-table.busy{border-left-color:#e8a73e}
+.ezhost-room-table.cleaning{border-left-color:#368dcc}
+.ezhost-room-table.blocked{border-left-color:#ce6669}
+.ezhost-room-table[hidden]{display:none!important}
+.ezhost-room-card-top{display:flex;align-items:flex-start;justify-content:space-between;
+ gap:8px}
+.ezhost-room-card-top h3{font-size:19px;line-height:1.2;margin:7px 0 0;font-weight:880}
+.ezhost-room-seats{font-size:11px;color:var(--hr-muted);font-weight:780}
+.ezhost-room-status{font-size:11px;font-weight:830;white-space:nowrap;
+ padding:7px 9px;border-radius:99px;background:rgba(27,169,116,.13);color:#08764e
+}
+.ezhost-room-status.busy{background:rgba(230,169,55,.16);color:#926113}
+.ezhost-room-status.cleaning{background:rgba(44,143,210,.13);color:#2577a9}
+.ezhost-room-status.blocked{background:rgba(206,91,95,.13);color:#ba5157}
+.ezhost-room-meta{display:grid;align-content:start;gap:6px;font-size:12px;color:var(--hr-muted)}
+.ezhost-room-meta p{margin:0;overflow-wrap:anywhere;line-height:1.45}
+.ezhost-room-actions{display:flex;flex-wrap:wrap;gap:7px}
+.ezhost-room-actions button,.ezhost-booking-actions button{
+ border:1px solid var(--hr-line);border-radius:10px;min-height:44px;
+ padding:9px 11px;font-size:12px;font-weight:780;background:var(--hr-bg);
+ color:var(--hr-ink);flex:1 1 90px
+}
+.ezhost-room-actions button.primary{
+ background:var(--hr-blue);color:#fff;border-color:var(--hr-blue)
+}
+.ezhost-room-empty{grid-column:1/-1;padding:30px;text-align:center;
+ color:var(--hr-muted);border:1px dashed var(--hr-line);border-radius:12px}
+.ezhost-booking-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(295px,100%),1fr));gap:13px}
+.ezhost-booking-card{background:var(--hr-tint);border:1px solid var(--hr-line);
+ border-radius:13px;padding:15px;display:grid;align-content:start;gap:14px}
+.ezhost-booking-top{display:flex;align-items:flex-start;justify-content:space-between;
+ gap:12px;flex-wrap:wrap}
+.ezhost-booking-top>div{display:grid;gap:5px}
+.ezhost-booking-top strong{font-size:16px}
+.ezhost-booking-top span{font-size:12px;color:var(--hr-muted)}
+.ezhost-booking-status{display:inline-flex;font-size:11px;font-weight:780;
+ padding:7px 9px;border-radius:8px;background:#f4e7bf;color:#835e15}
+.ezhost-booking-status.confirmed{background:#d6eee8;color:#1d795a}
+.ezhost-booking-status.cancelled{background:#f8e4e6;color:#aa4146}
+.ezhost-booking-meta{display:flex;flex-wrap:wrap;gap:10px;font-size:13px;font-weight:730}
+.ezhost-booking-card>p{font-size:12px;color:var(--hr-muted)}
+.ezhost-booking-actions{display:flex;flex-wrap:wrap;gap:8px}
+.ezhost-booking-actions .danger{color:#b7474d}
+.ezhost-floor{min-height:430px}
+.ezhost-room-zones{display:flex;gap:8px;overflow:auto;margin-bottom:13px}
+.ezhost-room-zones button{min-height:40px;padding:7px 13px;font-size:12px;
+ border-radius:9px;border:1px solid var(--hr-line);background:var(--hr-tint);
+ color:var(--hr-ink)}
+.ezhost-room-zones button.active{background:var(--hr-blue);border-color:var(--hr-blue);color:#fff}
+.ezhost-room-map{height:clamp(330px,55vh,560px);position:relative;
+ border:1px solid var(--hr-line);border-radius:13px;overflow:hidden;
+ background:linear-gradient(90deg,color-mix(in srgb,var(--hr-line) 25%,transparent) 1px,transparent 1px),
+ linear-gradient(0deg,color-mix(in srgb,var(--hr-line) 25%,transparent) 1px,transparent 1px),
+ var(--hr-tint);background-size:34px 34px}
+.ezhost-map-table{position:absolute;transform:translate(-50%,-50%);
+ touch-action:none;user-select:none;min-width:92px;min-height:66px;
+ display:flex;flex-direction:column;align-items:center;justify-content:center;
+ gap:5px;border:2px solid #12a576;border-radius:14px;
+ background:var(--hr-bg);color:var(--hr-ink);box-shadow:0 5px 18px #152d4433;
+ cursor:grab;padding:8px}
+.ezhost-map-table:active{cursor:grabbing}
+.ezhost-map-table.busy{border-color:#dda63f}
+.ezhost-map-table>strong{font-size:13px}
+.ezhost-map-table>small{font-size:11px;color:var(--hr-muted)}
+.ezhost-room-hint,.ezhost-room-footer{font-size:11px;line-height:1.55;
+ color:var(--hr-muted);margin:12px 0 0}
+.ezhost-room-footer{padding:9px 15px}
+[data-ezhost-form]{display:grid;gap:13px;color:var(--merchant-ink,#1b2940)}
+[data-ezhost-form] label{display:grid;gap:6px;font-size:12px;font-weight:800}
+[data-ezhost-form] :is(input,select,textarea){border:1px solid var(--merchant-line,#dce5ee);
+ background:var(--merchant-panel-alt,#f4f6fa);color:var(--merchant-ink,#16243b);
+ border-radius:10px;min-height:45px;font-size:14px;padding:10px 12px;width:100%;max-width:100%}
+.ezhost-form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.ezhost-form-hint{font-size:12px;line-height:1.5;color:var(--merchant-muted,#66768d);margin:0}
+[data-ezhost-form]>footer{display:flex;justify-content:flex-end;gap:10px;margin-top:10px}
+[data-ezhost-form]>footer button{border-radius:10px;border:1px solid var(--merchant-line,#dce5ee);
+ background:var(--merchant-panel-alt,#f4f6fa);color:var(--merchant-ink,#1b2940);
+ font-size:14px;padding:11px 15px;min-height:47px;font-weight:800}
+:root[data-ez-merchant-theme="graphite"] .ezhost-room-status.free{color:#81e8b9}
+:root[data-ez-merchant-theme="graphite"] .ezhost-room-status.busy{color:#ffdd8e}
+:root[data-ez-merchant-theme="graphite"] .ezhost-booking-status.confirmed{background:#244c44;color:#86e2b9}
+:root[data-ez-merchant-theme="graphite"] .ezhost-room-status.blocked{color:#f5a0a4}
+@media(max-width:880px){
+ .ezhost-room-summary{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+ .ezhost-room-header{align-items:flex-start;flex-wrap:wrap;padding:15px}
+ .ezhost-room-header-actions{width:100%}
+ .ezhost-room-section{padding:14px}
+ .ezhost-room-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+ .ezhost-room-table{min-height:174px;padding:11px}
+ .ezhost-room-status{font-size:10px;padding:6px}
+}
+@media(max-width:560px){
+ .ezhost-room-grid,.ezhost-booking-grid{grid-template-columns:1fr}
+ .ezhost-room-kpi{padding:10px 13px}
+ .ezhost-room-kpi>strong{font-size:25px}
+ .ezhost-room-kpi>span{font-size:11px}
+ .ezhost-room-header h2{font-size:23px}
+ .ezhost-room-header-actions>button{font-size:12px}
+ .ezhost-room-table{min-height:146px}
+ .ezhost-room-toolbar-actions{width:100%}
+ .ezhost-room-search{width:100%;flex:1 1 100%}
+ .ezhost-form-grid{grid-template-columns:1fr}
+ .ezhost-map-table{min-width:76px}
+}
