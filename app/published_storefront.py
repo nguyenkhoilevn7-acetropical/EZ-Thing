@@ -149,6 +149,10 @@ def public_catalog(slug: str, db: Session = Depends(db_session)):
         .order_by(Product.category, Product.name).limit(100)).all()
     from .modifiers import configs, exposed_groups
     modifier_configs = configs(db, b.id, [p.id for p in products])
+    from .product_media import ProductMedia, public_image_path
+    media = {row.product_id: row.revision for row in db.scalars(select(ProductMedia).where(
+        ProductMedia.business_id == b.id,
+        ProductMedia.product_id.in_([p.id for p in products] or [""]))) }
     # No costs, raw stock numbers, customer records, staff or private settings.
     brand = {k: photos.get(k, "") for k in
              ("display_name", "description", "phone", "address",
@@ -164,6 +168,7 @@ def public_catalog(slug: str, db: Session = Depends(db_session)):
         "branding": brand,
         "products": [{"id": p.id, "name": p.name, "category": p.category,
                       "price_vnd": p.price_vnd,
+                      "image_url": public_image_path(slug, p.id, media[p.id]) if p.id in media else None,
                       "available": not p.track_stock or p.stock > 0,
                       "modifier_groups": exposed_groups(modifier_configs.get(p.id, []))}
                      for p in products],

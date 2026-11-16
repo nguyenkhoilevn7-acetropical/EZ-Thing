@@ -218,7 +218,8 @@ def edit_storefront(bid: str, body: StorefrontUpdate, request: Request,
 
 MAX_INPUT_BYTES = 6 * 1024 * 1024
 MEDIA_LIMITS = {"banner": (1920, 1200, 850_000),
-                "logo": (800, 800, 350_000)}
+                "logo": (800, 800, 350_000),
+                "product": (900, 900, 230_000)}
 
 
 def _normalized_image(content: bytes, kind: str) -> bytes:

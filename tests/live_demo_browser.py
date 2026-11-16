@@ -137,7 +137,7 @@ try:
              for label in ("Lễ tân & xếp bàn","Front Desk & Seating"))
   mobile_tabs=page.locator(".mobile-nav [data-value]")
   values=mobile_tabs.evaluate_all("(nodes)=>nodes.map(n=>n.dataset.value)")
-  assert values==["overview","orders","reservations","kitchen","settings"], values
+  assert values==["overview","pos","orders","kitchen","settings"], values
   page.goto(BASE+"/app?tab=kitchen",wait_until="domcontentloaded",timeout=15000)
   page.locator("#ez-kds .kds-station").first.wait_for(timeout=25000)
   assert page.locator("#ez-kds .kds-station").count()==5
@@ -154,32 +154,76 @@ try:
   page.locator('.mobile-only [data-action="tab"]').first.wait_for(timeout=25000)
   more=page.locator('.mobile-only [data-action="tab"]').evaluate_all("(nodes)=>nodes.map(n=>n.dataset.value)")
   assert "operations" in more and "products" in more and "tables" in more,more
-  assert "kitchen" not in more and "reservations" not in more,more
+  assert "kitchen" not in more and "pos" not in more and "reservations" in more,more
   print("PASS F&B mobile navigation, Front Desk name and KDS station/item controls",flush=True)
 
-  # V6: actual browser modifier editor, independent size choices and POS total.
+  # V6 options are still managed in Product Settings, but actual sale
+  # occurs in the full Quick Register instead of the legacy form dialog.
   page.goto(BASE+"/app?tab=products",wait_until="domcontentloaded",timeout=15000)
-  page.locator('.product-card [data-action="edit-modifiers"]').first.wait_for(timeout=25000)
-  page.locator('.product-card [data-action="edit-modifiers"]').first.click()
+  edit_button=page.locator('.product-card [data-action="edit-modifiers"]').first
+  edit_button.wait_for(timeout=25000)
+  modifier_pid=edit_button.get_attribute("data-value")
+  edit_button.click()
   page.locator("#ez-modifier-form").wait_for(timeout=15000)
   page.locator('[data-m6-action="add-size"]').click()
   page.locator('#ez-modifier-form [data-m6-option-index="1"] [data-m6-price]').fill("7000")
   page.locator('#ez-modifier-form [type="submit"]').click()
   page.locator("#ez-modifier-form").wait_for(state="detached",timeout=15000)
+
   page.goto(BASE+"/app?tab=orders",wait_until="domcontentloaded",timeout=15000)
+  page.locator(".order-card").first.wait_for(timeout=25000)
   page.locator('[data-action="new-order"]').first.click()
-  page.locator('#order-form .m6-pos-group').first.wait_for(timeout=15000)
-  first=page.locator('#order-lines .order-line').first
-  first.locator('[data-pos-modifier]').first.check()
-  base_price=int(first.locator('select[name="product_id"] option:checked').get_attribute('data-price'))
-  page.locator('[data-action="add-line"]').click()
-  second=page.locator('#order-lines .order-line').nth(1)
-  second.locator('[data-pos-modifier]').last.check()
-  assert first.locator('[data-pos-modifier]').first.is_checked(), "Different order lines share one size-radio group"
-  assert second.locator('[data-pos-modifier]').last.is_checked()
-  assert page.locator('#order-total').inner_text().replace(".","").replace(",","").replace("đ","").strip()==str(base_price*2+7000)
-  page.keyboard.press("Escape")
-  print("PASS /app V6: editor saves sizes and POS keeps per-line modifiers and pricing",flush=True)
+  page.locator("#ez-register .ezreg-product").first.wait_for(timeout=15000)
+  assert page.locator("#order-form").count()==0,"Legacy create-order modal remained in use"
+  page.locator('.ezreg-product[data-value="'+modifier_pid+'"]').click()
+  page.locator(".ezreg-option-dialog").wait_for(timeout=15000)
+  assert not page.locator('[data-ezreg="option-save"]').is_enabled(), "Required size could be skipped"
+  page.locator('.ezreg-option-group[data-min="1"] .ezreg-option').first.click()
+  assert page.locator('[data-ezreg="option-save"]').is_enabled()
+  page.locator('[data-ezreg="option-save"]').click()
+  assert page.locator(".ezreg-cart-line").count()==1
+  first_price=page.locator('.ezreg-cart-line .ezreg-line-side strong').first.inner_text()
+
+  page.locator('.ezreg-product[data-value="'+modifier_pid+'"]').click()
+  page.locator(".ezreg-option-dialog").wait_for(timeout=15000)
+  page.locator('.ezreg-option-group[data-min="1"] .ezreg-option').last.click()
+  page.locator('[data-ezreg="option-save"]').click()
+  assert page.locator(".ezreg-cart-line").count()==2, "Different modifier variants collapsed"
+  assert page.locator(".ezreg-cart-line .ezreg-line-side strong").first.inner_text()==first_price
+  # At 412px the cart is intentionally a closed bottom sheet until opened.
+  page.locator('[data-ezreg="cart-toggle"]').click()
+  assert page.locator("#ezreg-cart.mobile-open").is_visible()
+  page.locator('.ezreg-cart-line').first.locator('[data-ezreg="increase"]').click()
+  page.locator('[data-ezreg="cart-close"]').first.click()
+  assert page.locator(".ezreg-cart-line").first.locator(".ezreg-line-actions b").inner_text()=="2"
+  assert page.locator(".ezreg-subtotal strong").inner_text().strip()
+  print("PASS register: required Size validation, 2 variants, quantity, backend price preview",flush=True)
+
+  # Chrome viewport checks on phones/tablets/desktops, including Graphite.
+  for width in (360,412,720,1040,1440):
+   page.set_viewport_size({"width":width,"height":880})
+   overflow=page.evaluate("""() => ({
+      scroll:document.documentElement.scrollWidth,inner:window.innerWidth,
+      visible:!!document.querySelector('#ez-register .ezreg-product')
+   })""")
+   assert overflow["visible"] and overflow["scroll"]<=overflow["inner"]+2,(width,overflow)
+   if width<=1040:
+    page.locator('[data-ezreg="cart-toggle"]').click()
+    assert page.locator("#ezreg-cart.mobile-open").is_visible()
+    page.locator('[data-ezreg="cart-close"]').first.click()
+   if width==412:
+    page.evaluate("document.documentElement.setAttribute('data-ez-merchant-theme','graphite')")
+    bg=page.locator(".ezreg-catalog").evaluate("(el)=>getComputedStyle(el).backgroundColor")
+    assert bg!="rgb(255, 255, 255)",bg
+  page.set_viewport_size({"width":1280,"height":800})
+  page.evaluate("document.documentElement.setAttribute('data-ez-merchant-theme','apple')")
+  page.locator('[data-ezreg="create"]').click()
+  page.locator(".ezreg-last").wait_for(timeout=25000)
+  assert page.locator(".ezreg-cart-line").count()==0
+  assert page.locator(".ezreg-last").inner_text().strip()
+  assert page.locator(".ezreg-last-actions [data-ezreg='paid']").count()==1
+  print("PASS /app POS: responsive checkout, persisted order, no browser errors",flush=True)
+
   page.goto(BASE+"/app?tab=orders",wait_until="domcontentloaded",timeout=15000)
   page.locator(".order-card").first.wait_for(timeout=25000)
 

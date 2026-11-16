@@ -43,3 +43,6 @@
 .shop-mod-option span{flex:1}
 .shop-mod-option strong{font-size:13px;white-space:nowrap}
 #shop-mod-status{color:#b9454f;font-size:12px;min-height:14px}
+
+.shop-product-photo{overflow:hidden}
+.shop-product-photo img{display:block;width:100%;height:100%;object-fit:cover;object-position:center}

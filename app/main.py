@@ -439,7 +439,12 @@ def products(bid: str, user=Depends(current_user), db: Session = Depends(db_sess
     products = db.scalars(select(Product).where(Product.business_id == bid).order_by(Product.created_at.desc())).all()
     from .modifiers import configs, exposed_groups
     modifier_map = configs(db, bid, [p.id for p in products])
+    media = {row.product_id: row.revision for row in db.scalars(select(ProductMedia).where(
+        ProductMedia.business_id == bid,
+        ProductMedia.product_id.in_([p.id for p in products] or ['']))) }
+    from .product_media import private_image_path
     return [{**product_out(p),
+             "image_url": private_image_path(bid, p.id, media[p.id]) if p.id in media else None,
              "modifier_groups": exposed_groups(modifier_map.get(p.id, [])),
              **({} if can_view_cost else {"cost_vnd": None})} for p in products]
 
@@ -856,9 +861,11 @@ app.include_router(kds_router)
 
 # EZ Print: separate device identities, tenant queue and Star CloudPRNT adapter.
 from .printing import merchant as print_router, device_api as print_device_router  # noqa: E402
+from .product_media import router as product_media_router, ProductMedia  # noqa: E402
 Base.metadata.create_all(bind=engine)  # Pilot only; production applies 20261116_08 migration.
 app.include_router(print_router)
 app.include_router(print_device_router)
+app.include_router(product_media_router)
 
 # Cashier daily reconciliation reads the existing SaleOrder ledger only.
 from .cashier import router as cashier_router  # noqa: E402
