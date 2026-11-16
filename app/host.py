@@ -6,7 +6,7 @@ This API is tenant/branch restricted and works without new database tables.
 """
 from __future__ import annotations
 
-from datetime import timedelta
+from datetime import timedelta, timezone
 from typing import Literal
 
 from fastapi import APIRouter, Depends, Query
@@ -30,6 +30,9 @@ class HostAction(BaseModel):
     guest_count: int | None = Field(default=None, ge=1, le=60)
     note: str = Field(default="", max_length=240)
     target_table_id: str | None = None
+    reservation_id: str | None = None
+    guest_name: str = Field(default="", max_length=100)
+    guest_phone: str = Field(default="", max_length=25)
     expected_revision: int = Field(ge=0)
 
 
@@ -87,6 +90,10 @@ def current_view(table, state, orders):
     return {"id": table.id, "branch_id": table.branch_id, "label": table.label,
             "seats": table.seats, "occupied": status == "occupied",
             "status": status, "guest_count": details.get("guest_count", 0),
+            "guest_name": details.get("guest_name", ""),
+            "guest_phone": details.get("guest_phone", ""),
+            "seated_at": details.get("seated_at"),
+            "reservation_id": details.get("reservation_id"),
             "note": details.get("note", ""), "group_id": details.get("group_id"),
             "order_count": len(orders.get(table.id, [])),
             "has_open_check": occupied_by_order,
@@ -129,6 +136,37 @@ def act(bid: str, tid: str, body: HostAction, branch_id: str | None = Query(defa
         fail(409, "Bàn còn đơn bán hàng chưa thanh toán. Phải chuyển hoặc hoàn tất đơn tại POS trước.")
     if action == "seat" and before["status"] not in ("available",):
         fail(409, "Bàn đang có khách, đang dọn hoặc tạm khóa")
+    reservation = None
+    if action == "seat":
+        # The tenant lock also serializes check-in and booking choices made here.
+        current = now()
+        def aware(value):
+            return value.replace(tzinfo=timezone.utc) if value.tzinfo is None else value.astimezone(timezone.utc)
+        upcoming = db.scalars(select(IndustryWorkItem).where(
+            IndustryWorkItem.business_id == bid,
+            IndustryWorkItem.kind == "reservations",
+            IndustryWorkItem.status.in_(("pending", "confirmed")))).all()
+        for booking in upcoming:
+            d = booking.details or {}
+            if d.get("branch_id") != branch.id or d.get("table_id") != tid:
+                continue
+            start = aware(booking.scheduled_at) if booking.scheduled_at else None
+            end = aware(booking.ends_at) if booking.ends_at else None
+            if not start or not end:
+                continue
+            if start - timedelta(minutes=30) <= current <= end and booking.id != body.reservation_id:
+                fail(409, "Bàn có lịch đặt trong khung giờ này. Hãy chọn khách đã đặt để nhận bàn.")
+            if booking.id == body.reservation_id:
+                reservation = booking
+        if body.reservation_id:
+            if not reservation or reservation.status != "confirmed":
+                fail(409, "Lịch đặt bàn không hợp lệ hoặc chưa xác nhận.")
+            if not reservation.scheduled_at or not reservation.ends_at or not (
+                aware(reservation.scheduled_at) - timedelta(minutes=60) <= current
+                <= aware(reservation.ends_at)):
+                fail(409, "Chưa đến khung giờ nhận khách của lịch đặt.")
+    elif body.reservation_id:
+        fail(422, "Chỉ được liên kết lịch đặt khi nhận khách")
     if action == "seat" and body.guest_count and body.guest_count > table.seats:
         fail(409, "Số khách vượt số ghế. Hãy ghép thêm bàn trước")
     if action == "block" and before["status"] not in ("available", "blocked"):
@@ -186,8 +224,19 @@ def act(bid: str, tid: str, body: HostAction, branch_id: str | None = Query(defa
     details["revision"] = before["revision"] + 1
     if action == "seat":
         row.status = "occupied"
-        details.update({"guest_count": body.guest_count or 1, "note": body.note.strip(),
+        details.update({"guest_count": body.guest_count or (
+                            (reservation.details or {}).get("party_size", 1) if reservation else 1),
+                        "note": body.note.strip(),
+                        "guest_name": body.guest_name.strip() or (
+                            (reservation.details or {}).get("customer_name", "") if reservation else ""),
+                        "guest_phone": body.guest_phone.strip() or (
+                            (reservation.details or {}).get("phone", "") if reservation else ""),
+                        "reservation_id": reservation.id if reservation else None,
                         "group_id": None, "seated_at": now().isoformat()})
+        if reservation:
+            reservation.status = "seated"
+            audit(db, bid, user[0].id, "reservation.status", {
+                "id": reservation.id, "status": "seated", "table_id": tid})
     elif action in ("release", "cleaning"):
         # Releasing a joined party also frees its attached empty-check tables.
         if before["group_id"]:
@@ -202,10 +251,14 @@ def act(bid: str, tid: str, body: HostAction, branch_id: str | None = Query(defa
                            "guest_count":0,"group_id":None,"note":body.note.strip()})
                 child.details=cd;child.status="cleaning"
         row.status = "cleaning"
-        details.update({"guest_count": 0, "group_id": None, "note": body.note.strip()})
+        details.update({"guest_count": 0, "group_id": None, "note": body.note.strip(),
+                        "guest_name": "", "guest_phone": "", "reservation_id": None,
+                        "seated_at": None})
     elif action in ("ready", "unblock"):
         row.status = "available"
-        details.update({"guest_count":0,"group_id":None,"note":""})
+        details.update({"guest_count":0,"group_id":None,"note":"",
+                        "guest_name":"", "guest_phone":"", "reservation_id":None,
+                        "seated_at":None})
     elif action == "block":
         row.status = "blocked"
         details.update({"guest_count": 0, "group_id": None, "note":body.note.strip()})
@@ -229,7 +282,9 @@ def act(bid: str, tid: str, body: HostAction, branch_id: str | None = Query(defa
         # A table transfer here means a host seating session ONLY; never
         # a POS check or a paid financial record.
         row.status = "available"
-        details.update({"guest_count":0,"note":"","group_id":None})
+        details.update({"guest_count":0,"note":"","group_id":None,
+                        "guest_name":"", "guest_phone":"", "reservation_id":None,
+                        "seated_at":None})
         if target_row is None:
             target_row = IndustryWorkItem(
                 id=new_id(),business_id=bid,kind=KIND,reference_id=target.id,
@@ -239,7 +294,10 @@ def act(bid: str, tid: str, body: HostAction, branch_id: str | None = Query(defa
         td.update({"revision":int(td.get("revision",0))+1,"guest_count":
                    body.guest_count or before["guest_count"],"note":
                    body.note.strip() or before["note"],"group_id":None,
-                   "seated_at":now().isoformat()})
+                   "guest_name":body.guest_name.strip() or before["guest_name"],
+                   "guest_phone":body.guest_phone.strip() or before["guest_phone"],
+                   "reservation_id":before["reservation_id"],
+                   "seated_at":before["seated_at"] or now().isoformat()})
         target_row.details = td
         target_row.status="occupied"
     elif action == "unjoin":
