@@ -289,26 +289,17 @@ def review_request(bid: str,rid: str,body: ReviewOrder,
             unit_price_vnd=line["unit_price_vnd"],total_vnd=line["unit_price_vnd"]*qty,
         ))
         write_item_selection(db,bid,entry_id,line.get("modifiers",[]))
-    kind={"online":"delivery","fnb":"kitchen"}.get(b.industry)
-    if kind:
-        job_id=str(uuid.uuid4())
-        details={"source":"published_storefront","note":item.note}
-        if kind=="kitchen":
-            # Guest-approved orders MUST have the exact same immutable KDS
-            # snapshot as an order fired manually. Otherwise the bar can see
-            # changed menu/modifier data and the EZ Print queue never receives
-            # an automatically routed ticket.
-            db.flush()
-            from .kds import ticket_lines
-            from .printing import enqueue_kitchen
-            details["kds_lines"]=ticket_lines(db,bid,sale)
-            details["kds_revision"]=0
-            enqueue_kitchen(db,bid,sale,job_id,details)
+    if b.industry == "fnb" and "kitchen" in (b.active_modules or []):
+        # Website-approved and POS-created orders use the SAME tenant routing
+        # policy and one canonical KDS ticket. No station bypass or extra print.
+        from .kds import auto_dispatch_order
+        auto_dispatch_order(db, bid, sale, source="published_storefront")
+    elif b.industry == "online":
         db.add(IndustryWorkItem(
-            id=job_id,business_id=bid,kind=kind,
-            reference_id=sale.id,customer_id=customer.id,
-            title=("Đơn giao • " if kind=="delivery" else "Phiếu bếp • ")+sale.id[:8].upper(),
-            status="pending",details=details,
+            id=str(uuid.uuid4()), business_id=bid, kind="delivery",
+            reference_id=sale.id, customer_id=customer.id,
+            title="Đơn giao • " + sale.id[:8].upper(), status="pending",
+            details={"source": "published_storefront", "note": item.note},
         ))
     item.status="accepted"
     item.sale_order_id=sale.id
