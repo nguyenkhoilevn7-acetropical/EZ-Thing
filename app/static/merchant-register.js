@@ -573,7 +573,9 @@
       if(action==="category"){s.category=value;paintCatalog()}
       else if(action==="product"){
         const now=Date.now();
-        if(lastProductTap?.id===value&&now-lastProductTap.at<550)return;
+        // Variant choices open a dialog: allow immediate repeat so staff can add different sizes.
+        if(!(byId(value)?.modifier_groups||[]).length&&
+          lastProductTap?.id===value&&now-lastProductTap.at<550)return;
         lastProductTap={id:value,at:now};
         openProduct(value);
       }
