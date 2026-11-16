@@ -24,17 +24,18 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Mapped, Session, mapped_column
 
 from .database import Base, db_session
-from .models import Branch, SaleOrder, now
+from .models import Branch, DiningTable, Product, SaleOrder, now
 from .main import audit, current_user, order_out, tenant
-from .team import MANAGE_ROLES, allow
+from .team import MANAGE_ROLES, ROLES, allow
 
 merchant = APIRouter(prefix="/api/businesses/{bid}/printers", tags=["EZ Print"])
 device_api = APIRouter(prefix="/api/print", tags=["EZ Print device"])
-STATIONS = {"all", "bar", "hot", "cold", "expo", "receipt"}
+STATIONS = {"all", "bar", "hot", "cold", "expo", "receipt", "packing", "label"}
 PROTOCOLS = {"connector_lan", "connector_usb", "cloudprnt"}
 STATION_NAMES = {
     "all": "Tất cả phiếu bếp", "bar": "Pha chế", "hot": "Bếp nóng",
     "cold": "Bếp lạnh", "expo": "Ra món", "receipt": "Thu ngân",
+    "packing": "Kiểm đồ / đóng gói", "label": "Tem dán ly",
 }
 MAX_JOBS = 100
 
@@ -79,7 +80,7 @@ class PrinterCreate(BaseModel):
     name: str = Field(min_length=2, max_length=100)
     branch_id: str = Field(min_length=1, max_length=36)
     protocol: Literal["connector_lan", "connector_usb", "cloudprnt"]
-    station: Literal["all", "bar", "hot", "cold", "expo", "receipt"]
+    station: Literal["all", "bar", "hot", "cold", "expo", "receipt", "packing", "label"]
     auto_print: bool = True
 
 
@@ -198,7 +199,9 @@ def clean(value: object, limit: int = 200) -> str:
 
 
 def render_ticket(name: str, order_id: str, lines: list[dict], note: str = "", *,
-                  total: int | None = None) -> str:
+                  total: int | None = None,
+                  payment_note: str = "PAYMENT: marked as received (manual)",
+                  breakdown: dict | None = None) -> str:
     # A compact UTF-8, device-neutral receipt snapshot. ESC/POS encoding is
     # performed locally by the connector; CloudPRNT uses supported text/plain.
     out = ["EZ THING", clean(name, 100), "-" * 40, f"ORDER #{order_id[:8].upper()}",
@@ -212,8 +215,14 @@ def render_ticket(name: str, order_id: str, lines: list[dict], note: str = "", *
     if note:
         out.extend(["-" * 40, "NOTE: " + clean(note, 250)])
     if total is not None:
+        if breakdown:
+            out.extend([
+                f"SUBTOTAL: {int(breakdown['subtotal_vnd']):,} VND",
+                f"DISCOUNT: -{int(breakdown['discount_vnd']):,} VND",
+                f"TIP: +{int(breakdown['tip_vnd']):,} VND",
+            ])
         out.extend(["-" * 40, f"TOTAL: {int(total):,} VND",
-                    "PAYMENT: marked as received (manual)"])
+                    clean(payment_note, 120)])
     out.extend(["-" * 40, "EZ Thing POS - Not a tax invoice", "", ""])
     return "\n".join(out)
 
@@ -231,16 +240,30 @@ def enqueue_kitchen(db: Session, bid: str, order: SaleOrder,
                                   order.id, selected, details.get("note", "")))
 
 
+def pos_breakdown(db: Session, order: SaleOrder) -> dict | None:
+    # POS discount/tip are adjustments on the existing order total, not
+    # additional chargeable lines; show them explicitly to avoid false totals.
+    from .pos_v7 import POSCheckMeta
+    meta = db.scalar(select(POSCheckMeta).where(
+        POSCheckMeta.order_id == order.id,
+        POSCheckMeta.business_id == order.business_id))
+    if meta is None:
+        return None
+    return {"subtotal_vnd": meta.subtotal_vnd,
+            "discount_vnd": meta.discount_vnd, "tip_vnd": meta.tip_vnd}
+
+
 def enqueue_receipt(db: Session, bid: str, order: SaleOrder) -> None:
     devices = active_devices(db, bid, order.branch_id, {"receipt"})
     if not devices:
         return
     snapshot = order_out(db, order)
+    breakdown = pos_breakdown(db, order)
     for device in devices:
         enqueue(db, device, f"paid:{order.id}", "Receipt #" + order.id[:8],
                 render_ticket("CUSTOMER RECEIPT", order.id,
                               snapshot["items"], order.note,
-                              total=order.total_vnd))
+                              total=order.total_vnd, breakdown=breakdown))
 
 
 def claim_next(db: Session, row: PrintDevice) -> PrintJob | None:
