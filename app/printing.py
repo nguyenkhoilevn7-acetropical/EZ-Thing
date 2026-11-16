@@ -103,13 +103,20 @@ def admin_guard(db: Session, bid: str, user):
     return business
 
 
+def iso_utc(value: datetime | None) -> str | None:
+    if value is None:
+        return None
+    aware = value.replace(tzinfo=timezone.utc) if value.tzinfo is None else value
+    return aware.astimezone(timezone.utc).isoformat()
+
+
 def device_out(row: PrintDevice) -> dict:
     return {
         "id": row.id, "branch_id": row.branch_id, "name": row.name,
         "protocol": row.protocol, "station": row.station,
         "enabled": row.enabled, "auto_print": row.auto_print,
-        "created_at": row.created_at.isoformat() if row.created_at else None,
-        "last_seen_at": row.last_seen_at.isoformat() if row.last_seen_at else None,
+        "created_at": iso_utc(row.created_at),
+        "last_seen_at": iso_utc(row.last_seen_at),
         "station_label": STATION_NAMES.get(row.station, row.station),
     }
 
@@ -119,9 +126,9 @@ def job_out(row: PrintJob) -> dict:
         "id": row.id, "device_id": row.device_id,
         "title": row.title, "status": row.status,
         "last_error": row.last_error,
-        "created_at": row.created_at.isoformat() if row.created_at else None,
-        "delivered_at": row.delivered_at.isoformat() if row.delivered_at else None,
-        "printed_at": row.printed_at.isoformat() if row.printed_at else None,
+        "created_at": iso_utc(row.created_at),
+        "delivered_at": iso_utc(row.delivered_at),
+        "printed_at": iso_utc(row.printed_at),
     }
 
 
@@ -661,11 +668,20 @@ def print_document(bid: str, oid: str, body: ManualDocument,
     if device.station not in DOCUMENT_STATIONS[body.kind]:
         raise HTTPException(409, "Máy in không được gán cho loại chứng từ này")
     docs = documents_for_order(db, bid, order, body.kind)
-    keys = []
+    keys = [
+        "manual:" + body.kind + ":" + oid + ":" + body.request_id + ":" + str(index)
+        for index in range(len(docs))
+    ]
+    existing = db.scalars(select(PrintJob.event_key).where(
+        PrintJob.device_id == device.id, PrintJob.event_key.in_(keys))).all()
+    if existing:
+        if len(existing) != len(keys):
+            raise HTTPException(409, "Yêu cầu in trước đó chưa được ghi đầy đủ")
+        return {"queued": True, "device_id": device.id, "kind": body.kind,
+                "document_count": len(docs), "request_id": body.request_id,
+                "replayed": True}
     for index, document in enumerate(docs):
-        key = "manual:" + body.kind + ":" + oid + ":" + body.request_id + ":" + str(index)
-        keys.append(key)
-        enqueue(db, device, key, document["title"], document["content"])
+        enqueue(db, device, keys[index], document["title"], document["content"])
     # Device row lock serializes repeat requests; the DB unique index is the
     # last line of defence when multiple application workers race.
     try:
@@ -688,4 +704,5 @@ def print_document(bid: str, oid: str, body: ManualDocument,
         if len(present) != len(keys):
             raise HTTPException(409, "Lệnh in đang được xử lý ở thiết bị khác")
     return {"queued": True, "device_id": device.id, "kind": body.kind,
-            "document_count": len(docs), "request_id": body.request_id}
+            "document_count": len(docs), "request_id": body.request_id,
+            "replayed": False}
