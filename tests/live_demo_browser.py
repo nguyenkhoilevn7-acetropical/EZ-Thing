@@ -377,6 +377,34 @@ try:
   assert not page.locator('.sidebar .sidebar-ez-icon-light').is_visible(), "Incorrect light EZ mark in Graphite"
   print("PASS /app: centered compact EZ icon on Fold/tablet, full wordmark on desktop, Graphite contrast",flush=True)
 
+  # Owner previews five REAL task screens under the same admin session.
+  # Preview never fires an order, payment or kitchen status mutation.
+  page.set_viewport_size({"width":1280,"height":850})
+  page.goto(BASE+"/app?tab=team",wait_until="domcontentloaded",timeout=15000)
+  page.locator('[data-ezws="preview-picker"]').first.wait_for(timeout=15000)
+  page.locator('[data-ezws="preview-picker"]').first.click()
+  page.locator('.ezws-preview-choice[data-value="order"]').click()
+  page.locator('.ezws-preview-bar').wait_for(timeout=15000)
+  assert page.locator("#ez-register").is_visible()
+  assert page.evaluate("document.body.dataset.ezWorkstationPreview")== "true"
+  assert page.locator('.ezreg-product').first.evaluate("(el)=>getComputedStyle(el).pointerEvents")=="none"
+  for task,selector in (
+    ("kitchen","#ez-kds"),("bar","#ez-kds"),
+    ("cashier",".ezrole-task"),("host",".ezrole-table-grid"),
+    ("order","#ez-register")
+  ):
+   page.locator('.ezws-preview-tabs [data-value="'+task+'"]').click()
+   page.locator(selector).wait_for(timeout=15000)
+   assert page.locator('.ezws-preview-tabs [data-value="'+task+'"]').get_attribute("aria-pressed")=="true"
+   assert page.evaluate("document.body.dataset.ezWorkstationPreview")=="true"
+  page.set_viewport_size({"width":412,"height":850})
+  assert page.locator(".ezws-preview-exit").is_visible()
+  assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth + 2")
+  page.locator('.ezws-preview-exit').click()
+  page.locator('.ezws-preview-bar').wait_for(state="detached",timeout=12000)
+  assert page.evaluate("document.body.dataset.ezWorkstationPreview")=="false"
+  print("PASS workstation owner preview: Order/Kitchen/Bar/Cashier/Host, mobile and read-only",flush=True)
+
   browser.close()
   print("REQUESTS",json.dumps(requests[-45:],ensure_ascii=False),flush=True)
   print("JS ERRORS",json.dumps(errors[-20:],ensure_ascii=False),flush=True)
