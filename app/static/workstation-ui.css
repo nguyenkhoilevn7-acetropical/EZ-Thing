@@ -141,8 +141,13 @@ body[data-ez-workstation-active="true"] .kds-act{min-height:47px;font-size:13px}
  border:1px solid #466580;color:#fff;background:#263e59;font-size:22px;cursor:pointer}
 body[data-ez-workstation-preview="true"] .ezws-open-menu{display:none!important}
 body[data-ez-workstation-preview="true"] .app .content{padding-top:84px!important}
-body[data-ez-workstation-preview="true"] #page-content :is(
-  button,input,select,textarea,a){pointer-events:none!important;cursor:default!important}
+/* Preview controls are now interactive; the API sandbox guards every write. */
+body[data-ez-workstation-preview="true"] #page-content :is(button,input,select,textarea){
+  pointer-events:auto;cursor:auto
+}
+body[data-ez-workstation-preview="true"] #page-content button:not(:disabled){
+ cursor:pointer
+}
 body[data-ez-workstation-preview="true"] #page-content{user-select:text}
 body[data-ez-workstation-preview="true"] #page-content .ezreg-product{transform:none!important}
 body.ezws-immersive .app{position:fixed;inset:0;z-index:90;overflow-x:hidden;
@@ -501,4 +506,18 @@ body[data-ez-workstation-active="true"]:not([data-ez-workstation-preview="true"]
 }
 body[data-ez-workstation-preview="true"] #page-content:has(>.ezreg){
  padding-top:calc(var(--ezws-preview-header-h,64px) + 16px)!important;
+}
+
+/* Interactive simulation affordance; it never creates a real business order. */
+.ezhost-try-button{width:100%;min-height:37px;padding:8px 10px;border-radius:9px;
+ border:1px solid color-mix(in srgb,var(--merchant-accent,#0878f9) 50%,transparent);
+ background:color-mix(in srgb,var(--merchant-accent,#0878f9) 10%,var(--merchant-panel,#fff));
+ color:var(--merchant-ink,#152538);font-size:11px;font-weight:800;cursor:pointer}
+.ezhost-try-button:hover{border-color:var(--merchant-accent,#0878f9)}
+body[data-ez-workstation-preview="true"] .ezws-preview-label{color:#80e8bf}
+body[data-ez-workstation-preview="true"] .ezws-preview-bar{
+ border-bottom:2px solid #22a67f
+}
+body[data-ez-workstation-preview="true"] :is(.ezreg-cart,.kds-ticket,.ezrole-task){
+ pointer-events:auto
 }

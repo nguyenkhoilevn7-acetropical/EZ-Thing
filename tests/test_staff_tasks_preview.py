@@ -168,7 +168,7 @@ def test_cashier_collects_payment_not_prepares_and_wrong_branch_denied():
             json={"mode":"bar","station":"hot"}).status_code==422
 
 
-def test_preview_does_not_impersonate_or_enable_mutating_controls():
+def test_preview_uses_ephemeral_api_sandbox_and_allows_realistic_controls():
     static=Path(__file__).resolve().parents[1]/"app/static"
     js=(static/"workstation-ui.js").read_text()
     app_js=(static/"app.js").read_text()
@@ -182,4 +182,10 @@ def test_preview_does_not_impersonate_or_enable_mutating_controls():
     assert "cashierTaskTab()" in app_js
     assert "hostTaskTab()" in app_js
     assert "data-ez-workstation-preview" in css
-    assert "READ-ONLY PREVIEW" in js
+    assert "INTERACTIVE SANDBOX" in js
+    assert "previewResponse" in js and "previewRead" in js
+    assert "throw Error(choose(" in js  # deny-by-default for every unmatched write
+    assert "sandbox=null" in js
+    assert "previewResponse?.(path,opt)" in app_js
+    assert "previewRead?.(path,data)" in app_js
+    assert "pointer-events:none!important" not in css

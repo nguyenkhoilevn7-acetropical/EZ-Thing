@@ -62,14 +62,20 @@ const cashRegister=window.EZRegisterUI?.({
 const workstationUI=window.EZWorkstations?.create({
  api,E,toast,getState:()=>s,modal:(title,html)=>modal(title,html,true),
  closeModal:()=>closeModal(),
- onChanged:tab=>{
+ onChanged:(tab,options={})=>{
   if(tab)s.tab=tab;
   else if(workstationUI?.focused())s.tab=workstationUI.home();
   history.replaceState(null,'','/app?tab='+encodeURIComponent(s.tab));
   appFrame();window.scrollTo(0,0);
+  if(options.reload)loadData().then(()=>renderTab()).catch(err=>toast(err.message,true));
  }
 });
 async function api(path,opt={}){
+ // Interactive owner previews never invoke a mutation on the real tenant API.
+ // The sandbox returns virtual responses for supported actions and rejects
+ // every other non-GET request before a network connection is opened.
+ const sandbox=workstationUI?.previewResponse?.(path,opt);
+ if(sandbox?.handled)return sandbox.data;
  const controller=new AbortController();
  const timeoutMs=path==='/auth/demo'?45000:(opt.method&&opt.method!=='GET'?30000:20000);
  const timer=setTimeout(()=>controller.abort(),timeoutMs);
@@ -90,7 +96,7 @@ async function api(path,opt={}){
      const error=new Error(typeof data.detail==='string'?data.detail:'Thao tác không thành công');
      error.status=response.status;throw error;
    }
-   return data;
+   return workstationUI?.previewRead?.(path,data)??data;
  }catch(error){
    if(error.name==='AbortError')throw new Error('Kết nối quá thời gian. Kiểm tra mạng và thử lại.');
    throw error;
@@ -271,7 +277,10 @@ function hostTaskTab(){
  (t.label.toLocaleLowerCase("vi").includes(search.toLocaleLowerCase("vi"))?"":" hidden")+'>'+
  '<div class="ezrole-table-top"><span class="ezrole-table-icon">'+I("tables","sm")+'</span>'+
  '<span class="ezrole-table-status">● '+(t.occupied?'Đang dùng':'Trống')+'</span></div>'+
- '<strong>'+E(t.label)+'</strong><small>'+Number(t.seats||0)+' chỗ ngồi</small></article>').join('')||
+ '<strong>'+E(t.label)+'</strong><small>'+Number(t.seats||0)+' chỗ ngồi</small>'+
+ (workstationUI?.previewOnly()?'<button type="button" class="ezhost-try-button" data-action="host-preview-toggle" '+
+ 'data-value="'+E(t.id)+'">'+(t.occupied?'↩ Trả bàn (thử)':'✓ Nhận khách (thử)')+'</button>':"")+
+ '</article>').join('')||
  '<p class="ezrole-empty">Không có bàn phù hợp với bộ lọc.</p>')+'</div>'+
  '<p class="ezrole-host-note">Theo dõi trạng thái tại đây; đặt bàn, chuyển bàn và chỉnh sơ đồ vẫn thuộc quyền quản trị.</p>'+
  '</div></section>';
@@ -408,6 +417,11 @@ async function handleAction(act,val,button){try{
  else if(act==='choose-plan'){s.answers.selected_plan=val;setup()}
  else if(act==='setup-back'){if(s.setupStep===1){await api('/auth/logout',{method:'POST'});s.user=null;s.csrf=null;auth()}else{s.setupStep--;setup()}}
  else if(act==='setup-next'){if(s.setupStep===1){let name=document.getElementById('biz-name')?.value?.trim()||'';if(name.length<2){toast('Vui lòng nhập tên doanh nghiệp',true);return}s.answers.name=name;}if(s.setupStep===2){s.recommendation=await api('/onboarding/recommend',{method:'POST',body:JSON.stringify(s.answers)});s.answers.selected_plan=s.recommendation.recommended_plan}if(s.setupStep<3){s.setupStep++;setup();return}const b=await api('/businesses',{method:'POST',body:JSON.stringify(s.answers)});s.businesses.push(b);s.business=b;s.tab=b.billing_required?(b.role==='owner'?'billing':'account_lock'):'overview';if(b.billing_required){s.cache={};if(b.role==='owner')s.cache.billing=await api('/businesses/'+encodeURIComponent(b.id)+'/billing');appFrame()}else{await workstationUI?.load();await refresh();appFrame()}toast('Đã tạo không gian làm việc')}
+ else if(act==='host-preview-toggle'){
+  if(workstationUI?.togglePreviewTable?.(val)){
+    renderTab();toast('Đã cập nhật bàn trong phiên dùng thử · Không lưu lên máy chủ');
+  }
+ }
  else if(act==='host-filter'){
   if(!["all","available","occupied"].includes(val))return;
   s.hostFilter=val;renderTab();

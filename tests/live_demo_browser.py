@@ -387,7 +387,7 @@ try:
   page.locator('.ezws-preview-bar').wait_for(timeout=15000)
   assert page.locator("#ez-register").is_visible()
   assert page.evaluate("document.body.dataset.ezWorkstationPreview")== "true"
-  assert page.locator('.ezreg-product').first.evaluate("(el)=>getComputedStyle(el).pointerEvents")=="none"
+  assert page.locator('.ezreg-product:not([disabled])').first.evaluate("(el)=>getComputedStyle(el).pointerEvents")=="auto"
   assert page.locator('#ez-register [data-ezreg="checkout"]').count()==0, "Order-only preview cannot show cashier action"
   assert page.locator('#ez-register [data-ezreg="orders"]').count()==0, "Order terminal has no Orders navigation"
   for width in (412,820,1000,1280):
@@ -423,6 +423,23 @@ try:
     assert layout["cartDisplay"]=="flex",(width,layout)
   page.set_viewport_size({"width":1280,"height":850})
   print("PASS POS workstation: full-width catalog at 412/820/1000, desktop cart at 1280, header not clipped",flush=True)
+  # In-sandbox clicks must trigger the normal product, modifier, cart and save
+  # flows. The virtual API catches ALL writes before network I/O.
+  preview_start=len(requests)
+  # Prior checkout smoke may exhaust the configured modifier product.
+  # Interactive preview must respect stock and select a sellable item.
+  page.locator('.ezreg-product:not([disabled])').first.click()
+  if page.locator('.ezreg-option-dialog').count():
+   groups=page.locator('.ezreg-option-group[data-min="1"]')
+   for index in range(groups.count()):
+    groups.nth(index).locator('.ezreg-option').first.click()
+   page.locator('[data-ezreg="option-save"]').click()
+  page.locator('.ezreg-cart-line').first.wait_for(timeout=10000)
+  page.locator('.ezreg-cart [data-ezreg="create"]').click()
+  page.locator('.ezreg-last').wait_for(timeout=10000)
+  virtual_order=page.locator('.ezreg-last strong').first.inner_text()
+  assert "Đơn" in virtual_order or "Order" in virtual_order, virtual_order
+  print("PASS preview sandbox: clickable product, variants, cart and simulated order",flush=True)
   for task,selector in (
     ("kitchen","#ez-kds"),("bar","#ez-kds"),
     ("cashier",".ezrole-task"),("host",".ezrole-table-grid"),
@@ -443,6 +460,30 @@ try:
     assert page.locator('.ezhost-stat').count()==3
     assert page.locator('.ezhost-filters button').count()==3
     assert page.locator('.ezrole-table').count()>=3
+    assert page.locator('[data-action="host-preview-toggle"]').count()>=3
+    before=page.locator('.ezhost-stat-free strong').inner_text()
+    page.locator('[data-action="host-preview-toggle"]').first.click()
+    after=page.locator('.ezhost-stat-free strong').inner_text()
+    assert before!=after,"Host simulation did not toggle table occupancy"
+   if task=="bar":
+    page.locator('.kds-ticket').first.wait_for(timeout=10000)
+    btn=page.locator('.kds-ticket [data-kds="status"][data-status="preparing"]').first
+    btn.wait_for(timeout=10000)
+    btn.click()
+    page.locator('.kds-ticket .kds-chip-preparing').first.wait_for(timeout=10000)
+   if task=="cashier":
+    page.locator('.ezrole-order-card').first.wait_for(timeout=10000)
+    page.locator('.ezrole-order-card [data-action="confirm-paid"]').first.click()
+    page.locator('.ezpay-modal').wait_for(timeout=10000)
+    page.locator('[data-ezpay-confirm]').check()
+    page.locator('[data-ezpay="confirm"]').click()
+    page.locator('.ezpay-modal').wait_for(state="detached",timeout=10000)
+  assert not [r for r in requests[preview_start:]
+              if r.startswith("> POST /api/businesses/") or
+                 r.startswith("> PATCH /api/businesses/") or
+                 r.startswith("> PUT /api/businesses/") or
+                 r.startswith("> DELETE /api/businesses/")], "Preview caused real tenant mutation"
+  print("PASS preview sandbox: Bar status, cashier payment and Host occupancy; zero business mutation requests",flush=True)
   page.set_viewport_size({"width":412,"height":850})
   assert page.locator(".ezws-preview-exit").is_visible()
   assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth + 2")

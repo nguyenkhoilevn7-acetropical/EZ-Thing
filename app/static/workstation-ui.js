@@ -25,7 +25,7 @@
   }
   window.EZWorkstations={
     create({api,E,toast,getState,modal,closeModal,onChanged}){
-      let current=blank(),biz="",drawerOpen=false,temporary=false,pending=false,previewMode=null;
+      let current=blank(),biz="",drawerOpen=false,temporary=false,pending=false,previewMode=null,sandbox=null;
       const state=getState;
       const owner=()=>["owner","manager"].includes(state().business?.role);
       const active=()=>state().business?.industry==="fnb"&&!state().business?.billing_required;
@@ -69,10 +69,149 @@
         preview_only:true
       });
       const previewOnly=()=>Boolean(previewMode);
+      // All demo mutations are ephemeral and bound to this browser-tab session.
+      // Never reuse a real tenant idempotency key or call an actual write endpoint.
+      const clone=x=>JSON.parse(JSON.stringify(x));
+      const fakeId=()=>globalThis.crypto?.randomUUID?.()||
+        "virtual-"+Date.now().toString(36)+"-"+Math.random().toString(36).slice(2);
+      const prepStation=p=>{
+        const name=String((p?.name||"")+" "+(p?.category||"")).toLocaleLowerCase("vi");
+        if(/salad|nguội|cold kitchen|gỏi/.test(name))return "cold";
+        if(/trà|tea|matcha|nước|coffee|cafe|cà phê|juice|soda|drink|latte|sữa|sinh tố|smoothie|đồ uống|beverage|cold brew|espresso/.test(name))return "bar";
+        if(/bánh|food|món|cơm|phở|bún|mì|lẩu|thịt|nướng|chiên|soup|pizza|burger/.test(name))return "hot";
+        return "expo";
+      };
+      function ensureSandbox(){
+        const bid=state().business?.id;
+        if(!sandbox||sandbox.bid!==bid){
+          sandbox={bid,orders:clone(state().cache.orders||[]),
+            tables:clone(state().cache.tables||[]),
+            originalOrders:clone(state().cache.orders||[]),
+            originalTables:clone(state().cache.tables||[]),tickets:[],
+            originalTickets:null,idempotency:new Map(),payments:new Map()};
+        }
+        return sandbox;
+      }
+      function demoTickets(){
+        const sb=ensureSandbox();
+        return [...sb.tickets,...(sb.originalTickets||[])];
+      }
+      function previewResponse(path,opt={}){
+        if(!previewMode)return {handled:false};
+        const sb=ensureSandbox(),method=(opt.method||"GET").toUpperCase();
+        const tail=String(path).split("?")[0],payload=()=>{
+          try{return JSON.parse(opt.body||"{}")}catch{throw new Error("Dữ liệu thử không hợp lệ")}
+        };
+        if(method==="GET"){
+          if(/^\/businesses\/[^/]+\/orders$/.test(tail))return {handled:true,data:clone(sb.orders)};
+          if(/^\/businesses\/[^/]+\/tables$/.test(tail))return {handled:true,data:clone(sb.tables)};
+          if(/\/kds\/queue$/.test(tail)&&sb.originalTickets!==null){
+            const branch=new URLSearchParams(path.split("?")[1]||"").get("branch_id");
+            return {handled:true,data:{
+              server_time:new Date().toISOString(),stations:{},transport:"sandbox",
+              tickets:clone(demoTickets().filter(t=>!branch||t.branch_id===branch)),
+              all_day:{},ready_for_expo:0,poll_after_seconds:5
+            }};
+          }
+          return {handled:false};
+        }
+        if(method==="POST"&&/^\/businesses\/[^/]+\/orders$/.test(tail)){
+          const body=payload(),key=String(body.idempotency_key||"");
+          if(key&&sb.idempotency.has(key)){
+            return {handled:true,data:clone(sb.idempotency.get(key))};
+          }
+          const products=state().cache.products||[],lineItems=[];
+          for(const entry of body.lines||[]){
+            const p=products.find(x=>x.id===entry.product_id);
+            if(!p)throw Error("Không tìm thấy món trong dữ liệu dùng thử");
+            const selections=(p.modifier_groups||[]).flatMap(g=>
+              (g.options||[]).filter(o=>(entry.selected_options||[]).includes(o.id))
+                .map(o=>({group_name:g.name,name:o.name,price_vnd:Number(o.price_vnd)||0})));
+            const unit=(Number(p.price_vnd)||0)+selections.reduce((sum,m)=>sum+m.price_vnd,0);
+            const qty=Math.max(1,Math.min(1000,Number(entry.quantity)||1));
+            lineItems.push({id:fakeId(),product_id:p.id,name:p.name,
+              quantity:qty,unit_price_vnd:unit,total_vnd:unit*qty,modifiers:selections,
+              station:prepStation(p)});
+          }
+          if(!lineItems.length)throw Error("Hãy chọn ít nhất một món");
+          const now=new Date().toISOString(),id=fakeId();
+          const order={id,branch_id:body.branch_id||null,table_id:body.table_id||null,
+            customer_id:body.customer_id||null,status:"open",paid_at:null,
+            total_vnd:lineItems.reduce((s,x)=>s+x.total_vnd,0),
+            created_at:now,note:String(body.note||""),items:lineItems};
+          sb.orders.unshift(order);
+          const lines=lineItems.map(x=>({
+            id:fakeId(),product_id:x.product_id,name:x.name,quantity:x.quantity,
+            station:x.station,modifiers:x.modifiers,status:"pending",
+            runner_called_at:null
+          }));
+          sb.tickets.unshift({id:fakeId(),order_id:id,table_id:order.table_id,
+            branch_id:order.branch_id,note:order.note,created_at:now,
+            updated_at:now,revision:0,status:"pending",lines});
+          const result={...order,kds_dispatch:{status:"sent",ticket_id:sb.tickets[0].id}};
+          if(key)sb.idempotency.set(key,clone(result));
+          return {handled:true,data:clone(result)};
+        }
+        const payment=tail.match(/^\/businesses\/[^/]+\/pos-payments\/([^/]+)$/);
+        if(method==="POST"&&payment){
+          const order=sb.orders.find(o=>o.id===payment[1]),body=payload();
+          if(!order)throw Error("Không có đơn hàng này trong dữ liệu dùng thử");
+          if(sb.payments.has(order.id))return {handled:true,data:clone(sb.payments.get(order.id))};
+          if(order.status!=="open"||!body.confirmed)throw Error("Đơn không còn chờ thanh toán");
+          if(Number(body.expected_total_vnd)!==Number(order.total_vnd))
+            throw Error("Tổng tiền thử nghiệm đã thay đổi");
+          const change=body.method==="cash"?Number(body.cash_received_vnd)-order.total_vnd:0;
+          if(!Number.isFinite(change)||change<0)throw Error("Số tiền khách đưa chưa đủ");
+          order.status="paid";order.paid_at=new Date().toISOString();
+          const result={order:clone(order),payment:{method:body.method,
+            amount_vnd:order.total_vnd,cash_received_vnd:body.cash_received_vnd||null,
+            change_vnd:change,transfer_reference:body.transfer_reference||""}};
+          sb.payments.set(order.id,clone(result));
+          return {handled:true,data:clone(result)};
+        }
+        const progress=tail.match(/\/kds\/tickets\/([^/]+)\/lines\/([^/]+)\/(status|call-runner)$/);
+        if(method==="POST"&&progress){
+          const ticket=demoTickets().find(x=>x.id===progress[1]);
+          const line=ticket?.lines.find(x=>x.id===progress[2]);
+          if(!ticket||!line)throw Error("Không có món này trong phiếu thử nghiệm");
+          const body=payload();
+          if(Number(body.expected_revision)!==ticket.revision)
+            throw Error("Phiếu đã cập nhật. Vui lòng thử lại");
+          if(progress[3]==="call-runner"){
+            if(line.status!=="ready")throw Error("Món chưa sẵn sàng");
+            line.runner_called_at=new Date().toISOString();
+          }else{
+            const allowed={pending:["preparing","held"],preparing:["ready","held"],
+              held:["preparing"],ready:["served"],served:[]};
+            if(!allowed[line.status]?.includes(body.status))
+              throw Error("Chuyển trạng thái không hợp lệ");
+            line.status=body.status;
+          }
+          ticket.revision++;ticket.updated_at=new Date().toISOString();
+          return {handled:true,data:clone(ticket)};
+        }
+        // Deny every other write, including settings, printing, admin and finance.
+        throw Error(choose("Đây là bản dùng thử tương tác. Thao tác này không được mô phỏng để tránh sửa dữ liệu thật.",
+          "Interactive sandbox: this operation is not simulated to protect real data."));
+      }
+      function previewRead(path,data){
+        if(!previewMode||!/\/kds\/queue(?:\?|$)/.test(path))return data;
+        const sb=ensureSandbox();
+        if(sb.originalTickets===null)sb.originalTickets=clone(data?.tickets||[]);
+        return {...data,tickets:clone(demoTickets())};
+      }
+      function togglePreviewTable(tableId){
+        if(!previewMode||previewMode!=="host")return false;
+        const sb=ensureSandbox(),table=sb.tables.find(x=>x.id===tableId);
+        if(!table)return false;
+        table.occupied=!table.occupied;
+        state().cache.tables=clone(sb.tables);
+        return true;
+      }
       function previewNav(){
         if(!previewMode||!owner())return "";
         return '<div class="ezws-preview-bar" role="toolbar" aria-label="Xem thử tác vụ">'+
-          '<span class="ezws-preview-label">👁 '+safe(choose("CHỈ XEM · KHÔNG GHI DỮ LIỆU","READ-ONLY PREVIEW"))+'</span>'+
+          '<span class="ezws-preview-label">👁 '+safe(choose("DÙNG THỬ TƯƠNG TÁC · KHÔNG LƯU","INTERACTIVE SANDBOX · NO SAVES"))+'</span>'+
           '<div class="ezws-preview-tabs">'+Object.keys(MODES).filter(id=>id!=="manager").map(id=>
             '<button type="button" data-ezws="preview" data-value="'+id+'" class="'+
             (previewMode===id?"active":"")+'" aria-pressed="'+(previewMode===id)+'">'+
@@ -92,8 +231,8 @@
           host:choose("Bàn, đón khách","Host & seating")};
         modal(choose("Xem thử màn hình theo tác vụ","Preview employee workstations"),
           '<div class="ezws-preview-picker"><p>'+
-          choose("Xem trực tiếp từng màn hình của hệ thống. Chế độ này chỉ đọc, không tạo đơn hoặc sửa dữ liệu.",
-            "See each real workspace. Preview is read-only and cannot alter data.")+
+          choose("Bấm nút để thử tạo đơn, chế biến, thu ngân và xếp bàn. Mọi thay đổi chỉ tồn tại trong tab này, không ghi dữ liệu thật.",
+            "Try ordering, preparation, cashier and tables. Every change stays in this tab and never updates real data.")+
           '</p><div class="ezws-preview-choices">'+
           Object.keys(MODES).filter(id=>id!=="manager").map(id=>
           '<button type="button" class="ezws-preview-choice" data-ezws="preview" data-value="'+id+'">'+
@@ -104,6 +243,7 @@
       function preview(task){
         if(!owner()||!active()||!MODES[task]||task==="manager")return;
         closeModal?.();
+        ensureSandbox();
         previewMode=task;temporary=false;drawerOpen=false;
         state().workstation=virtualProfile(task);
         onChanged(home());
@@ -117,8 +257,13 @@
       function exitPreview(){
         if(!previewMode)return;
         previewMode=null;temporary=true;drawerOpen=false;
+        if(sandbox){
+          state().cache.orders=clone(sandbox.originalOrders);
+          state().cache.tables=clone(sandbox.originalTables);
+        }
+        sandbox=null;
         state().workstation=current;
-        onChanged("overview");
+        onChanged("overview",{reload:true});
         requestAnimationFrame(()=>{
           syncPreviewLayout();
           document.scrollingElement?.scrollTo({top:0,behavior:"instant"});
@@ -251,16 +396,15 @@
       async function showSettingsSoon(){
         // Full refresh on next user opening avoids destroying focused form controls.
       }
-      // Preview is display-only: block all app/KDS/POS mutations before handlers.
+      // Interactive demo: allow ordinary controls and intercept all API writes.
+      // Prevent physical printing while showing the exact employee interface.
       document.addEventListener("click",event=>{
         if(!previewMode)return;
-        if(event.target.closest("[data-ezws]"))return;
-        if(event.target.closest("#page-content")||event.target.closest("#modal-root")){
+        if(event.target.closest('[data-kds="print"],[data-ezreg="print"],[data-action="print-doc-open"]')){
           event.preventDefault();event.stopImmediatePropagation();
+          toast(choose("Chế độ mô phỏng không in phiếu thật.",
+            "Interactive preview does not print physical receipts."));
         }
-      },true);
-      document.addEventListener("submit",event=>{
-        if(previewMode){event.preventDefault();event.stopImmediatePropagation()}
       },true);
       document.addEventListener("click",event=>{
         const button=event.target.closest("[data-ezws]");
@@ -294,7 +438,8 @@
         if(event.key==="Escape"&&drawerOpen){switchDrawer(false)}
       });
       return {load,mode,focused,home,drawer,previewNav,openPreviewPicker,
-              previewOnly,exitPreview,fullscreen,syncPreviewLayout,modeLabel,isTemporary:()=>temporary,
+              previewOnly,previewResponse,previewRead,togglePreviewTable,exitPreview,
+              fullscreen,syncPreviewLayout,modeLabel,isTemporary:()=>temporary,
               current:()=>current,owner,showSettings,
               allowNavigation:tab=>!focused()||tab===home(),
               applyDocument:()=>{
