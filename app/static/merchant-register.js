@@ -273,7 +273,7 @@
           const max=Number(g.max_select)||1;
           const min=Number(g.min_select)||0;
           const selected=(g.options||[]).filter(o=>s.optionIds.includes(o.id)).length;
-          return '<fieldset class="ezreg-option-group" data-group="'+E(g.id)+' data-min="'+min+'" data-max="'+max+'">'+
+          return '<fieldset class="ezreg-option-group" data-group="'+E(g.id)+'" data-min="'+min+'" data-max="'+max+'">'+
             '<legend><strong>'+E(g.name)+'</strong><small>'+
             (min?t("Bắt buộc","Required")+' · '+t("Chọn ít nhất ","Select at least ")+min:
             t("Tùy chọn","Optional"))+' · '+t("Tối đa ","Max ")+max+
