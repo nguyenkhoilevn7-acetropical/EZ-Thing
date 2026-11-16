@@ -416,7 +416,7 @@
       const item=s.cart.find(x=>x.id===editId);
       if(!item&&s.cart.length>=50)return toast(t("Đơn tối đa 50 dòng","Maximum 50 lines"),true);
       if(!(p.modifier_groups||[]).length&&!editId){
-        addLine(pid,[],1,document.querySelector('[data-ezreg="product"][data-value="'+CSS.escape(pid)+'"]'));
+        addLine(pid,[],1,document.querySelector('[data-ezreg="product"][data-value="'+pid+'"]'));
         return;
       }
       s.optionProduct=pid;s.optionId=editId;
@@ -438,9 +438,10 @@
         s.cart.push({id:uid(),productId:pid,quantity,optionIds:[...ids]});
       }
       s.last=null;
-      animateIntoCart(origin,product);
       s.recentProduct=pid;s.recentAt=Date.now();
-      syncCart();paintCatalog();announceAdded(product);
+      syncCart();
+      animateIntoCart(origin,product);
+      paintCatalog();announceAdded(product);
       setTimeout(()=>{if(s.recentProduct===pid&&Date.now()-s.recentAt>=1000)
         {s.recentProduct="";paintCatalog()}},1150);
     }
@@ -607,6 +608,7 @@
     document.addEventListener("change",event=>{
       if(!document.getElementById("ez-register"))return;
       const el=event.target,field=el.dataset.ezregSelect;
+      if(s.busy&&field)return;
       if(field==="branch"){
         s.branch=el.value;
         if(!tables().some(x=>x.id===s.table&&x.branch_id===s.branch))s.table="";
