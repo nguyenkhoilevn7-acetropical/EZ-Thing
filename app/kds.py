@@ -58,6 +58,10 @@ class DispatchSettingsUpdate(BaseModel):
     auto_dispatch: bool
 
 
+class CategoryRouteRemove(BaseModel):
+    category: str = Field(min_length=1, max_length=80)
+
+
 class FireTicket(BaseModel):
     order_id: str = Field(min_length=1, max_length=36)
     note: str = Field(default="", max_length=300)
@@ -315,6 +319,48 @@ def set_route(bid: str, body: RouteUpdate, user=Depends(current_user),
           {"product_id":body.product_id, "station":body.station})
     db.commit()
     return {"product_id": product.id, "station": body.station}
+
+
+@router.delete("/routes/{product_id}")
+def clear_product_route(bid: str, product_id: str,
+                        user=Depends(current_user),
+                        db: Session = Depends(db_session)):
+    guard(db, bid, user)
+    allow(db, bid, user, MANAGE_ROLES)
+    exists = db.scalar(select(Product.id).where(
+        Product.business_id == bid, Product.id == product_id))
+    if not exists:
+        fail(404, "Sản phẩm không thuộc doanh nghiệp")
+    db.scalar(select(Business).where(Business.id == bid).with_for_update())
+    route = db.scalar(select(IndustryWorkItem).where(
+        IndustryWorkItem.business_id == bid,
+        IndustryWorkItem.kind == "kds_route",
+        IndustryWorkItem.reference_id == product_id).with_for_update())
+    if route is not None:
+        db.delete(route)
+        audit(db, bid, user[0].id, "kds.route_cleared", {"product_id": product_id})
+        db.commit()
+    return {"product_id": product_id, "inherited": True}
+
+
+@router.delete("/category-routes")
+def clear_category_route(bid: str, body: CategoryRouteRemove,
+                         user=Depends(current_user),
+                         db: Session = Depends(db_session)):
+    guard(db, bid, user)
+    allow(db, bid, user, MANAGE_ROLES)
+    db.scalar(select(Business).where(Business.id == bid).with_for_update())
+    key = category_route_key(body.category)
+    route = db.scalar(select(IndustryWorkItem).where(
+        IndustryWorkItem.business_id == bid,
+        IndustryWorkItem.kind == "kds_category_route",
+        IndustryWorkItem.reference_id == key).with_for_update())
+    if route is not None:
+        db.delete(route)
+        audit(db, bid, user[0].id, "kds.category_route_cleared", {
+            "category": body.category.strip()})
+        db.commit()
+    return {"category": body.category.strip(), "inherited": True}
 
 
 @router.put("/category-routes")
