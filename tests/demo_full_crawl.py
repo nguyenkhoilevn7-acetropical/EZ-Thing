@@ -39,6 +39,7 @@ server = subprocess.Popen(
     env=env, stdout=log, stderr=subprocess.STDOUT)
 
 problems = []
+OPEN_PAGES = []
 visited = []
 context_label = {"where": "startup"}
 
@@ -50,7 +51,34 @@ def record(kind, detail):
         print("PROBLEM", json.dumps(entry, ensure_ascii=False), flush=True)
 
 
+TOAST_OBSERVER = """
+(() => {
+  window.__errorToasts = [];
+  const bad = el => el.matches && (el.matches('.toast.error,.customer-toast.bad,#res-toast.error,.toast.show.error') );
+  new MutationObserver(list => {
+    for (const m of list) {
+      const nodes = [m.target, ...m.addedNodes];
+      for (const n of nodes) if (n.nodeType === 1 && bad(n) && n.textContent.trim())
+        window.__errorToasts.push(n.textContent.trim());
+    }
+  }).observe(document.documentElement, {subtree: true, childList: true, attributes: true,
+                                         attributeFilter: ['class']});
+})();
+"""
+
+
+def drain_toasts(page):
+    try:
+        messages = page.evaluate("() => { const x=[...new Set(window.__errorToasts||[])];"
+                                 " window.__errorToasts=[]; return x; }")
+    except Exception:  # noqa: BLE001
+        return
+    for message in messages:
+        record("error-toast", message)
+
+
 def wire(page):
+    page.add_init_script(TOAST_OBSERVER)
     page.on("pageerror", lambda err: record("pageerror", str(err)))
 
     def on_console(msg):
@@ -100,6 +128,9 @@ def safe(label, fn):
         fn()
     except Exception as exc:  # noqa: BLE001 - every failure is a finding
         record("step-failed", f"{type(exc).__name__}: {exc}")
+    for page in OPEN_PAGES:
+        if not page.is_closed():
+            drain_toasts(page)
 
 
 def close_modal(page):
@@ -166,6 +197,7 @@ def crawl_merchant(browser, mobile):
     page = browser.new_page(locale="vi-VN", viewport=({"width": 412, "height": 915} if mobile
                                                       else {"width": 1440, "height": 920}))
     wire(page)
+    OPEN_PAGES.append(page)
     tag = "mobile" if mobile else "desktop"
     safe(f"merchant {tag} :: enter demo", lambda: (
         page.goto(BASE + "/app", wait_until="domcontentloaded"),
@@ -195,6 +227,7 @@ def crawl_merchant(browser, mobile):
 def crawl_customer(browser):
     page = browser.new_page(locale="vi-VN", viewport={"width": 412, "height": 915})
     wire(page)
+    OPEN_PAGES.append(page)
     for path in ("/", "/menu/cafe", "/store/mart", "/store/online", "/booking/wellness",
                  "/reserve/cafe", "/app/storefront-design", "/admin"):
         def visit(path=path):
@@ -219,6 +252,248 @@ def crawl_customer(browser):
     page.close()
 
 
+FILL_FORM = r"""
+(form) => {
+  const pad = n => String(n).padStart(2, '0');
+  const tomorrow = new Date(Date.now() + 86400000);
+  const day = tomorrow.getFullYear() + '-' + pad(tomorrow.getMonth() + 1) + '-' + pad(tomorrow.getDate());
+  const tag = Math.random().toString(36).slice(2, 7).toUpperCase();
+  for (const el of form.querySelectorAll('input,select,textarea')) {
+    if (el.disabled || el.type === 'hidden' || el.type === 'submit' || el.type === 'button') continue;
+    if (el.type === 'checkbox') { if (el.required) el.checked = true; continue; }
+    if (el.type === 'radio') { if (!form.querySelector(`input[name="${el.name}"]:checked`)) el.checked = true; continue; }
+    if (el.tagName === 'SELECT') {
+      if (!el.value) { const o = [...el.options].find(x => x.value); if (o) el.value = o.value; }
+      el.dispatchEvent(new Event('change', {bubbles: true})); continue;
+    }
+    if (el.value) continue;
+    const name = (el.name || '').toLowerCase();
+    let v;
+    if (el.type === 'number') v = String(Math.max(Number(el.min || 1), 1));
+    else if (el.type === 'date') v = day;
+    else if (el.type === 'datetime-local') v = day + 'T10:00';
+    else if (el.type === 'time') v = '10:00';
+    else if (el.type === 'email' || name.includes('email')) v = 'demo.crawl@example.com';
+    else if (el.type === 'tel' || name.includes('phone')) v = '0901234567';
+    else if (name === 'sku') v = 'CRAWL-' + tag;
+    else v = 'Demo kiểm thử ' + tag;
+    const max = Number(el.maxLength) > 0 ? Number(el.maxLength) : 200;
+    el.value = v.slice(0, max);
+    el.dispatchEvent(new Event('input', {bubbles: true}));
+    el.dispatchEvent(new Event('change', {bubbles: true}));
+  }
+  return [...form.querySelectorAll('[name]')].map(x => x.name + '=' + x.value).join('&');
+}
+"""
+
+
+def submit_open_form(page, label):
+    """Fill the currently open dialog form and submit it; record visible failures."""
+    form = page.locator("#modal-root form, .overlay form, [role=dialog] form").first
+    if not form.count():
+        raise AssertionError("no form opened for " + label)
+    form.evaluate(FILL_FORM)
+    form.evaluate("f => f.requestSubmit ? f.requestSubmit() : f.submit()")
+    settle(page, 1200)
+    still_open = page.locator("#modal-root form, .overlay form").count()
+    if still_open:
+        invalid = page.evaluate("() => [...document.querySelectorAll('#modal-root :invalid, .overlay :invalid')]"
+                                ".map(x => (x.name||x.tagName) + ': ' + x.validationMessage)")
+        if invalid:
+            record("form-invalid", f"{label}: {invalid}")
+        close_modal(page)
+
+
+def click_action(page, action, value=None):
+    selector = f'#page-content [data-action="{action}"]'
+    if value is not None:
+        selector += f'[data-value="{value}"]'
+    button = page.locator(selector)
+    if not button.count():
+        return False
+    button.first.scroll_into_view_if_needed()
+    button.first.click()
+    settle(page, 600)
+    return True
+
+
+def pos_sale(page, pay):
+    """Ring up products in the POS and either pay by cash or leave the check open."""
+    open_tab(page, "pos", False)
+    products = page.locator('#ez-register [data-ezreg="product"]')
+    if not products.count():
+        raise AssertionError("POS shows no products")
+    for index in range(min(2, products.count())):
+        products.nth(index).click()
+        page.wait_for_timeout(400)
+        sheet = page.locator('[data-ezreg="option-save"]')
+        if sheet.count() and sheet.first.is_visible():
+            groups = page.eval_on_selector_all('#ez-register [data-ezreg="option"]',
+                                               "els => [...new Set(els.map(e => e.dataset.group))]")
+            for group in groups:
+                page.locator(f'#ez-register [data-ezreg="option"][data-group="{group}"]').first.click()
+                page.wait_for_timeout(150)
+            sheet.first.click()
+            page.wait_for_timeout(400)
+            if sheet.count() and sheet.first.is_visible():
+                record("pos", "option sheet did not accept first option of every group")
+                page.locator('[data-ezreg="option-close"]').first.click()
+    if pay:
+        page.locator('#ez-register [data-ezreg="checkout"]').first.click()
+        settle(page, 500)
+        quick = page.locator('[data-ezpay="quick"]')
+        if quick.count():
+            quick.first.click()
+        confirm_box = page.locator("[data-ezpay-confirm]")
+        if confirm_box.count() and not confirm_box.first.is_checked():
+            confirm_box.first.check()
+        page.locator('[data-ezpay="confirm"]').first.click()
+        settle(page, 1500)
+    else:
+        page.locator('#ez-register [data-ezreg="create"]').first.click()
+        settle(page, 1500)
+
+
+def crawl_workflows(browser):
+    page = browser.new_page(locale="vi-VN", viewport={"width": 1440, "height": 920})
+    wire(page)
+    OPEN_PAGES.append(page)
+    safe("flow :: enter demo", lambda: (
+        page.goto(BASE + "/app", wait_until="domcontentloaded"),
+        page.locator(".app").wait_for(timeout=45000), settle(page)))
+    businesses = page.evaluate("fetch('/api/businesses').then(r=>r.json())")
+    for business in businesses:
+        label = f"flow :: {business['industry']}"
+        safe(label + " :: select", lambda: select_business(page, business["id"]))
+        tabs = nav_tabs(page, False)
+
+        def create(tab, action, what):
+            def run():
+                open_tab(page, tab, False)
+                if not click_action(page, action):
+                    raise AssertionError(f"button {action} missing on tab {tab}")
+                submit_open_form(page, what)
+            safe(f"{label} :: {what}", run)
+
+        if "products" in tabs:
+            create("products", "new-product", "create product")
+
+            def stock():
+                open_tab(page, "products", False)
+                if click_action(page, "adjust-stock"):
+                    submit_open_form(page, "adjust stock")
+            safe(f"{label} :: adjust stock", stock)
+        if "customers" in tabs:
+            create("customers", "new-customer", "create customer")
+        if "pos" in tabs:
+            safe(f"{label} :: POS sale paid by cash", lambda: pos_sale(page, pay=True))
+            safe(f"{label} :: POS open check", lambda: pos_sale(page, pay=False))
+
+            def cancel_open():
+                open_tab(page, "orders", False)
+                if click_action(page, "cancel-order"):
+                    submit_open_form(page, "cancel order")
+            safe(f"{label} :: cancel open order", cancel_open)
+
+            def pay_open():
+                pos_sale(page, pay=False)
+                open_tab(page, "orders", False)
+                if click_action(page, "confirm-paid"):
+                    quick = page.locator('[data-ezpay="quick"]')
+                    if quick.count():
+                        quick.first.click()
+                    box = page.locator("[data-ezpay-confirm]")
+                    if box.count() and not box.first.is_checked():
+                        box.first.check()
+                    page.locator('[data-ezpay="confirm"]').first.click()
+                    settle(page, 1200)
+            safe(f"{label} :: pay open order from order list", pay_open)
+        for tab in ("inventory", "delivery", "appointments"):
+            if tab in tabs:
+                def industry(tab=tab):
+                    open_tab(page, tab, False)
+                    if click_action(page, "industry-new"):
+                        submit_open_form(page, "new " + tab)
+                safe(f"{label} :: new {tab} item", industry)
+        if "kitchen" in tabs:
+            def kitchen():
+                open_tab(page, "kitchen", False)
+                status = page.locator('[data-kds="status"]')
+                if status.count():
+                    status.first.click()
+                    settle(page, 800)
+            safe(f"{label} :: kitchen advance first line", kitchen)
+        if "settings" in tabs:
+            def branch():
+                open_tab(page, "settings", False)
+                if click_action(page, "new-branch"):
+                    submit_open_form(page, "new branch")
+            safe(f"{label} :: new branch", branch)
+        # Re-open every tab after the writes: data changes must still render.
+        for tab in tabs:
+            safe(f"{label} :: re-render {tab}", lambda tab=tab: open_tab(page, tab, False))
+    page.close()
+
+
+def crawl_customer_flows(browser):
+    page = browser.new_page(locale="vi-VN", viewport={"width": 412, "height": 915})
+    wire(page)
+    OPEN_PAGES.append(page)
+
+    def checkout(path):
+        page.goto(BASE + path, wait_until="domcontentloaded")
+        page.locator('[data-action="add"]').first.wait_for(timeout=30000)
+        page.locator('[data-action="add"]').first.click()
+        page.wait_for_timeout(400)
+        page.locator('[data-action="open-cart"]').first.click()
+        settle(page, 500)
+        form = page.locator("[data-overlay] form").first
+        if not form.count():
+            raise AssertionError("cart has no checkout form")
+        form.evaluate(FILL_FORM)
+        form.evaluate("f => f.requestSubmit()")
+        settle(page, 1500)
+        if not page.locator(".customer-success").count():
+            raise AssertionError("no success screen after checkout")
+    for path in ("/menu/cafe", "/store/mart", "/store/online"):
+        safe(f"customer flow :: {path} :: checkout", lambda path=path: checkout(path))
+
+    def wellness():
+        page.goto(BASE + "/booking/wellness", wait_until="domcontentloaded")
+        page.locator('[data-action="slot"]').first.wait_for(timeout=30000)
+        page.locator('[data-action="slot"]').first.click()
+        page.wait_for_timeout(300)
+        page.locator('[data-action="open-booking"]').first.click()
+        settle(page, 500)
+        form = page.locator("[data-overlay] form").first
+        form.evaluate(FILL_FORM)
+        form.evaluate("f => f.requestSubmit()")
+        settle(page, 1500)
+        if not page.locator(".customer-success").count():
+            raise AssertionError("no success screen after booking")
+    safe("customer flow :: wellness booking", wellness)
+
+    def reserve():
+        page.goto(BASE + "/reserve/cafe", wait_until="domcontentloaded")
+        page.locator("#booking-slots .slot-button").first.wait_for(timeout=30000)
+        page.locator("#booking-slots .slot-button").first.click()
+        form = page.locator("#guest-reservation-form")
+        form.evaluate(FILL_FORM)
+        form.evaluate("f => f.requestSubmit()")
+        settle(page, 1500)
+        if not page.locator("#booking-result").inner_text().strip():
+            raise AssertionError("reservation result is empty")
+    safe("customer flow :: table reservation", reserve)
+
+    def inquiry():
+        form = page.locator("#guest-inquiry-form")
+        form.evaluate(FILL_FORM)
+        form.evaluate("f => f.requestSubmit()")
+        settle(page, 1200)
+    safe("customer flow :: contact inquiry", inquiry)
+    page.close()
+
+
 try:
     for _ in range(120):
         if server.poll() is not None:
@@ -236,6 +511,8 @@ try:
         crawl_merchant(browser, mobile=False)
         crawl_merchant(browser, mobile=True)
         crawl_customer(browser)
+        crawl_workflows(browser)
+        crawl_customer_flows(browser)
         browser.close()
 finally:
     server.terminate()
