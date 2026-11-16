@@ -100,14 +100,15 @@ def test_qr_no_manual_paid_and_verified_once(client, monkeypatch):
     bank(client, bid, csrf)
     secret = "test-sepay-secret-with-strong-hmac-minimum-32"
     monkeypatch.setenv("EZ_SEPAY_HMAC_SECRETS", json.dumps({bid: secret}))
-    payment = new_intent(client, bid, oid, csrf)
+    key = "qr-pending-idempotent-request-01"
+    payment = new_intent(client, bid, oid, csrf, request_id=key)
     assert payment.status_code == 201, payment.text
     data = payment.json()
     assert data["amount_vnd"] == 70000
     assert data["status"] == "pending"
     assert "970436-1234567890" in data["qr_image_url"]
     assert data["reference"] in data["qr_image_url"]
-    assert new_intent(client, bid, oid, csrf, request_id=payment.json()["id"]).status_code == 201
+    assert new_intent(client, bid, oid, csrf, request_id=key).status_code == 201
     assert call(client, "POST", f"/businesses/{bid}/orders/{oid}/paid", {
         "confirmed": True}, csrf).status_code == 409
 
