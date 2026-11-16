@@ -617,6 +617,7 @@ def order_create(bid: str, body: CreateOrder, user=Depends(current_user), db: Se
     if old:
         if old.request_fingerprint != fingerprint:
             fail(409, "Mã yêu cầu đã dùng cho giỏ hàng khác")
+        require_branch(duty, old.branch_id)
         result = order_out(db, old)
         if b.industry == "fnb" and "kitchen" in (b.active_modules or []):
             from .kds import dispatch_settings
