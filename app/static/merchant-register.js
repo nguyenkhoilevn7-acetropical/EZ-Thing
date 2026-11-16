@@ -140,6 +140,8 @@
         '<button type="button" data-ezreg="remove" data-value="'+E(line.id)+
         '" aria-label="'+t("Xóa món","Remove item")+'">✕</button></div></article>';
     }
+    const orderOnly=()=>getState().workstation?.mode==="order"&&
+      (business().role==="staff"||getState().workstation?.preview_only);
     function cartInnerHtml(){
       const activeTables=tables().filter(x=>x.branch_id===s.branch);
       const hasTables=business().active_modules?.includes("tables");
@@ -179,7 +181,7 @@
         t("Tạm tính","Estimated subtotal")+'</span><strong>'+fmt(total())+'</strong></div>'+
         '<div class="ezreg-finance-hint">'+t("Giá cuối cùng được xác nhận trên máy chủ. Chưa thu tiền.",
         "Final prices are verified on the server. No payment collected.")+'</div>'+
-        (business().role==="staff"&&getState().workstation?.mode==="order"?"":'<button type="button" class="ezreg-create ezreg-pay-primary" data-ezreg="checkout" '+
+        (orderOnly()?"":'<button type="button" class="ezreg-create ezreg-pay-primary" data-ezreg="checkout" '+
         (!s.cart.length||s.busy||!navigator.onLine?"disabled":"")+'>'+
         (s.busy?t("Đang xử lý...","Processing..."):
           t("Thanh toán","Checkout"))+
@@ -188,7 +190,8 @@
         (!s.cart.length||s.busy||!navigator.onLine?"disabled":"")+'>'+t("Lưu đơn · Chưa thu tiền","Save check · Unpaid")+'</button>'+
         '<div class="ezreg-secondary-actions"><button type="button" data-ezreg="clear" '+
         (!s.cart.length?"disabled":"")+'>'+t("Xóa giỏ hàng","Clear cart")+'</button>'+
-        '<button type="button" data-ezreg="orders">'+t("Xem đơn đã tạo","View orders")+'</button></div></div>';
+        (!orderOnly()?'<button type="button" data-ezreg="orders">'+
+        t("Xem đơn đã tạo","View orders")+'</button>':"")+'</div></div>';
     }
     function lastHtml(){
       const o=s.last;
@@ -209,11 +212,11 @@
         (business().industry==="fnb"&&o.kdsStatus==="manual"?
           '<button type="button" data-ezreg="send-kitchen">'+
           t("Gửi bếp thủ công","Send manually")+'</button>':"")+
-        (!o.paid&&!(business().role==="staff"&&getState().workstation?.mode==="order")?'<button type="button" data-ezreg="paid">'+
-          t("Thanh toán đơn này","Take payment")+'</button>':
-          '<button type="button" data-ezreg="print">'+t("🖨 In phiếu thanh toán","🖨 Print receipt")+'</button>')+
-        '<button type="button" data-ezreg="orders">'+t("Danh sách đơn","Order list")+
-        '</button></div></div></section>';
+        (!orderOnly()?(o.paid?
+          '<button type="button" data-ezreg="print">'+t("🖨 In phiếu thanh toán","🖨 Print receipt")+'</button>':
+          '<button type="button" data-ezreg="paid">'+t("Thanh toán đơn này","Take payment")+'</button>'):"")+
+        (!orderOnly()?'<button type="button" data-ezreg="orders">'+t("Danh sách đơn","Order list")+'</button>':"")+
+        '</div></div></section>';
     }
     function render(){
       initTenant();
@@ -228,8 +231,8 @@
         (navigator.onLine?t("● Đang kết nối","● Online"):t("● Mất kết nối","● Offline"))+'</span>'+
         '<button type="button" data-ezws="fullscreen" aria-label="'+t("Bật toàn màn hình","Fullscreen")+
         '" title="'+t("Toàn màn hình","Fullscreen")+'">⛶</button>'+
-        '<button type="button" data-ezreg="orders">'+t("Đơn hàng →","Orders →")+
-        '</button></div></div>'+lastHtml()+
+        (orderOnly()?"":'<button type="button" data-ezreg="orders">'+
+          t("Đơn hàng →","Orders →")+'</button>')+'</div></div>'+lastHtml()+
         '<div class="ezreg-layout"><section class="ezreg-catalog">'+
         '<div class="ezreg-catalog-head"><div><h3>'+t("Thực đơn & sản phẩm","Menu & products")+
         '</h3><span>'+stock.length+' '+t("mặt hàng","items")+'</span></div>'+
