@@ -203,3 +203,82 @@
 .ezhost-room-zone-transfer>button{min-height:43px;background:var(--hr-blue);color:#fff;
  border:1px solid var(--hr-blue);border-radius:9px;padding:9px 14px;font-size:12px;
  font-weight:800}
+
+/* Host forms render in #modal-root, outside .ezhost-room. Supply a local
+   accent fallback so the confirm button never becomes white-on-white. */
+#modal-root [data-ezhost-form],
+#modal-root .ezhost-seat-success{
+ --hr-blue:var(--merchant-accent,#086dd7);
+ --hr-ink:var(--merchant-ink,#15243a);
+ --hr-muted:var(--merchant-muted,#69798e);
+ --hr-tint:var(--merchant-panel-alt,#f4f6fa);
+}
+#modal-root [data-ezhost-form="action"]{gap:15px}
+#modal-root [data-ezhost-form] .ezhost-form-footer{
+ display:flex;align-items:stretch;justify-content:flex-end;flex-wrap:wrap;
+ gap:10px;padding-top:17px;margin-top:8px;border-top:1px solid var(--merchant-line,#dce5ee);
+ position:sticky;bottom:-25px;background:var(--merchant-panel,#fff);z-index:2;
+ padding-bottom:3px;
+}
+#modal-root [data-ezhost-form] .ezhost-form-footer>button{
+ display:inline-flex!important;visibility:visible!important;opacity:1;
+ align-items:center;justify-content:center;min-height:49px;
+ font-weight:800;font-size:14px;line-height:1.25;
+}
+#modal-root [data-ezhost-form] .ezhost-form-footer .ezhost-confirm,
+#modal-root .ezhost-success-actions .ezhost-confirm{
+ background:var(--merchant-accent,#086dd7)!important;
+ border:1px solid var(--merchant-accent,#086dd7)!important;
+ color:#fff!important;box-shadow:0 8px 16px rgba(0,84,173,.15);
+}
+#modal-root [data-ezhost-form] .ezhost-form-footer .ezhost-confirm:disabled{
+ opacity:.55!important;cursor:wait;box-shadow:none;
+}
+#modal-root .ezhost-seat-form textarea{min-height:65px;max-height:110px;resize:vertical}
+#modal-root .ezhost-seat-form .ezhost-seat-details{
+ display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:2px;
+}
+#modal-root .ezhost-seat-details span{
+ padding:7px 10px;border:1px solid var(--merchant-line,#dce5ee);
+ background:var(--merchant-panel-alt,#f4f6fa);border-radius:9px;
+ font-size:12px;font-weight:780;color:var(--merchant-ink,#15243a);
+}
+#modal-root .ezhost-seat-details .ezhost-seat-free{
+ background:color-mix(in srgb,#168b66 10%,var(--merchant-panel,#fff));
+ color:#187c58;border-color:color-mix(in srgb,#168b66 24%,var(--merchant-line,#dde5ee));
+}
+#modal-root .ezhost-seat-form .ezhost-form-grid{gap:12px}
+#modal-root .ezhost-guest-stepper{
+ display:grid;grid-template-columns:48px minmax(60px,1fr) 48px;gap:10px;
+ align-items:center;max-width:300px;
+}
+#modal-root .ezhost-guest-stepper button{
+ height:48px;border-radius:12px;border:1px solid var(--merchant-line,#dce5ee);
+ background:var(--merchant-panel-alt,#f4f6fa);color:var(--merchant-ink,#15243a);
+ font-size:25px;font-weight:850;line-height:1;cursor:pointer;
+}
+#modal-root .ezhost-guest-stepper input{
+ text-align:center;font-size:20px;font-weight:850;min-height:48px;
+ background:var(--merchant-panel,#fff);
+}
+#modal-root .ezhost-capacity-hint{
+ display:block;font-size:11px;font-weight:600;line-height:1.45;color:var(--merchant-muted,#69798e);
+}
+#modal-root .ezhost-capacity-alert{
+ margin:0;color:#ad6120;font-size:12px;font-weight:700;
+}
+#modal-root .ezhost-demo-note{
+ font-size:12px;line-height:1.4;color:var(--merchant-muted,#69798e);margin:0;
+}
+#modal-root .ezhost-seat-success{display:grid;gap:11px;max-width:620px}
+#modal-root .ezhost-seat-success strong{font-size:18px;color:#16805f}
+#modal-root .ezhost-seat-success p{margin:0;color:var(--merchant-ink,#15243a);line-height:1.5;font-size:13px}
+#modal-root .ezhost-success-actions{display:flex;gap:9px;flex-wrap:wrap;justify-content:flex-end;margin-top:12px}
+#modal-root .ezhost-success-actions button{padding:12px 16px;min-height:47px;font-weight:800}
+@media(max-width:600px){
+ #modal-root .ezhost-seat-form .ezhost-form-grid{grid-template-columns:1fr}
+ #modal-root [data-ezhost-form] .ezhost-form-footer{bottom:-25px}
+ #modal-root [data-ezhost-form] .ezhost-form-footer>button{flex:1 1 150px}
+ #modal-root .ezhost-success-actions button{flex:1 1 150px}
+ #modal-root .ezhost-guest-stepper{max-width:none}
+}

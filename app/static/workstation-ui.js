@@ -243,10 +243,24 @@
               t.guest_count=0;t.note="";t.group_id=null}
           }else if(a==="seat"){
             if(t.status!=="available")throw Error("Bàn chưa trống");
-            t.status="occupied";t.occupied=true;t.guest_count=body.guest_count||1;
+            const guestCount=Number(body.guest_count)||1;
+            if(guestCount<1||guestCount>Number(t.seats))
+              throw Error("Số khách vượt sức chứa của bàn");
+            const reservation=body.reservation_id?
+              sb.hostBookings?.find(r=>r.id===body.reservation_id):null;
+            if(body.reservation_id&&(!reservation||reservation.status!=="confirmed"||
+                reservation.table_id!==t.id))
+              throw Error("Lịch đặt bàn không hợp lệ");
+            if(reservation)reservation.status="seated";
+            t.status="occupied";t.occupied=true;t.guest_count=guestCount;
+            t.guest_name=body.guest_name||reservation?.customer_name||"";
+            t.guest_phone=body.guest_phone||reservation?.phone||"";
+            t.seated_at=new Date().toISOString();
+            t.reservation_id=reservation?.id||null;
             t.note=body.note||"";
           }else if(["release","cleaning"].includes(a)){
             t.status="cleaning";t.occupied=false;t.guest_count=0;t.group_id=null;
+            t.guest_name="";t.guest_phone="";t.reservation_id=null;t.seated_at=null;
           }else if(a==="block"){
             t.status="blocked";t.occupied=false;t.note=body.note||"";
           }else if(["ready","unblock","unjoin"].includes(a)){
@@ -254,6 +268,8 @@
             t.group_id=null;t.note="";
           }else if(a==="update"){
             t.guest_count=body.guest_count||t.guest_count;
+            t.guest_name=body.guest_name||t.guest_name||"";
+            t.guest_phone=body.guest_phone||t.guest_phone||"";
             t.note=body.note||"";
           }else throw Error("Chức năng chưa có trong bản mô phỏng");
           t.revision++;

@@ -520,6 +520,8 @@
         });
         if(bid!==business().id)return;
         s.cart=[];s.note="";s.optionProduct="";s.mobileCart=false;
+        // A new check must not inherit the rapid-tap guard from the paid one.
+        lastProductTap=null;
         paintCatalog();
         s.requestId=uid();
         s.last={id:order.id,total_vnd:order.total_vnd,paid:false,
