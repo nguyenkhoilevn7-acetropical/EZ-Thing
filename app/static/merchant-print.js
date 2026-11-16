@@ -38,8 +38,9 @@ function init({api,E,toast,getState}) {
    '<p>Hãy lưu trong máy chạy Print Connector hoặc nhập vào trang cấu hình CloudPRNT. Không chia sẻ khóa này công khai.</p>'+
    '<code>'+E(secret.device_token_once)+'</code>'+
    '<div class="print-setup"><div>Device ID: <code>'+E(secret.id||secret.device_id)+'</code></div>'+
-   (secret.cloudprnt_path?'<div>CloudPRNT server URL: <code>'+E(location.origin+secret.cloudprnt_path)+'</code></div>':
-    '<div>Local connector endpoint: <code>'+E(location.origin+secret.connector_path)+'</code></div>')+
+   ((secret.cloudprnt_path||devices.find(x=>x.id===(secret.id||secret.device_id))?.protocol==='cloudprnt')?
+    '<div>CloudPRNT server URL: <code>'+E(location.origin+(secret.cloudprnt_path||'/api/print/cloudprnt/'+(secret.id||secret.device_id)))+'</code></div>':
+    '<div>Local connector endpoint: <code>'+E(location.origin+(secret.connector_path||'/api/print/connector/'+(secret.id||secret.device_id)))+'</code></div>')+
    '</div><button class="btn sm secondary" data-print="hide-secret">Đã lưu, ẩn khóa</button></aside>':"";
   const devs=devices.length?devices.map(d=>{
     const seen=d.last_seen_at?Math.round((Date.now()-new Date(d.last_seen_at).getTime())/1000):null;
