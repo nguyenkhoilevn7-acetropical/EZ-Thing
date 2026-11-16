@@ -678,3 +678,29 @@ body[data-ez-workstation-preview="true"] :is(.ezreg-cart,.kds-ticket,.ezrole-tas
   padding:10px 15px;
  }
 }
+
+
+/* Preview toolbar occupies the top viewport; centered dialogs MUST fit below it.
+   Otherwise its close and payment buttons are hidden behind the preview switcher. */
+body[data-ez-workstation-preview="true"] #ezreg-cart.mobile-open{
+ top:calc((100dvh + var(--ezws-preview-header-h,70px))/2)!important;
+ height:min(850px,calc(100dvh - var(--ezws-preview-header-h,70px) - 18px))!important;
+ max-height:calc(100dvh - var(--ezws-preview-header-h,70px) - 18px)!important;
+}
+body[data-ez-workstation-preview="true"] #ezreg-option-mount .ezreg-option-dialog{
+ top:calc((100dvh + var(--ezws-preview-header-h,70px))/2)!important;
+ max-height:calc(100dvh - var(--ezws-preview-header-h,70px) - 18px)!important;
+}
+body[data-ez-workstation-preview="true"] .ezpay-modal{
+ top:calc((100dvh + var(--ezws-preview-header-h,70px))/2)!important;
+ max-height:calc(100dvh - var(--ezws-preview-header-h,70px) - 18px)!important;
+}
+@media(max-width:650px){
+ body[data-ez-workstation-preview="true"] #ezreg-cart.mobile-open{
+  top:calc((100dvh + var(--ezws-preview-header-h,120px))/2)!important;
+ }
+ body[data-ez-workstation-preview="true"] .ezpay-modal{
+  left:50%;right:auto;bottom:auto;
+  transform:translate(-50%,-50%);width:calc(100vw - 14px);
+ }
+}
