@@ -189,6 +189,7 @@ def reservation_out(row):
     return {"id": row.id, "status": row.status, "customer_name": d.get("customer_name", ""),
             "phone": d.get("phone", ""), "party_size": d.get("party_size", 0),
             "table_id": d.get("table_id", ""), "table_label": d.get("table_label", ""),
+            "branch_id": d.get("branch_id", ""),
             "scheduled_at": row.scheduled_at.isoformat() if row.scheduled_at else None,
             "ends_at": row.ends_at.isoformat() if row.ends_at else None,
             "note": d.get("note", ""), "source": d.get("source", "merchant"),
