@@ -231,6 +231,23 @@ def ticket_view(row: IndustryWorkItem, order: SaleOrder | None,
     }
 
 
+def scoped_ticket_view(db: Session, bid: str, user,
+                       row: IndustryWorkItem, order: SaleOrder, lines: list[dict]) -> dict:
+    from .team import role_for, duty_for, require_branch, require_kds_station
+    duty = duty_for(db, bid, user[0].id) if role_for(db, bid, user[0].id) == "staff" else None
+    if duty:
+        require_branch(duty, order.branch_id)
+        permitted = []
+        for line in lines:
+            try:
+                require_kds_station(duty, line["station"])
+                permitted.append(line)
+            except HTTPException:
+                pass
+        lines = permitted
+    return ticket_view(row, order, lines)
+
+
 @router.get("/queue")
 def queue(bid: str, branch_id: str | None = None,
           user=Depends(current_user), db: Session = Depends(db_session)):
@@ -491,7 +508,7 @@ def change_line(bid: str, ticket_id: str, line_id: str, body: LineUpdate,
     require_branch(assignment, order.branch_id)
     require_kds_station(assignment, chosen["station"])
     if chosen["status"] == body.status and revision == body.expected_revision:
-        return ticket_view(job, order, lines)
+        return scoped_ticket_view(db, bid, user, job, order, lines)
     if revision != body.expected_revision:
         fail(409, "Phiếu đã thay đổi ở thiết bị khác. Hãy tải lại")
     old = chosen["status"]
@@ -520,7 +537,7 @@ def change_line(bid: str, ticket_id: str, line_id: str, body: LineUpdate,
         "revision":details["kds_revision"],
         "reason":body.reason.strip() if body.reason else None})
     db.commit()
-    return ticket_view(job, order, lines)
+    return scoped_ticket_view(db, bid, user, job, order, lines)
 
 
 
