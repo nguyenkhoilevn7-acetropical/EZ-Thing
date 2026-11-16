@@ -426,7 +426,7 @@ try:
   # In-sandbox clicks must trigger the normal product, modifier, cart and save
   # flows. The virtual API catches ALL writes before network I/O.
   preview_start=len(requests)
-  page.locator('.ezreg-product').filter(has_text="Nước ép cam").first.click()
+  page.locator('.ezreg-product[data-value="'+modifier_pid+'"]').first.click()
   if page.locator('.ezreg-option-dialog').count():
    groups=page.locator('.ezreg-option-group[data-min="1"]')
    for index in range(groups.count()):
