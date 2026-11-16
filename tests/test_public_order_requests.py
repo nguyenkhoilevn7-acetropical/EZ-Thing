@@ -177,3 +177,49 @@ def test_guest_cart_ui_mobile_and_backend_approval_text():
         assert marker in js.lower() if marker=="pending merchant review" else marker in js
     assert ".shop-cart-line" in css
     assert "data-action=\"public-order-review\"" in merchant
+
+
+def test_approved_published_fnb_order_is_fired_to_kds_and_ez_print_atomically():
+    from app.printing import PrintJob
+    with TestClient(app) as owner, TestClient(app) as guest:
+        csrf, bid, pid=setup(owner,"fnb","print-bridge")
+        branch=owner.get(f"/api/businesses/{bid}/branches").json()[0]["id"]
+        added=owner.post(f"/api/businesses/{bid}/printers",
+            headers={"x-csrf-token":csrf},json={
+                "name":"Bar main","branch_id":branch,
+                "protocol":"connector_lan","station":"bar","auto_print":True})
+        assert added.status_code==201,added.text
+        publish(owner,csrf,bid,"fnb-print-bridge")
+        requested=guest.post("/api/public/shops/fnb-print-bridge/order-requests",
+                             json=request(pid,"fnb-approved-with-print",2))
+        assert requested.status_code==201,requested.text
+        rid=requested.json()["id"]
+        approved=owner.post(f"/api/businesses/{bid}/order-requests/{rid}/review",
+                            headers={"x-csrf-token":csrf},json={"action":"accept"})
+        assert approved.status_code==200,approved.text
+        oid=approved.json()["sale_order_id"]
+        with SessionLocal() as db:
+            kds=db.scalar(select(IndustryWorkItem).where(
+                IndustryWorkItem.business_id==bid,
+                IndustryWorkItem.kind=="kitchen",
+                IndustryWorkItem.reference_id==oid))
+            assert kds is not None
+            assert kds.details["kds_revision"]==0
+            assert kds.details["kds_lines"][0]["name"]=="Coffee bag"
+            assert kds.details["kds_lines"][0]["station"]=="bar"
+            print_jobs=db.scalars(select(PrintJob).where(
+                PrintJob.business_id==bid)).all()
+            assert len(print_jobs)==1
+            assert "Coffee bag" in print_jobs[0].content
+            db.get(Product,pid).name="Menu updated later"
+            db.commit()
+        queue=owner.get(f"/api/businesses/{bid}/kds/queue")
+        assert queue.status_code==200,queue.text
+        ticket=next(x for x in queue.json()["tickets"] if x["order_id"]==oid)
+        assert ticket["lines"][0]["name"]=="Coffee bag"
+        assert owner.post(f"/api/businesses/{bid}/order-requests/{rid}/review",
+                         headers={"x-csrf-token":csrf},
+                         json={"action":"accept"}).status_code==200
+        with SessionLocal() as db:
+            assert db.scalar(select(func.count(PrintJob.id)).where(
+                PrintJob.business_id==bid))==1
