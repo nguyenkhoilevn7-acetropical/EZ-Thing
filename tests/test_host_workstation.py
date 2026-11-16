@@ -85,7 +85,7 @@ def test_host_seat_update_transfer_join_release_and_audit():
                            target_table_id=second).status_code==409
         unlinked=host_action(owner,csrf,bid,second,"unjoin",revision=1)
         assert unlinked.status_code==200,unlinked.text
-        moved=host_action(owner,csrf,bid,first,"transfer",revision=3,target_table_id=second)
+        moved=host_action(owner,csrf,bid,first,"transfer",revision=4,target_table_id=second)
         assert moved.status_code==200,moved.text
         rows={t["id"]:t for t in moved.json()["tables"]}
         assert rows[first]["status"]=="available" and rows[second]["guest_count"]==4
