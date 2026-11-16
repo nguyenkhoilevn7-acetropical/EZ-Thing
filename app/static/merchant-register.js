@@ -43,6 +43,8 @@
         if(s.last?.id===result.order.id){s.last.paid=true;s.last.payment=result.payment}
         else s.last={id:result.order.id,total_vnd:result.order.total_vnd,
           paid:true,payment:result.payment,kitchenSent:false};
+        // Confirmed tender must update the register before async dashboard refresh.
+        paint();
         if(onPaid)await onPaid();
         paint();
       }});
