@@ -245,8 +245,8 @@ def test_mobile_kds_assets_are_linked_without_page_reload(cli):
     from pathlib import Path
     src=(Path(__file__).resolve().parents[1]/"app/static/app.js").read_text()
     assert "fnb:['overview','pos','orders','kitchen']" in src
-    assert "retail:['overview','orders','products','customers']" in src
-    assert "services:['overview','appointments','products','customers']" in src
+    assert "retail:['overview','pos','orders','products']" in src
+    assert "services:['overview','pos','appointments','customers']" in src
     assert "Lễ tân & xếp bàn" in src
 
 
