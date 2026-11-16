@@ -850,3 +850,9 @@ app.include_router(pos_v7_router)
 # SaleOrder line IDs; no duplicate order/payment ledger and no new DB tables.
 from .kds import router as kds_router  # noqa: E402
 app.include_router(kds_router)
+
+# EZ Print: separate device identities, tenant queue and Star CloudPRNT adapter.
+from .printing import merchant as print_router, device_api as print_device_router  # noqa: E402
+Base.metadata.create_all(bind=engine)  # Pilot only; production applies 20261116_08 migration.
+app.include_router(print_router)
+app.include_router(print_device_router)
