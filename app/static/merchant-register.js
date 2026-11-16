@@ -200,11 +200,13 @@
         (o.paid&&o.payment?.method==="cash"?' · '+t("Tiền thừa ","Change ")+fmt(o.payment.change_vnd):"")+
         (o.paid&&o.payment?.method==="bank_transfer"?' · '+t("Chuyển khoản thủ công","Manual transfer"):"")+
         '</p><div class="ezreg-last-actions">'+
-        (business().industry==="fnb"&&!o.kitchenSent?
+        (business().industry==="fnb"&&o.kdsStatus==="sent"?'<span>'+
+          t("✓ Đã tự chuyển đến trạm chế biến","✓ Automatically sent to prep stations")+'</span>':"")+
+        (business().industry==="fnb"&&o.kdsStatus==="no_prep"?'<span>'+
+          t("✓ Không có món cần chế biến","✓ No preparation needed")+'</span>':"")+
+        (business().industry==="fnb"&&o.kdsStatus==="manual"?
           '<button type="button" data-ezreg="send-kitchen">'+
-          t("Gửi bếp / pha chế","Send to kitchen")+'</button>':"")+
-        (business().industry==="fnb"&&o.kitchenSent?'<span>'+
-          t("Đã gửi bếp","Sent to kitchen")+'</span>':"")+
+          t("Gửi bếp thủ công","Send manually")+'</button>':"")+
         (!o.paid?'<button type="button" data-ezreg="paid">'+
           t("Thanh toán đơn này","Take payment")+'</button>':
           '<button type="button" data-ezreg="print">'+t("🖨 In phiếu thanh toán","🖨 Print receipt")+'</button>')+
@@ -426,7 +428,8 @@
         if(bid!==business().id)return;
         s.cart=[];s.note="";s.optionProduct="";s.mobileCart=false;
         s.requestId=uid();
-        s.last={id:order.id,total_vnd:order.total_vnd,kitchenSent:false,paid:false};
+        s.last={id:order.id,total_vnd:order.total_vnd,paid:false,
+          kdsStatus:order.kds_dispatch?.status||null};
         toast(t("Đã tạo đơn #","Created order #")+order.id.slice(0,8).toUpperCase());
         if(onCreated){try{await onCreated(order)}catch(error){toast(t("Đã lưu đơn nhưng chưa tải lại danh sách","Order saved, refresh failed"),true)}}
         paint();
@@ -439,13 +442,13 @@
       }finally{s.busy=false;syncCart()}
     }
     async function sendKitchen(){
-      if(!s.last||s.busy||business().industry!=="fnb")return;
+      if(!s.last||s.busy||business().industry!=="fnb"||s.last.kdsStatus!=="manual")return;
       s.busy=true;
       try{
         await api("/businesses/"+encodeURIComponent(s.bid)+"/kds/fire",{
           method:"POST",body:JSON.stringify({order_id:s.last.id})
         });
-        s.last.kitchenSent=true;
+        s.last.kdsStatus="sent";
         toast(t("Đã gửi bếp & pha chế","Sent to kitchen & bar"));
         if(onCreated)await onCreated(null);
       }catch(err){toast(err.message,true)}
