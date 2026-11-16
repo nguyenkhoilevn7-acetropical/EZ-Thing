@@ -142,6 +142,21 @@ try:
   page.locator("#ez-kds .kds-station").first.wait_for(timeout=25000)
   assert page.locator("#ez-kds .kds-station").count()==5
   assert page.locator("#ez-kds #kds-live").inner_text().strip()
+  # Configuration must be visible to the owner, and saving a category rule
+  # should not rebuild the KDS shell or cause horizontal overflow.
+  page.locator("#ez-kds-routing .ezroute-panel").wait_for(timeout=15000)
+  page.locator("#ez-kds-routing .ezroute-panel>summary").click()
+  assert page.locator("#ez-kds-routing [data-ezroute-form='settings']").is_visible()
+  assert page.locator("#ez-kds-routing [name='auto_dispatch']").is_checked()
+  cat_form=page.locator("#ez-kds-routing [data-ezroute-form='category']")
+  cat_form.locator('[name="category"]').select_option(label="Đồ uống")
+  cat_form.locator('[name="station"]').select_option("bar")
+  cat_form.locator('[type="submit"]').click()
+  page.locator("#ez-kds-routing .ezroute-badge").first.wait_for(timeout=12000)
+  assert "Đồ uống" in page.locator("#ez-kds-routing .ezroute-summaries").inner_text()
+  assert page.locator("#ez-kds-routing [data-ezroute-form='product'] [name='station'] option[value='skip']").count()==1
+  assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth + 2")
+  print("PASS KDS routing UI: auto enabled and category mapping persisted",flush=True)
   assert page.locator("#ez-kds [data-kds-form=fire]").count() <= 1
   page.evaluate("window.__kdsOriginal=document.querySelector('#ez-kds')")
   page.locator('#ez-kds [data-kds="station"][data-value="bar"]').click()
