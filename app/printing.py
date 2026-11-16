@@ -489,13 +489,14 @@ def cloud_confirm(pid: str, request: Request,
 
 # Manual operational printouts: Sapo/iPOS parity without a second order ledger.
 class ManualDocument(BaseModel):
-    kind: Literal["prebill", "packing", "cup_label"]
+    kind: Literal["prebill", "packing", "cup_label", "receipt"]
     device_id: str = Field(min_length=1, max_length=36)
     request_id: str = Field(min_length=12, max_length=80, pattern=r"^[A-Za-z0-9_-]+$")
 
 
 DOCUMENT_STATIONS = {
     "prebill": {"receipt"},
+    "receipt": {"receipt"},
     "packing": {"receipt", "packing", "expo"},
     "cup_label": {"bar", "label"},
 }
@@ -517,6 +518,8 @@ def documents_for_order(db: Session, bid: str, order: SaleOrder,
         raise HTTPException(422, "Loại phiếu không được hỗ trợ")
     if kind == "prebill" and order.status != "open":
         raise HTTPException(409, "Chỉ in tạm tính cho đơn chưa thanh toán")
+    if kind == "receipt" and order.status != "paid":
+        raise HTTPException(409, "Chỉ in lại phiếu thanh toán cho đơn đã nhận tiền")
     if kind == "cup_label":
         from .models import Business
         business = db.scalar(select(Business).where(Business.id == bid))
@@ -538,6 +541,12 @@ def documents_for_order(db: Session, bid: str, order: SaleOrder,
                                           order.id, snapshot["items"], order.note,
                                           total=order.total_vnd,
                                           payment_note="CHUA THANH TOAN - NOT PAID",
+                                          breakdown=pos_breakdown(db, order))}]
+    if kind == "receipt":
+        return [{"title": "Ban sao thanh toan #" + order_ref,
+                 "content": render_ticket("BAN SAO PHIEU THANH TOAN | " + table_label,
+                                          order.id, snapshot["items"], order.note,
+                                          total=order.total_vnd,
                                           breakdown=pos_breakdown(db, order))}]
     if kind == "packing":
         lines = [{
@@ -617,7 +626,7 @@ def available_document_devices(db: Session, bid: str, order: SaleOrder, kind: st
 
 @merchant.get("/documents/{oid}/preview")
 def preview_document(bid: str, oid: str,
-                     kind: Literal["prebill", "packing", "cup_label"] = "prebill",
+                     kind: Literal["prebill", "packing", "cup_label", "receipt"] = "prebill",
                      user=Depends(current_user), db: Session = Depends(db_session)):
     tenant(bid, user, db)
     allow(db, bid, user, ROLES)
