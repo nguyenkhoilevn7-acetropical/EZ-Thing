@@ -615,7 +615,7 @@ def call_runner(bid: str, ticket_id: str, line_id: str, body: CallRunner,
         fail(409, "Chỉ gọi phục vụ khi món đã sẵn sàng")
     # Internal flag only. No Zalo/SMS/push or third-party acknowledgement.
     if line.get("runner_called_at"):
-        return ticket_view(job, order, lines)
+        return scoped_ticket_view(db, bid, user, job, order, lines)
     revision = int(details.get("kds_revision", 0))
     if body.expected_revision != revision:
         fail(409, "Phiếu thay đổi ở thiết bị khác")
@@ -625,7 +625,7 @@ def call_runner(bid: str, ticket_id: str, line_id: str, body: CallRunner,
     audit(db, bid, user[0].id, "kds.runner_called", {
         "ticket_id": ticket_id, "line_id": line_id, "transport": "internal_flag"})
     db.commit()
-    return ticket_view(job, order, lines)
+    return scoped_ticket_view(db, bid, user, job, order, lines)
 
 
 @router.post("/tickets/{ticket_id}/lines/{line_id}/move-station")
@@ -642,7 +642,7 @@ def transfer_station(bid: str, ticket_id: str, line_id: str,
         fail(409, "Không chuyển trạm khi món đã xong")
     old = line["station"]
     if old == body.station:
-        return ticket_view(job, order, lines)
+        return scoped_ticket_view(db, bid, user, job, order, lines)
     line["station"] = body.station
     line["updated_at"] = datetime.now(timezone.utc).isoformat()
     details.update(kds_lines=lines, kds_revision=revision+1)
@@ -651,4 +651,4 @@ def transfer_station(bid: str, ticket_id: str, line_id: str,
         "ticket_id":ticket_id,"line_id":line_id,"from":old,
         "to":body.station,"reason":body.reason.strip()})
     db.commit()
-    return ticket_view(job, order, lines)
+    return scoped_ticket_view(db, bid, user, job, order, lines)
