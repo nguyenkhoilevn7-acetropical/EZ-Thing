@@ -12,17 +12,89 @@ from datetime import datetime, timedelta, timezone
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, EmailStr
-from sqlalchemy import DateTime, ForeignKey, String, select
+from pydantic import BaseModel, EmailStr, Field
+from sqlalchemy import DateTime, ForeignKey, String, select, UniqueConstraint
 from sqlalchemy.orm import Mapped, Session, mapped_column
 
 from .database import Base, db_session
-from .models import Business, Membership, User, now
+from .models import Branch, Business, Membership, User, now
 from .main import audit, current_user, tenant
 
 router = APIRouter(prefix="/api", tags=["Merchant team"])
 ROLES = {"owner", "manager", "staff"}
 MANAGE_ROLES = {"owner", "manager"}
+DUTIES = {"order", "kitchen", "bar", "cashier", "host"}
+KITCHEN_STATIONS = {"kitchen", "hot", "cold", "expo"}
+
+
+class StaffDuty(Base):
+    """Authenticated employee duty. The browser/device key never grants access."""
+    __tablename__ = "staff_duties"
+    __table_args__ = (UniqueConstraint("business_id", "user_id",
+                                      name="uq_staff_duty_tenant_user"),)
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    business_id: Mapped[str] = mapped_column(
+        ForeignKey("businesses.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id: Mapped[str] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    mode: Mapped[str] = mapped_column(String(20), nullable=False, default="order")
+    branch_id: Mapped[str | None] = mapped_column(
+        ForeignKey("branches.id", ondelete="SET NULL"), nullable=True)
+    station: Mapped[str] = mapped_column(String(20), nullable=False, default="all")
+    updated_by: Mapped[str] = mapped_column(ForeignKey("users.id"), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+
+
+class StaffDutyUpdate(BaseModel):
+    mode: Literal["order", "kitchen", "bar", "cashier", "host"]
+    branch_id: str | None = None
+    station: Literal["all", "kitchen", "hot", "cold", "expo", "bar"] = "all"
+
+
+def duty_for(db: Session, bid: str, uid: str) -> StaffDuty | None:
+    return db.scalar(select(StaffDuty).where(
+        StaffDuty.business_id == bid, StaffDuty.user_id == uid))
+
+
+def duty_payload(value: StaffDuty | None) -> dict:
+    return {
+        "mode": value.mode if value else "order",
+        "branch_id": value.branch_id if value else None,
+        "station": value.station if value else "all",
+        "assigned": value is not None,
+    }
+
+
+def require_duty(db: Session, bid: str, user, allowed: set[str]) -> StaffDuty | None:
+    """Enforce employee functional privilege, independently of device profile.
+
+    Existing staff without an assignment are restricted to order-taking.
+    Managers/owners retain current privileges and never impersonate staff.
+    """
+    role = allow(db, bid, user, ROLES)
+    if role != "staff":
+        return None
+    assigned = duty_for(db, bid, user[0].id)
+    mode = assigned.mode if assigned else "order"
+    if mode not in allowed:
+        raise HTTPException(403, "Tài khoản nhân viên không có quyền cho tác vụ này")
+    return assigned
+
+
+def require_branch(assignment: StaffDuty | None, branch_id: str) -> None:
+    if assignment and assignment.branch_id and assignment.branch_id != branch_id:
+        raise HTTPException(403, "Thiết bị/nhân viên không thuộc chi nhánh này")
+
+
+def require_kds_station(assignment: StaffDuty | None, station: str) -> None:
+    if not assignment:
+        return
+    if assignment.mode == "bar":
+        allowed = {"bar"}
+    else:
+        allowed = {"hot", "cold", "expo"} if assignment.station == "kitchen" else {assignment.station}
+    if station not in allowed:
+        raise HTTPException(403, "Nhân viên không được xử lý món tại trạm này")
 
 
 class TeamInvite(Base):
@@ -80,12 +152,15 @@ def list_team(bid: str, user=Depends(current_user), db: Session = Depends(db_ses
     memberships = db.execute(select(Membership, User)
         .join(User, Membership.user_id == User.id)
         .where(Membership.business_id == bid).order_by(User.name)).all()
+    duties = {x.user_id: duty_payload(x) for x in db.scalars(
+        select(StaffDuty).where(StaffDuty.business_id == bid)).all()}
     pending = db.scalars(select(TeamInvite).where(
         TeamInvite.business_id == bid, TeamInvite.accepted_at.is_(None),
         TeamInvite.revoked_at.is_(None), TeamInvite.expires_at > now())
         .order_by(TeamInvite.created_at.desc()).limit(100)).all()
     return {
-        "members": [{"id": u.id, "name": u.name, "email": u.email, "role": m.role}
+        "members": [{"id": u.id, "name": u.name, "email": u.email,
+                     "role": m.role, "duty": duties.get(u.id, duty_payload(None)) if m.role == "staff" else None}
                     for m, u in memberships],
         "invitations": [{"id": x.id, "email": x.email, "role": x.role,
                          "expires_at": utc(x.expires_at).isoformat()} for x in pending],
@@ -158,6 +233,13 @@ def accept_invite(body: AcceptInvite,
     db.add(Membership(id=str(uuid.uuid4()), business_id=b.id,
                       user_id=user[0].id, role=invitation.role))
     invitation.accepted_at = now()
+    if invitation.role == "staff" and b.industry == "fnb":
+        first_branch = db.scalar(select(Branch.id).where(Branch.business_id == b.id)
+                                 .order_by(Branch.created_at))
+        db.add(StaffDuty(
+            id=str(uuid.uuid4()), business_id=b.id, user_id=user[0].id,
+            mode="order", station="all", branch_id=first_branch,
+            updated_by=invitation.invited_by))
     audit(db, b.id, user[0].id, "team.joined", {"role": invitation.role})
     db.commit()
     return {"ok": True, "business_id": b.id, "role": invitation.role}
@@ -190,6 +272,13 @@ def change_role(bid: str, uid: str, body: ChangeRole,
         raise HTTPException(403, "Không thể sửa chủ doanh nghiệp")
     before = member.role
     member.role = body.role
+    if body.role == "staff" and before != "staff" and db.scalar(select(Business.industry).where(
+            Business.id == bid)) == "fnb" and not duty_for(db, bid, uid):
+        first_branch = db.scalar(select(Branch.id).where(Branch.business_id == bid)
+                                 .order_by(Branch.created_at))
+        db.add(StaffDuty(id=str(uuid.uuid4()), business_id=bid, user_id=uid,
+                         mode="order", station="all", branch_id=first_branch,
+                         updated_by=user[0].id))
     audit(db, bid, user[0].id, "team.role_changed", {
         "target_user_id": uid, "from": before, "to": body.role})
     db.commit()
@@ -205,7 +294,58 @@ def remove_member(bid: str, uid: str,
         Membership.business_id == bid, Membership.user_id == uid).with_for_update())
     if not member or member.role == "owner":
         raise HTTPException(403, "Không thể xóa chủ doanh nghiệp")
+    old_duty = duty_for(db, bid, uid)
+    if old_duty:
+        db.delete(old_duty)
     db.delete(member)
     audit(db, bid, user[0].id, "team.member_removed", {"target_user_id": uid})
     db.commit()
     return {"ok": True}
+
+
+@router.get("/businesses/{bid}/team/my-duty")
+def my_duty(bid: str, user=Depends(current_user),
+            db: Session = Depends(db_session)):
+    tenant(bid, user, db)
+    role = allow(db, bid, user, ROLES)
+    if role != "staff":
+        return {"role": role, "mode": "manager", "station": "all",
+                "branch_id": None, "assigned": True}
+    return {"role": role, **duty_payload(duty_for(db, bid, user[0].id))}
+
+
+@router.put("/businesses/{bid}/team/members/{uid}/duty")
+def assign_staff_duty(bid: str, uid: str, body: StaffDutyUpdate,
+                      user=Depends(current_user), db: Session = Depends(db_session)):
+    business = tenant(bid, user, db)
+    owner_only(db, bid, user)
+    if business.industry != "fnb":
+        raise HTTPException(404, "Phân công trạm POS chỉ áp dụng cho F&B")
+    member = db.scalar(select(Membership).where(
+        Membership.business_id == bid, Membership.user_id == uid).with_for_update())
+    if not member or member.role != "staff":
+        raise HTTPException(404, "Chỉ phân công cho nhân viên thuộc doanh nghiệp")
+    if body.branch_id and not db.scalar(select(Branch.id).where(
+            Branch.business_id == bid, Branch.id == body.branch_id)):
+        raise HTTPException(422, "Chi nhánh không thuộc doanh nghiệp")
+    if body.mode == "bar" and body.station not in {"all", "bar"}:
+        raise HTTPException(422, "Nhân viên pha chế chỉ được gán trạm Bar")
+    if body.mode == "kitchen" and body.station not in KITCHEN_STATIONS | {"all"}:
+        raise HTTPException(422, "Trạm bếp không hợp lệ")
+    if body.mode not in {"kitchen", "bar"} and body.station != "all":
+        raise HTTPException(422, "Vai trò không chế biến không được gán trạm")
+    normalized_station = "bar" if body.mode == "bar" else (
+        "kitchen" if body.mode == "kitchen" and body.station == "all"
+        else body.station)
+    row = duty_for(db, bid, uid)
+    previous = duty_payload(row)
+    if row is None:
+        row = StaffDuty(id=str(uuid.uuid4()), business_id=bid, user_id=uid,
+                        updated_by=user[0].id)
+        db.add(row)
+    row.mode, row.branch_id, row.station = body.mode, body.branch_id, normalized_station
+    row.updated_by, row.updated_at = user[0].id, now()
+    audit(db, bid, user[0].id, "team.staff_duty_assigned", {
+        "employee_id": uid, "before": previous, "after": duty_payload(row)})
+    db.commit()
+    return {"user_id": uid, "duty": duty_payload(row)}
