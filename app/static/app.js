@@ -190,6 +190,16 @@ async function loadData(){const bid=s.business.id;const tasks={overview:`/busine
  if(s.business.role==='owner'||s.business.role==='manager')
    tasks.orderRequests=`/businesses/${bid}/order-requests`;
  if(has('tables'))tasks.tables=`/businesses/${bid}/tables`;if(has(activeIndustry()[1]))tasks.industry=`/businesses/${bid}/industry/${activeIndustry()[0]}`;if(has('insights')&&s.business.role!=='staff'){tasks.insights=`/businesses/${bid}/insights`;tasks.receivables=`/businesses/${bid}/receivables`;}
+ if(s.business.role==='staff'&&s.business.industry==='fnb'){
+  const mode=s.workstation?.mode||'order';
+  const allowed={
+    order:['orders','products','customers','branches','tables'],
+    cashier:['orders','branches'],
+    kitchen:['branches'],bar:['branches'],
+    host:['branches','tables','customers']
+  }[mode]||['branches'];
+  for(const name of Object.keys(tasks))if(!allowed.includes(name))delete tasks[name];
+ }
  const results=await Promise.allSettled(Object.entries(tasks).map(async ([name,path])=>[name,await api(path)]));
  let failed=0;
  for(const result of results){
@@ -213,6 +223,32 @@ function overviewTab(){const o=s.cache.overview||{};const orders=s.cache.orders|
  <div class="split"><div class="surface pad"><div class="panel-title"><h3>Đơn hàng gần đây</h3><button class="btn ghost sm" data-action="tab" data-value="orders">Xem tất cả ${I('arrow','sm')}</button></div>${orders.length?`<div class="table-wrap"><table class="data-table"><thead><tr><th>Đơn hàng</th><th>Thời gian</th><th>Giá trị</th><th>Trạng thái</th></tr></thead><tbody>${orders.slice(0,5).map(o=>`<tr><td class="table-name">#${E(o.id.slice(0,8).toUpperCase())}</td><td>${D(o.created_at)}</td><td><b>${V(o.total_vnd)}</b></td><td>${status(o.status)}</td></tr>`).join('')}</tbody></table></div>`:cardEmpty('orders','Chưa có đơn hàng','Tạo đơn đầu tiên để bắt đầu theo dõi doanh thu.','new-order','Tạo đơn đầu tiên')}</div>
  <div class="surface pad"><div class="panel-title"><h3>Thao tác nhanh</h3><span class="pill">QUẢN LÝ</span></div><div class="task-list">${[['new-order','orders','Tạo đơn hàng','Bán hàng tại quầy hoặc tại bàn'],...(s.business.role==='staff'?[]:[['new-product','box','Thêm sản phẩm','Xây dựng danh mục kinh doanh']]),['new-customer','users','Thêm khách hàng','Lưu địa chỉ và thông tin liên hệ'],...(s.business.role!=='staff'&&has('tables')?[['new-table','tables','Thêm bàn','Thiết lập khu vực phục vụ']]:[])].map(([act,ico,name,desc])=>`<button class="task-item" data-action="${act}" style="background:var(--merchant-panel,var(--paper,#fff));color:var(--merchant-ink,var(--ink));text-align:left;cursor:pointer"><span class="task-icon">${I(ico)}</span><span style="flex:1"><strong>${name}</strong><p>${desc}</p></span>${I('chevron','sm')}</button>`).join('')}</div></div></div>`}
 function status(val){return val==='cancelled'?'<span class="pill red">Đã hủy</span>':val==='paid'?`<span class="pill paid">Đã nhận tiền</span>`:val==='open'?`<span class="pill yellow">Chờ thanh toán</span>`:`<span class="pill">${E(val)}</span>`}
+function cashierTaskTab(){
+ const list=(s.cache.orders||[]),open=list.filter(x=>x.status==='open'),paid=list.filter(x=>x.status==='paid');
+ return `<section class="ezrole-task"><header class="ezrole-task-head"><div><span>EZ THING · CASHIER</span>
+ <h2>💳 Thu ngân</h2><p>Đơn chờ thanh toán · xác nhận số tiền thực nhận</p></div>
+ <div class="ezrole-task-stats"><strong>${open.length}</strong><small>Đơn chờ thu</small></div></header>
+ <div class="ezrole-task-content"><h3>Đơn cần thanh toán</h3>
+ <div class="ezrole-task-grid">${open.map(x=>`<article class="ezrole-order-card">
+ <div><span>#${E(x.id.slice(0,8).toUpperCase())}</span><small>${D(x.created_at)}</small></div>
+ <p>${E((x.items||[]).map(i=>i.name+' ×'+i.quantity).join(' · '))}</p>
+ <strong>${V(x.total_vnd)}</strong>
+ <button type="button" class="btn" data-action="confirm-paid" data-value="${E(x.id)}">💳 Thu tiền</button>
+ </article>`).join('')||'<p class="ezrole-empty">✓ Không có đơn chờ thanh toán.</p>'}</div>
+ <h3>Đã thu gần đây</h3><div class="ezrole-paid-list">${paid.slice(0,8).map(x=>`<div><span>#${E(x.id.slice(0,8).toUpperCase())}</span><strong>${V(x.total_vnd)}</strong><small>✓ Đã nhận tiền</small></div>`).join('')||'<p class="subtle">Chưa có đơn.</p>'}</div></div></section>`;
+}
+function hostTaskTab(){
+ const tables=s.cache.tables||[],occupied=tables.filter(x=>x.occupied).length;
+ return `<section class="ezrole-task"><header class="ezrole-task-head"><div><span>EZ THING · HOST</span>
+ <h2>🪑 Lễ tân & xếp bàn</h2><p>Xem trạng thái bàn theo chi nhánh được phân công.</p></div>
+ <div class="ezrole-task-stats"><strong>${tables.length-occupied} / ${tables.length}</strong><small>Bàn trống</small></div></header>
+ <div class="ezrole-task-content"><h3>Sơ đồ bàn hiện tại</h3><div class="ezrole-table-grid">
+ ${tables.map(t=>`<article class="ezrole-table ${t.occupied?'is-occupied':''}">
+ <span aria-hidden="true">🪑</span><strong>${E(t.label)}</strong>
+ <small>${t.seats} chỗ · ${t.occupied?'Đang sử dụng':'Sẵn sàng'}</small></article>`).join('')||
+ '<p class="ezrole-empty">Chưa có bàn tại chi nhánh này.</p>'}
+ </div><p class="ezrole-host-note">Đặt bàn, thay đổi sơ đồ và chuyển bàn cần cấp quyền trên hệ thống quản lý bàn trước khi thao tác.</p></div></section>`;
+}
 function ordersTab(){const result=s.cache.orderDashboard;const list=(result?.orders||s.cache.orders||[]).filter(x=>!s.orderSearch||[x.id,...x.items.map(i=>i.name)].join(' ').toLocaleLowerCase('vi').includes(s.orderSearch.toLocaleLowerCase('vi')));const ordersCount=result?.total_count??list.length;const opened=result?.open_count??list.filter(x=>x.status==='open').length;const paid=result?.paid_count??list.filter(x=>x.status==='paid').length;const cancelled=result?.cancelled_count??list.filter(x=>x.status==='cancelled').length;const revenue=s.business.role==='staff'?null:(result?.paid_vnd??list.filter(x=>x.status==='paid').reduce((sum,x)=>sum+x.total_vnd,0));return `${section('Quản lý đơn hàng','Đơn được tính giá từ dữ liệu sản phẩm trên server.',`<button class="btn" data-action="new-order">${I('plus','sm')} Tạo đơn · POS</button>`)}<div class="suite-summary order-kpis"><div><strong>${ordersCount}</strong><span>Tổng đơn trong kỳ</span></div><div><strong>${opened}</strong><span>Chưa thanh toán</span></div><div><strong>${paid}</strong><span>Đã nhận tiền</span></div><div><strong>${revenue==null?'—':V(revenue)}</strong><span>Doanh thu từ đơn tạo trong kỳ</span></div></div>
  <details class="ez-orders-advanced"><summary>⚙ Bộ lọc nâng cao · Ngày / Chi nhánh / Bàn</summary><div class="order-range-bar">
  <label>Từ ngày<input type="date" data-order-filter="from" value="${E(s.orderDateFrom)}"></label>
@@ -344,7 +380,7 @@ async function handleAction(act,val,button){try{
  else if(act==='answer-toggle'){s.answers[val]=!s.answers[val];setup()}
  else if(act==='choose-plan'){s.answers.selected_plan=val;setup()}
  else if(act==='setup-back'){if(s.setupStep===1){await api('/auth/logout',{method:'POST'});s.user=null;s.csrf=null;auth()}else{s.setupStep--;setup()}}
- else if(act==='setup-next'){if(s.setupStep===1){let name=document.getElementById('biz-name')?.value?.trim()||'';if(name.length<2){toast('Vui lòng nhập tên doanh nghiệp',true);return}s.answers.name=name;}if(s.setupStep===2){s.recommendation=await api('/onboarding/recommend',{method:'POST',body:JSON.stringify(s.answers)});s.answers.selected_plan=s.recommendation.recommended_plan}if(s.setupStep<3){s.setupStep++;setup();return}const b=await api('/businesses',{method:'POST',body:JSON.stringify(s.answers)});s.businesses.push(b);s.business=b;s.tab=b.billing_required?(b.role==='owner'?'billing':'account_lock'):'overview';if(b.billing_required){s.cache={};if(b.role==='owner')s.cache.billing=await api('/businesses/'+encodeURIComponent(b.id)+'/billing');appFrame()}else{await refresh();await workstationUI?.load();appFrame()}toast('Đã tạo không gian làm việc')}
+ else if(act==='setup-next'){if(s.setupStep===1){let name=document.getElementById('biz-name')?.value?.trim()||'';if(name.length<2){toast('Vui lòng nhập tên doanh nghiệp',true);return}s.answers.name=name;}if(s.setupStep===2){s.recommendation=await api('/onboarding/recommend',{method:'POST',body:JSON.stringify(s.answers)});s.answers.selected_plan=s.recommendation.recommended_plan}if(s.setupStep<3){s.setupStep++;setup();return}const b=await api('/businesses',{method:'POST',body:JSON.stringify(s.answers)});s.businesses.push(b);s.business=b;s.tab=b.billing_required?(b.role==='owner'?'billing':'account_lock'):'overview';if(b.billing_required){s.cache={};if(b.role==='owner')s.cache.billing=await api('/businesses/'+encodeURIComponent(b.id)+'/billing');appFrame()}else{await workstationUI?.load();await refresh();appFrame()}toast('Đã tạo không gian làm việc')}
  else if(act==='tab'){
  if(workstationUI&&!workstationUI.allowNavigation(val))return;
  if(s.business?.billing_required&&val!==(s.business.role==='owner'?'billing':'account_lock'))return;
@@ -371,6 +407,20 @@ async function handleAction(act,val,button){try{
     {method:'POST',body:JSON.stringify({status})});
    s.cache.publicLeads=await api('/businesses/'+encodeURIComponent(s.business.id)+'/public-leads');
    renderTab();toast('Đã cập nhật yêu cầu');
+ }
+ else if(act==='team-duty-save'){
+   const container=document.querySelector('[data-staff="'+CSS.escape(val)+'"]');
+   if(!container)return;
+   const mode=container.querySelector('[data-team-duty]')?.value||'order';
+   const stationRaw=container.querySelector('[data-team-duty-station]')?.value||'all';
+   const station=mode==='bar'?'bar':mode==='kitchen'?(stationRaw==='all'?'kitchen':stationRaw):'all';
+   const branch_id=container.querySelector('[data-team-duty-branch]')?.value||null;
+   const result=await api('/businesses/'+encodeURIComponent(s.business.id)+
+     '/team/members/'+encodeURIComponent(val)+'/duty',{
+       method:'PUT',body:JSON.stringify({mode,station,branch_id})
+     });
+   s.cache.team=await api('/businesses/'+encodeURIComponent(s.business.id)+'/team');
+   renderTab();toast('Đã phân công: '+result.duty.mode+'. Nhân viên đăng nhập lại để cập nhật.');
  }
  else if(act==='team-revoke'){
    await api('/businesses/'+encodeURIComponent(s.business.id)+'/team/invitations/'+encodeURIComponent(val)+'/revoke',{method:'POST',body:'{}'});
@@ -550,9 +600,10 @@ async function afterAuth(){
    if(s.business.role==='owner')s.cache.billing=await api('/businesses/'+encodeURIComponent(s.business.id)+'/billing');
  }else{
    if(!menuItems().some(x=>x[0]===s.tab))s.tab='overview';
+   await workstationUI?.load();
    await loadData();
  }
- await workstationUI?.load();
+ if(s.business.billing_required)await workstationUI?.load();
  appFrame();
 }
 async function start(){
