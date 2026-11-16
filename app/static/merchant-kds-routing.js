@@ -10,12 +10,12 @@
       hot:T("Bếp nóng","Hot kitchen"),cold:T("Bếp lạnh","Cold kitchen"),
       expo:T("Ra món / Phân trạm","Expo / triage"),
       skip:T("Không cần chế biến","No preparation")};
-    let config=null,tenantId=null,busy=false,generation=0;
+    let config=null,productCache=null,tenantId=null,busy=false,generation=0;
     const state=()=>getState();
     const bid=()=>state().business?.id;
     const canManage=()=>["owner","manager"].includes(state().business?.role);
     const key=category=>String(category||"").trim().toLocaleLowerCase("vi").replace(/\s+/g," ");
-    const list=()=>state().cache?.products||[];
+    const list=()=>state().cache?.products?.length?state().cache.products:(productCache||[]);
     const url=path=>"/businesses/"+encodeURIComponent(bid())+"/kds"+path;
     function selectors(selected=""){
       return '<option value=""'+(!selected?' selected':'')+'>'+
@@ -95,12 +95,15 @@
     async function load(){
       if(!canManage()||!bid())return;
       const expected=bid(),serial=++generation;
-      const next=await api(url("/routes"));
+      const [next,products]=await Promise.all([
+        api(url("/routes")),
+        api("/businesses/"+encodeURIComponent(expected)+"/products"),
+      ]);
       if(serial!==generation||bid()!==expected)return;
-      tenantId=expected;config=next;paint();
+      tenantId=expected;config=next;productCache=products;paint();
     }
     function mount(){tenantId=bid();load().catch(e=>toast(e.message,true))}
-    function invalidate(){generation++;config=null;tenantId=null;busy=false}
+    function invalidate(){generation++;config=null;productCache=null;tenantId=null;busy=false}
     async function submit(form){
       if(busy||!canManage()||!bid())return;
       busy=true;
