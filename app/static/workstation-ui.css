@@ -521,3 +521,186 @@ body[data-ez-workstation-preview="true"] .ezws-preview-bar{
 body[data-ez-workstation-preview="true"] :is(.ezreg-cart,.kds-ticket,.ezrole-task){
  pointer-events:auto
 }
+
+
+/* POS touch ergonomics — terminal/tablet/Fold/mobile, no tiny modifier labels. */
+#ezreg-option-mount .ezreg-option-dialog{
+ width:min(840px,calc(100vw - 28px));max-width:none;
+ max-height:min(88dvh,900px);border-radius:22px;
+}
+#ezreg-option-mount .ezreg-option-title{
+ padding:24px 28px;gap:18px;
+}
+#ezreg-option-mount .ezreg-option-title .ezreg-visual{
+ width:76px;height:76px;font-size:37px;
+}
+#ezreg-option-mount .ezreg-option-title h3{
+ font-size:clamp(23px,2.5vw,30px);line-height:1.15;letter-spacing:-.035em;
+}
+#ezreg-option-mount .ezreg-option-title strong{
+ font-size:clamp(19px,2vw,25px);font-weight:900;
+}
+#ezreg-option-mount .ezreg-option-title .ezreg-kicker{
+ font-size:13px;font-weight:850;
+}
+#ezreg-option-mount .ezreg-option-title>button{
+ height:50px;width:50px;min-width:50px;font-size:22px;
+}
+#ezreg-option-mount .ezreg-options-body{padding:14px 28px 22px}
+#ezreg-option-mount .ezreg-option-group{padding:16px 0 22px}
+#ezreg-option-mount .ezreg-option-group legend{font-size:19px;line-height:1.4;gap:12px}
+#ezreg-option-mount .ezreg-option-group legend small{font-size:14px}
+#ezreg-option-mount .ezreg-options{gap:12px;margin-top:15px}
+#ezreg-option-mount .ezreg-option{
+ min-height:67px;padding:14px 15px;font-size:17px;
+ font-weight:790;gap:12px;border-radius:14px;
+}
+#ezreg-option-mount .ezreg-option small{
+ font-size:14px;font-weight:790;
+}
+#ezreg-option-mount .ezreg-choice-icon{
+ height:31px;width:31px;min-width:31px;font-size:18px;
+}
+#ezreg-option-mount .ezreg-option-footer{
+ background:var(--pos-surface,#fff);position:sticky;bottom:0;
+ padding:17px 27px calc(18px + env(safe-area-inset-bottom));
+ box-shadow:0 -8px 22px rgba(15,34,61,.07);
+}
+#ezreg-option-mount .ezreg-option-qty>button{
+ width:53px;height:53px;font-size:26px;
+}
+#ezreg-option-mount .ezreg-option-qty b{
+ font-size:21px;min-width:31px;
+}
+#ezreg-option-mount .ezreg-option-footer>[data-ezreg="option-save"]{
+ min-height:59px;padding:13px 19px;font-size:18px;
+ font-weight:850;gap:16px;
+}
+#ezreg-option-mount .ezreg-option-footer>[data-ezreg="option-save"] strong{
+ font-size:19px;
+}
+/* Center the actual cart drawer (previously pinned right) and always expose its
+   footer. This does not affect the normal desktop two-column POS register. */
+@media(max-width:1080px){
+ body[data-ez-workstation-active="true"] #ezreg-cart.mobile-open{
+  display:flex!important;position:fixed!important;
+  left:50%!important;right:auto!important;top:50%!important;bottom:auto!important;
+  transform:translate(-50%,-50%)!important;
+  width:min(740px,calc(100vw - 28px))!important;
+  max-width:calc(100vw - 28px)!important;
+  height:min(88dvh,850px)!important;max-height:88dvh!important;
+  min-height:0!important;margin:0!important;
+  border-radius:21px!important;z-index:86!important;
+  overflow:hidden;
+ }
+ body[data-ez-workstation-active="true"] #ezreg-cart .ezreg-cart-items{
+  min-height:0!important;flex:1 1 auto;overflow-y:auto;
+ }
+ body[data-ez-workstation-active="true"] #ezreg-cart .ezreg-cart-head,
+ body[data-ez-workstation-active="true"] #ezreg-cart .ezreg-cart-footer{
+  flex:0 0 auto;
+ }
+ body[data-ez-workstation-active="true"] #ezreg-cart .ezreg-cart-footer{
+  position:sticky;bottom:0;padding:15px 20px 18px;
+  z-index:2;box-shadow:0 -8px 24px #17294512;
+ }
+ body[data-ez-workstation-active="true"] #ezreg-cart .ezreg-cart-meta{
+  padding:13px 20px;
+ }
+ body[data-ez-workstation-active="true"] #ezreg-cart .ezreg-note-label{
+  flex:0 0 auto;
+ }
+ body[data-ez-workstation-active="true"] #ezreg-cart .ezreg-note-label textarea{
+  max-height:60px;min-height:45px;
+ }
+ body[data-ez-workstation-active="true"] #ezreg-cart .ezreg-create,
+ body[data-ez-workstation-active="true"] #ezreg-cart .ezreg-save-check{
+  min-height:51px;font-size:16px;
+ }
+ body[data-ez-workstation-active="true"] #ezreg-cart .ezreg-subtotal strong{
+  font-size:27px;
+ }
+ body[data-ez-workstation-active="true"] #ezreg-cart .ezreg-cart-description>strong{
+  font-size:17px;
+ }
+ body[data-ez-workstation-active="true"] #ezreg-cart .ezreg-cart-description>small{
+  font-size:13px;
+ }
+ body[data-ez-workstation-active="true"] .ezreg-cart-backdrop.visible{
+  z-index:85!important;
+ }
+}
+@media(max-width:650px){
+ #ezreg-option-mount .ezreg-option-dialog{
+  left:50%;right:auto;top:50%;bottom:auto;
+  transform:translate(-50%,-50%);
+  border-radius:18px;width:calc(100vw - 18px);max-height:88dvh;
+ }
+ #ezreg-option-mount .ezreg-option-title{padding:16px;gap:10px}
+ #ezreg-option-mount .ezreg-option-title .ezreg-visual{
+  width:56px;height:56px;font-size:29px;
+ }
+ #ezreg-option-mount .ezreg-option-title h3{font-size:22px}
+ #ezreg-option-mount .ezreg-option-title strong{font-size:20px}
+ #ezreg-option-mount .ezreg-option-title>button{
+  width:45px;height:45px;min-width:45px;
+ }
+ #ezreg-option-mount .ezreg-options-body{padding:9px 15px 16px}
+ #ezreg-option-mount .ezreg-option-group legend{font-size:17px}
+ #ezreg-option-mount .ezreg-option-group legend small{font-size:12px}
+ #ezreg-option-mount .ezreg-options{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+ #ezreg-option-mount .ezreg-option{
+  min-height:62px;padding:10px;font-size:15px;gap:6px;
+ }
+ #ezreg-option-mount .ezreg-option small{font-size:12px}
+ #ezreg-option-mount .ezreg-choice-icon{height:28px;width:28px;min-width:28px}
+ #ezreg-option-mount .ezreg-option-footer{
+  padding:12px 14px calc(12px + env(safe-area-inset-bottom));
+ }
+ #ezreg-option-mount .ezreg-option-footer>[data-ezreg="option-save"]{
+  min-height:56px;font-size:16px;padding:10px 12px;gap:9px;
+ }
+ #ezreg-option-mount .ezreg-option-footer>[data-ezreg="option-save"] strong{
+  font-size:15px;
+ }
+ body[data-ez-workstation-active="true"] #ezreg-cart.mobile-open{
+  width:calc(100vw - 16px)!important;max-width:calc(100vw - 16px)!important;
+  height:min(91dvh,830px)!important;max-height:91dvh!important;
+  border-radius:18px!important;
+ }
+ body[data-ez-workstation-active="true"] #ezreg-cart .ezreg-cart-footer{
+  padding:11px 15px calc(15px + env(safe-area-inset-bottom));
+ }
+ body[data-ez-workstation-active="true"] #ezreg-cart .ezreg-cart-head{
+  padding:14px 16px;
+ }
+ body[data-ez-workstation-active="true"] #ezreg-cart .ezreg-cart-meta{
+  padding:10px 15px;
+ }
+}
+
+
+/* Preview toolbar occupies the top viewport; centered dialogs MUST fit below it.
+   Otherwise its close and payment buttons are hidden behind the preview switcher. */
+body[data-ez-workstation-preview="true"] #ezreg-cart.mobile-open{
+ top:calc((100dvh + var(--ezws-preview-header-h,70px))/2)!important;
+ height:min(850px,calc(100dvh - var(--ezws-preview-header-h,70px) - 18px))!important;
+ max-height:calc(100dvh - var(--ezws-preview-header-h,70px) - 18px)!important;
+}
+body[data-ez-workstation-preview="true"] #ezreg-option-mount .ezreg-option-dialog{
+ top:calc((100dvh + var(--ezws-preview-header-h,70px))/2)!important;
+ max-height:calc(100dvh - var(--ezws-preview-header-h,70px) - 18px)!important;
+}
+body[data-ez-workstation-preview="true"] .ezpay-modal{
+ top:calc((100dvh + var(--ezws-preview-header-h,70px))/2)!important;
+ max-height:calc(100dvh - var(--ezws-preview-header-h,70px) - 18px)!important;
+}
+@media(max-width:650px){
+ body[data-ez-workstation-preview="true"] #ezreg-cart.mobile-open{
+  top:calc((100dvh + var(--ezws-preview-header-h,120px))/2)!important;
+ }
+ body[data-ez-workstation-preview="true"] .ezpay-modal{
+  left:50%;right:auto;bottom:auto;
+  transform:translate(-50%,-50%);width:calc(100vw - 14px);
+ }
+}

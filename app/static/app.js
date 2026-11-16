@@ -70,6 +70,12 @@ const workstationUI=window.EZWorkstations?.create({
   if(options.reload)loadData().then(()=>renderTab()).catch(err=>toast(err.message,true));
  }
 });
+const hostWorkstation=window.EZHostWorkstation?.({
+ api,E,toast,getState:()=>s,modal:(title,html)=>modal(title,html,true),
+ closeModal:()=>closeModal(),
+ previewOnly:()=>Boolean(workstationUI?.previewOnly()),
+ onCreatePhysicalTable:branch=>newTable(branch)
+});
 async function api(path,opt={}){
  // Interactive owner previews never invoke a mutation on the real tenant API.
  // The sandbox returns virtual responses for supported actions and rejects
@@ -217,9 +223,10 @@ async function loadData(){const bid=s.business.id;const tasks={overview:`/busine
 const section=(title,sub,right='')=>`<div class="section-header"><div><h2>${title}</h2><p>${sub}</p></div>${right}</div>`;
 const kpi=(title,value,sub,icon,tint='')=>`<article class="surface kpi"><div class="kpi-top"><span>${title}</span><div class="kpi-icon ${tint}">${I(icon)}</div></div><h3>${value}</h3><p>${sub}</p></article>`;
 function renderTab(){const el=document.getElementById('page-content');if(!el)return;const label=navLabel(s.tab);document.getElementById('page-title').textContent=label;
- el.innerHTML=({overview:overviewTab,pos:()=>cashRegister?.render()||cardEmpty('orders','POS','Không tải được màn hình bán hàng.'),orders:()=>workstationUI?.focused()&&workstationUI?.mode()==='cashier'?cashierTaskTab():ordersTab(),products:productsTab,tables:()=>restaurantSuite?.renderFloorplan()||tablesTab(),reservations:()=>restaurantSuite?.renderReservations()||cardEmpty("calendar","Đặt bàn","Không tải được giao diện đặt bàn."),operations:()=>workstationUI?.focused()&&workstationUI?.mode()==='host'?hostTaskTab():operationsV5?.render()||cardEmpty('warehouse','Lễ tân & xếp bàn','Không tải được giao diện.'),customers:customersTab,kitchen:()=>kdsUI?.render()||industryTab(),inventory:industryTab,delivery:industryTab,appointments:industryTab,insights:insightsTab,settings:settingsTab,billing:billingTab,team:teamTab,account_lock:lockedAccountTab}[s.tab]||overviewTab)();
+ el.innerHTML=({overview:overviewTab,pos:()=>cashRegister?.render()||cardEmpty('orders','POS','Không tải được màn hình bán hàng.'),orders:()=>workstationUI?.focused()&&workstationUI?.mode()==='cashier'?cashierTaskTab():ordersTab(),products:productsTab,tables:()=>restaurantSuite?.renderFloorplan()||tablesTab(),reservations:()=>restaurantSuite?.renderReservations()||cardEmpty("calendar","Đặt bàn","Không tải được giao diện đặt bàn."),operations:()=>workstationUI?.focused()&&workstationUI?.mode()==='host'?hostWorkstation?.render()||hostTaskTab():operationsV5?.render()||cardEmpty('warehouse','Lễ tân & xếp bàn','Không tải được giao diện.'),customers:customersTab,kitchen:()=>kdsUI?.render()||industryTab(),inventory:industryTab,delivery:industryTab,appointments:industryTab,insights:insightsTab,settings:settingsTab,billing:billingTab,team:teamTab,account_lock:lockedAccountTab}[s.tab]||overviewTab)();
  if(["tables","reservations"].includes(s.tab))restaurantSuite?.mount();
- if(s.tab==='operations'&&!(workstationUI?.focused()&&workstationUI?.mode()==='host'))operationsV5?.mount();
+ if(s.tab==='operations'&&workstationUI?.focused()&&workstationUI?.mode()==='host')hostWorkstation?.mount();
+ else if(s.tab==='operations')operationsV5?.mount();
  if(s.tab==='kitchen')kdsUI?.mount();
  if(s.tab==='settings')printerUI?.mount();
  if(s.tab==='pos')cashRegister?.mount();
@@ -550,6 +557,7 @@ async function handleAction(act,val,button){try{
  s.business=b;s.tab=b.billing_required?(b.role==='owner'?'billing':'account_lock'):'overview';
  restaurantSuite?.invalidate();operationsV5?.invalidate();closeModal();s.cache={};
  history.replaceState(null,'','/app?tab='+s.tab);
+ hostWorkstation?.invalidate();
  if(b.billing_required){if(b.role==='owner')s.cache.billing=await api('/businesses/'+encodeURIComponent(b.id)+'/billing');appFrame()}
  else{await refresh();await workstationUI?.load();appFrame()}
  if(b.billing_required){await workstationUI?.load()}
@@ -623,7 +631,7 @@ async function handleSubmit(form){const bid=s.business?.id;const data=Object.fro
   }finally{clearTimeout(timer)}
  }
  else if(form.id==='product-form'){await api(`/businesses/${bid}/products`,{method:'POST',body:JSON.stringify({name:data.name,sku:data.sku,category:data.category,price_vnd:Number(data.price_vnd),cost_vnd:Number(data.cost_vnd||0),stock:Number(data.stock||0),track_stock:form.querySelector('[name=track_stock]').checked})});toast('Đã thêm sản phẩm')}
- else if(form.id==='table-form'){await api(`/businesses/${bid}/tables`,{method:'POST',body:JSON.stringify({label:data.label,seats:Number(data.seats),branch_id:data.branch_id||null})});restaurantSuite?.invalidate();operationsV5?.invalidate();toast('Đã thêm bàn')}
+ else if(form.id==='table-form'){await api(`/businesses/${bid}/tables`,{method:'POST',body:JSON.stringify({label:data.label,seats:Number(data.seats),branch_id:data.branch_id||null})});restaurantSuite?.invalidate();operationsV5?.invalidate();hostWorkstation?.invalidate();toast('Đã thêm bàn')}
  else if(form.id==='customer-form'){await api(`/businesses/${bid}/customers`,{method:'POST',body:JSON.stringify(data)});toast('Đã thêm khách hàng')}
  else if(form.id==='branch-form'){await api(`/businesses/${bid}/branches`,{method:'POST',body:JSON.stringify(data)});toast('Đã thêm chi nhánh')}
  else if(form.id==='stock-form'){await api(`/businesses/${bid}/products/${form.dataset.id}/stock`,{method:'POST',body:JSON.stringify({delta:Number(data.delta),reason:data.reason,branch_id:data.branch_id||null})});toast('Đã cập nhật tồn kho')}

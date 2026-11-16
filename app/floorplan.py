@@ -69,7 +69,16 @@ def scope(bid: str, branch_id: str | None, user, db: Session):
     if business.industry != "fnb":
         raise HTTPException(404, "Sơ đồ khu vực chỉ áp dụng cho nhà hàng / Cafe")
     feature(business, "tables")
-    branches = db.scalars(select(Branch).where(Branch.business_id == bid).order_by(Branch.created_at)).all()
+    from .team import require_duty
+    duty = require_duty(db, bid, user, {"host","order"})
+    if duty and duty.branch_id:
+        if branch_id and branch_id != duty.branch_id:
+            raise HTTPException(403, "Không được xem sơ đồ chi nhánh khác")
+        branch_id = duty.branch_id
+    branch_query = select(Branch).where(Branch.business_id == bid)
+    if duty and duty.branch_id:
+        branch_query = branch_query.where(Branch.id == duty.branch_id)
+    branches = db.scalars(branch_query.order_by(Branch.created_at)).all()
     if not branches:
         raise HTTPException(404, "Không tìm thấy chi nhánh")
     branch = next((x for x in branches if x.id == branch_id), None) if branch_id else branches[0]

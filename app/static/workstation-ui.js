@@ -88,7 +88,8 @@
             tables:clone(state().cache.tables||[]),
             originalOrders:clone(state().cache.orders||[]),
             originalTables:clone(state().cache.tables||[]),tickets:[],
-            originalTickets:null,idempotency:new Map(),payments:new Map()};
+            originalTickets:null,hostBoard:null,hostBookings:null,hostFloorplan:null,
+            idempotency:new Map(),payments:new Map()};
         }
         return sandbox;
       }
@@ -105,6 +106,12 @@
         if(method==="GET"){
           if(/^\/businesses\/[^/]+\/orders$/.test(tail))return {handled:true,data:clone(sb.orders)};
           if(/^\/businesses\/[^/]+\/tables$/.test(tail))return {handled:true,data:clone(sb.tables)};
+          if(/\/host\/board$/.test(tail)&&sb.hostBoard)
+            return {handled:true,data:clone(sb.hostBoard)};
+          if(/\/reservations$/.test(tail)&&sb.hostBookings)
+            return {handled:true,data:clone(sb.hostBookings)};
+          if(/\/floorplan$/.test(tail)&&sb.hostFloorplan)
+            return {handled:true,data:clone(sb.hostFloorplan)};
           if(/\/kds\/queue$/.test(tail)&&sb.originalTickets!==null){
             const branch=new URLSearchParams(path.split("?")[1]||"").get("branch_id");
             return {handled:true,data:{
@@ -190,13 +197,107 @@
           ticket.revision++;ticket.updated_at=new Date().toISOString();
           return {handled:true,data:clone(ticket)};
         }
+        const hostAction=tail.match(/\/host\/tables\/([^/]+)\/action$/);
+        if(method==="POST"&&hostAction){
+          if(!sb.hostBoard)throw Error("Chưa tải màn hình lễ tân");
+          const body=payload(),t=sb.hostBoard.tables.find(x=>x.id===hostAction[1]);
+          if(!t)throw Error("Bàn không tồn tại");
+          if(Number(body.expected_revision)!==t.revision)
+            throw Error("Bàn đã được cập nhật. Tải lại dữ liệu dùng thử");
+          const a=body.action;
+          if(["transfer","join"].includes(a)){
+            const other=sb.hostBoard.tables.find(x=>x.id===body.target_table_id);
+            if(!other||other.status!=="available")throw Error("Bàn đích phải trống");
+            other.status="occupied";other.occupied=true;other.revision++;
+            other.guest_count=a==="transfer"?t.guest_count:0;
+            other.group_id=a==="join"?(t.group_id||t.id):null;
+            other.note=body.note||t.note;
+            if(a==="join")t.group_id=t.group_id||t.id;
+            if(a==="transfer"){t.status="available";t.occupied=false;
+              t.guest_count=0;t.note="";t.group_id=null}
+          }else if(a==="seat"){
+            if(t.status!=="available")throw Error("Bàn chưa trống");
+            t.status="occupied";t.occupied=true;t.guest_count=body.guest_count||1;
+            t.note=body.note||"";
+          }else if(["release","cleaning"].includes(a)){
+            t.status="cleaning";t.occupied=false;t.guest_count=0;t.group_id=null;
+          }else if(a==="block"){
+            t.status="blocked";t.occupied=false;t.note=body.note||"";
+          }else if(["ready","unblock","unjoin"].includes(a)){
+            t.status="available";t.occupied=false;t.guest_count=0;
+            t.group_id=null;t.note="";
+          }else if(a==="update"){
+            t.guest_count=body.guest_count||t.guest_count;
+            t.note=body.note||"";
+          }else throw Error("Chức năng chưa có trong bản mô phỏng");
+          t.revision++;
+          return {handled:true,data:clone(sb.hostBoard)};
+        }
+        const hostReservation=tail.match(/\/reservations\/([^/]+)\/(status|edit)$/);
+        if(method==="POST"&&hostReservation){
+          const booking=sb.hostBookings?.find(x=>x.id===hostReservation[1]);
+          if(!booking)throw Error("Không tìm thấy đặt bàn thử");
+          const body=payload();
+          if(hostReservation[2]==="status")booking.status=body.status;
+          else Object.assign(booking,{
+            ...body,scheduled_at:body.start_at,
+            table_label:sb.hostBoard?.tables.find(t=>t.id===body.table_id)?.label||""
+          });
+          return {handled:true,data:clone(booking)};
+        }
+        if(method==="POST"&&/^\/businesses\/[^/]+\/tables$/.test(tail)){
+          const body=payload(),bid=state().business?.id;
+          const table={id:fakeId(),branch_id:body.branch_id, label:body.label,
+            seats:body.seats||4,occupied:false,status:"available",guest_count:0,
+            group_id:null,note:"",order_count:0,has_open_check:false,revision:0};
+          sb.tables.push(clone(table));
+          if(sb.hostBoard&&sb.hostBoard.branch_id===body.branch_id)
+            sb.hostBoard.tables.push(clone(table));
+          if(sb.hostFloorplan&&sb.hostFloorplan.branch_id===body.branch_id){
+            const x=10+(sb.hostFloorplan.tables.length%5)*16,
+                  y=14+Math.floor(sb.hostFloorplan.tables.length/5)*18;
+            sb.hostFloorplan.tables.push({...table,
+              placement:{table_id:table.id,zone_id:sb.hostFloorplan.zones?.[0]?.id||"inside",
+                         x,y,shape:"round"}});
+          }
+          return {handled:true,data:{id:table.id,label:table.label,seats:table.seats,
+                                      branch_id:table.branch_id}};
+        }
+        if(method==="POST"&&/\/reservations$/.test(tail)){
+          const body=payload();
+          if(!sb.hostBookings)sb.hostBookings=[];
+          const booking={...body,id:fakeId(),scheduled_at:body.start_at,
+            table_label:sb.hostBoard?.tables.find(t=>t.id===body.table_id)?.label||"",
+            status:"pending",source:"sandbox"};
+          sb.hostBookings.unshift(booking);
+          return {handled:true,data:clone(booking)};
+        }
+        if(method==="PUT"&&/\/floorplan$/.test(tail)){
+          if(!sb.hostFloorplan)throw Error("Chưa tải sơ đồ dùng thử");
+          const body=payload();
+          sb.hostFloorplan={...sb.hostFloorplan,...body,revision:sb.hostFloorplan.revision+1};
+          return {handled:true,data:clone(sb.hostFloorplan)};
+        }
         // Deny every other write, including settings, printing, admin and finance.
         throw Error(choose("Đây là bản dùng thử tương tác. Thao tác này không được mô phỏng để tránh sửa dữ liệu thật.",
           "Interactive sandbox: this operation is not simulated to protect real data."));
       }
       function previewRead(path,data){
-        if(!previewMode||!/\/kds\/queue(?:\?|$)/.test(path))return data;
+        if(!previewMode)return data;
         const sb=ensureSandbox();
+        if(/\/host\/board(?:\?|$)/.test(path)){
+          if(!sb.hostBoard)sb.hostBoard=clone(data);
+          return clone(sb.hostBoard);
+        }
+        if(/\/reservations(?:\?|$)/.test(path)){
+          if(!sb.hostBookings)sb.hostBookings=clone(data);
+          return clone(sb.hostBookings);
+        }
+        if(/\/floorplan(?:\?|$)/.test(path)){
+          if(!sb.hostFloorplan)sb.hostFloorplan=clone(data);
+          return clone(sb.hostFloorplan);
+        }
+        if(!/\/kds\/queue(?:\?|$)/.test(path))return data;
         if(sb.originalTickets===null)sb.originalTickets=clone(data?.tickets||[]);
         return {...data,tickets:clone(demoTickets())};
       }
