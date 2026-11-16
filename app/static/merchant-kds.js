@@ -89,6 +89,12 @@ function init({api,getState,E,V,toast,modal,closeModal,refresh}){
      '<p class="subtle">'+tx("Món chưa phân trạm được gợi ý từ tên/danh mục, còn lại vào Ra món. Thay đổi trạm chỉ áp dụng cho phiếu mới.","Unassigned products use category suggestions, otherwise Expo. Changes apply to future tickets.")+'</p></div></details>';
  }
  function render(){
+  const device=assigned();
+  if(device){
+   station=device.mode==="bar"?"bar":
+     ["hot","cold","kitchen"].includes(device.station)?device.station:"kitchen";
+   branch=device.branch_id||"all";
+  }
   return '<div class="kds" id="ez-kds"><header class="kds-head"><div><small>KDS · EZ THING</small><h2>'+tx("Bếp & pha chế","Kitchen & Bar")+'</h2><p>'+tx("Xem theo trạm • Xử lý từng món • Ra món chính xác","Prep stations • Item status • Expediter")+'</p></div><div class="kds-head-actions"><button class="btn sm secondary" data-kds="sound" aria-pressed="'+sound+'">'+tx("🔕 Bật âm báo","🔕 Enable sound")+'</button><button class="btn sm secondary" data-kds="fullscreen">'+tx("⛶ Toàn màn hình","⛶ Fullscreen")+'</button></div></header>'+
    '<div class="kds-toolbar"><label>'+tx("Chi nhánh","Branch")+'<select data-kds-filter="branch"><option value="all">'+tx("Tất cả","All")+'</option>'+(st().cache?.branches||[]).map(b=>'<option value="'+esc(b.id)+'" '+(branch===b.id?"selected":"")+'>'+esc(b.name)+'</option>').join("")+'</select></label>'+
    '<label>'+tx("Hiển thị","View")+'<select data-kds-filter="view"><option value="order" '+(view==="order"?"selected":"")+'>'+tx("Theo đơn","By ticket")+'</option><option value="item" '+(view==="item"?"selected":"")+'>'+tx("Theo món","By item")+'</option></select></label><label class="kds-check"><input type="checkbox" data-kds-filter="done" '+(showDone?"checked":"")+'>'+tx("Món đã giao","Served items")+'</label></div>'+
@@ -99,7 +105,7 @@ function init({api,getState,E,V,toast,modal,closeModal,refresh}){
  }
  function paint(){
   const root=document.getElementById("ez-kds");if(!root||!data)return;
-  const tickets=data.tickets||[];
+  const tickets=assigned()?filterRows():(data.tickets||[]);
   const activeTickets=tickets.filter(t=>t.lines.some(x=>x.status!=="served"));
   const items=tickets.flatMap(x=>x.lines).filter(x=>x.status!=="served");
   root.querySelector("#kds-ticket-count").textContent=activeTickets.length;
@@ -118,7 +124,7 @@ function init({api,getState,E,V,toast,modal,closeModal,refresh}){
    const id=bid(),serial=generation,qs=branch==="all"?"":"?branch_id="+encodeURIComponent(branch);
    const incoming=await api(url("/queue")+qs);
    if(serial!==generation||bid()!==id||st().tab!=="kitchen")return;
-   const currentIds=new Set(incoming.tickets.map(x=>x.id));
+   const currentIds=new Set(incoming.tickets.filter(ticket=>ticket.lines.some(item=>includesStation(item,station))).map(x=>x.id));
    if(!first&&[...currentIds].some(x=>!known.has(x)))beep();
    known=currentIds;first=false;
    const changed=JSON.stringify(data?.tickets)!==JSON.stringify(incoming.tickets);
