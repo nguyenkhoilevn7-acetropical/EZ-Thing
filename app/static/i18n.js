@@ -369,6 +369,7 @@ const entries = [
 ["Chưa có lịch đặt bàn phù hợp với bộ lọc.","No reservations match these filters."],
 ["Chưa có lời nhắn nào.","No messages yet."],
 ["Xác nhận chuyển trạng thái lịch đặt bàn?","Confirm changing the reservation status?"],
+["Hôm nay đã hết giờ nhận đặt bàn, đang hiển thị lịch ngày mai","Today is fully closed for bookings, showing tomorrow instead"],
 ["Đã cập nhật lịch đặt bàn","Reservation updated"],
 ["Đã cập nhật yêu cầu","Inquiry updated"],
 ["Thêm đặt bàn","Add reservation"],

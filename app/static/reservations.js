@@ -38,6 +38,7 @@ async function loadGuestSlots(){const day=$('booking-day')?.value,size=$('bookin
  try{const r=await api(`/preview/cafe/reservations/availability?day=${encodeURIComponent(day)}&party_size=${encodeURIComponent(size)}&duration_minutes=${guestDuration}`);
    const available=r.slots.filter(s=>s.available);
    el.innerHTML=available.length?available.map(s=>`<button type="button" data-slot="${E(s.start_at)}" class="slot-button"><b>${E(formatTime(s.start_at))}</b><small>${s.available_tables} bàn phù hợp</small></button>`).join(''):`<div class="muted-message">${E(r.closed_reason||'Không có bàn phù hợp. Hãy chọn ngày/giờ hoặc số người khác.')}</div>`;
+   return available.length;
  }catch(err){el.innerHTML=errorBlock(err.message);}
 }
 async function submitGuestBooking(form){if(!guestSlot){toast('Vui lòng chọn giờ còn chỗ',true);return;}
@@ -62,7 +63,12 @@ async function startGuest(){const me=await authenticate();if(!me.demo)throw Erro
  $('booking-slots').addEventListener('click',e=>{const b=e.target.closest('[data-slot]');if(!b)return;guestSlot=b.dataset.slot;document.querySelectorAll('[data-slot]').forEach(x=>x.classList.toggle('selected',x===b));});
  $('guest-reservation-form').addEventListener('submit',e=>{e.preventDefault();submitGuestBooking(e.target);});
  $('guest-inquiry-form').addEventListener('submit',e=>{e.preventDefault();submitInquiry(e.target);});
- await Promise.allSettled([loadGuestSlots(),loadContact()]);
+ const [slots]=await Promise.allSettled([loadGuestSlots(),loadContact()]);
+ // After closing time today has no slots: open tomorrow instead of an empty list.
+ if(slots.status==='fulfilled'&&slots.value===0&&$('booking-day').value===today()){
+   $('booking-day').value=plusDays(today(),1);
+   if(await loadGuestSlots())toast(window.EZI18N?.translate('Hôm nay đã hết giờ nhận đặt bàn, đang hiển thị lịch ngày mai')||'Hôm nay đã hết giờ nhận đặt bàn, đang hiển thị lịch ngày mai');
+ }
 }
 const statusOptions={pending:[['confirmed','Xác nhận bàn'],['cancelled','Hủy yêu cầu']],confirmed:[['seated','Khách đã đến'],['cancelled','Hủy lịch'],['no_show','Khách không đến']],seated:[['completed','Hoàn tất']]} ;
 function showMerchant(){const all=bookings,filter=$('manager-filter').value,day=$('manager-date').value;

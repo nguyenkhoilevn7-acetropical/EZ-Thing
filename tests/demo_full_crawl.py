@@ -18,7 +18,10 @@ import urllib.request
 from playwright.sync_api import sync_playwright
 
 PORT = 8766
-BASE = f"http://127.0.0.1:{PORT}"
+# EZ_CRAWL_BASE=https://ez-thing-staging.onrender.com crawls a deployed
+# environment instead of starting a local server.
+REMOTE = os.getenv("EZ_CRAWL_BASE", "").rstrip("/")
+BASE = REMOTE or f"http://127.0.0.1:{PORT}"
 REPORT = sys.argv[1] if len(sys.argv) > 1 else "demo-crawl-report.json"
 # Expected, handled responses (not defects): unauthenticated probe before demo
 # session, and plan-gated endpoints answered with an explicit 403 the UI shows.
@@ -34,7 +37,7 @@ env.update({
 if os.path.exists("demo-crawl.db"):
     os.remove("demo-crawl.db")
 log = open("demo-crawl-server.log", "w")
-server = subprocess.Popen(
+server = None if REMOTE else subprocess.Popen(
     [sys.executable, "-m", "uvicorn", "app.main:app", "--port", str(PORT), "--host", "127.0.0.1"],
     env=env, stdout=log, stderr=subprocess.STDOUT)
 
@@ -492,13 +495,13 @@ def crawl_customer_flows(browser):
         page.locator("#booking-day").evaluate(
             "el => { const d=new Date(Date.now()+86400000);"
             " el.value=d.toISOString().slice(0,10); el.dispatchEvent(new Event('change',{bubbles:true})); }")
-        page.locator("#booking-slots .slot-button").first.wait_for(timeout=30000)
+        page.locator("#booking-slots .slot-button").first.wait_for(timeout=60000)
         form = page.locator("#guest-reservation-form")
         # Fill contact fields first: changing party size reloads the slots
         # and correctly clears an earlier time choice.
         form.evaluate(FILL_FORM)
         page.wait_for_timeout(500)
-        page.locator("#booking-slots .slot-button").first.wait_for(timeout=30000)
+        page.locator("#booking-slots .slot-button").first.wait_for(timeout=60000)
         page.locator("#booking-slots .slot-button").first.click()
         form.evaluate("f => f.requestSubmit()")
         settle(page, 1500)
@@ -517,10 +520,10 @@ def crawl_customer_flows(browser):
 
 try:
     for _ in range(120):
-        if server.poll() is not None:
+        if server is not None and server.poll() is not None:
             raise RuntimeError("server crashed; see demo-crawl-server.log")
         try:
-            with urllib.request.urlopen(BASE + "/api/config", timeout=2) as r:
+            with urllib.request.urlopen(BASE + "/api/config", timeout=60) as r:
                 if json.load(r).get("demo_enabled"):
                     break
         except OSError:
@@ -528,7 +531,9 @@ try:
     else:
         raise RuntimeError("server startup timed out")
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True, args=["--disable-dev-shm-usage"])
+        browser = p.chromium.launch(
+            headless=True, args=["--disable-dev-shm-usage"],
+            executable_path=os.getenv("EZ_CRAWL_CHROME") or None)
         crawl_merchant(browser, mobile=False)
         crawl_merchant(browser, mobile=True)
         crawl_customer(browser)
@@ -536,11 +541,12 @@ try:
         crawl_customer_flows(browser)
         browser.close()
 finally:
-    server.terminate()
-    try:
-        server.wait(timeout=10)
-    except subprocess.TimeoutExpired:
-        server.kill()
+    if server is not None:
+        server.terminate()
+        try:
+            server.wait(timeout=10)
+        except subprocess.TimeoutExpired:
+            server.kill()
     log.close()
     with open("demo-crawl-server.log") as server_log:
         tracebacks = [line for line in server_log.read().splitlines()
