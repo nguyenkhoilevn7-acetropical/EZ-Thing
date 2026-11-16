@@ -438,9 +438,20 @@ def cloud_confirm(pid: str, request: Request,
     # Token-capable clients identify the job; older firmware provides none.
     stmt = select(PrintJob).where(PrintJob.device_id == pid)
     if token:
+        # Token-aware devices can confirm their exact job, including retries.
         stmt = stmt.where(PrintJob.id == token)
-    row = db.scalar(stmt.order_by(PrintJob.created_at.desc()).with_for_update().limit(1))
+    else:
+        # Legacy devices omit job tokens: only their *currently offered* job
+        # can be confirmed. Selecting latest historical job is incorrect and
+        # can silently mark the wrong receipt as printed.
+        stmt = stmt.where(PrintJob.status == "offered")
+    row = db.scalar(stmt.order_by(PrintJob.delivered_at, PrintJob.id).with_for_update().limit(1))
     if row is None:
+        if not token:
+            # No outstanding work. An old firmware may repeat DELETE after
+            # receiving a timeout; treat as no-op, never mark another job.
+            db.commit()
+            return Response(status_code=200)
         raise HTTPException(404, "No print job to confirm")
     success = code.strip().upper() in ("OK", "200 OK", "200")
     if row.status in ("printed", "failed"):
