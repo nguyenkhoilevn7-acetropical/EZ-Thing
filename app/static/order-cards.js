@@ -14,7 +14,7 @@
       const actions = o.status === 'open'
         ? (canEdit ? `<button type='button' class='btn sm secondary order-card-edit' data-action='pos-edit' data-value='${id}'>✎ Sửa món</button>` : '')
           + (canMove ? `<button type='button' class='btn sm secondary order-card-move' data-action='pos-move' data-value='${id}'>⇄ Chuyển bàn</button>` : '')
-          + (canMarkPaid ? `<button type='button' class='btn sm order-card-pay' data-action='confirm-paid' data-value='${id}'>${I('check', 'sm')} Đã nhận tiền</button>` : '')
+          + (canMarkPaid ? `<button type='button' class='btn sm order-card-pay' data-action='confirm-paid' data-value='${id}'>💳 Thanh toán</button>` : '')
           + (canCancel ? `<button type='button' class='btn sm ghost order-card-cancel' data-action='cancel-order' data-value='${id}'>Hủy đơn</button>` : '')
         : '';
       return `<article class='order-card' role='listitem' data-match='${match}' aria-label='Đơn hàng #${shortId}'>
