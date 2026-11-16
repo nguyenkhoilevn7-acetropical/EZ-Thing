@@ -860,6 +860,10 @@ app.include_router(storefront_brand_router)
 from .floorplan import router as floorplan_router  # noqa: E402
 app.include_router(floorplan_router)
 
+# Dedicated, branch-scoped host sessions (no financial ledger changes).
+from .host import router as host_router  # noqa: E402
+app.include_router(host_router)
+
 # Server-side order KPIs and filtered history for the same existing ledger.
 from .order_dashboard import router as order_dashboard_router  # noqa: E402
 app.include_router(order_dashboard_router)
