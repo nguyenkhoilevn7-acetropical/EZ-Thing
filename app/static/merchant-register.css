@@ -376,3 +376,5 @@
  .ez-orders-advanced>summary{min-height:44px;padding:10px 13px}
  .ez-orders-advanced .order-range-bar{padding:9px 12px}
 }
+
+.ezreg-visual img{display:block;width:100%;height:100%;border-radius:inherit;object-fit:cover;object-position:center}
