@@ -8,6 +8,7 @@ menu edits; status mutations copy-on-write to persist SQLAlchemy JSON changes.
 from __future__ import annotations
 
 from collections import Counter
+import hashlib
 from datetime import datetime, timezone
 from typing import Literal
 
@@ -24,6 +25,11 @@ from .workflows import IndustryWorkItem
 
 router = APIRouter(prefix="/api/businesses/{bid}/kds", tags=["Kitchen Display"])
 STATIONS = {"bar", "hot", "cold", "expo"}
+ROUTE_STATIONS = STATIONS | {"skip"}
+ROUTE_LABELS = {**{
+    "bar": "Pha chế / Bar", "hot": "Bếp nóng",
+    "cold": "Bếp lạnh", "expo": "Ra món / Cần phân trạm",
+}, "skip": "Không cần chế biến / Không gửi KDS"}
 STATION_LABELS = {
     "bar": "Pha chế / Bar", "hot": "Bếp nóng",
     "cold": "Bếp lạnh", "expo": "Ra món / Chờ phân trạm",
@@ -40,7 +46,16 @@ DONE = {"served"}
 
 class RouteUpdate(BaseModel):
     product_id: str = Field(min_length=1, max_length=36)
-    station: Literal["bar", "hot", "cold", "expo"]
+    station: Literal["bar", "hot", "cold", "expo", "skip"]
+
+
+class CategoryRouteUpdate(BaseModel):
+    category: str = Field(min_length=1, max_length=80)
+    station: Literal["bar", "hot", "cold", "expo", "skip"]
+
+
+class DispatchSettingsUpdate(BaseModel):
+    auto_dispatch: bool
 
 
 class FireTicket(BaseModel):
@@ -70,7 +85,7 @@ def routing(db: Session, bid: str) -> dict[str, str]:
         IndustryWorkItem.status == "active",
     )).all()
     return {x.reference_id: x.details["station"] for x in rows
-            if (x.details or {}).get("station") in STATIONS}
+            if (x.details or {}).get("station") in ROUTE_STATIONS}
 
 
 def default_station(p: Product | None) -> str:
@@ -90,6 +105,76 @@ def default_station(p: Product | None) -> str:
     return "expo"
 
 
+def normalize_category(value: str) -> str:
+    return " ".join(value.split()).casefold()
+
+
+def category_route_key(category: str) -> str:
+    return hashlib.sha256(normalize_category(category).encode()).hexdigest()[:32]
+
+
+def category_routing(db: Session, bid: str) -> dict[str, str]:
+    rows = db.scalars(select(IndustryWorkItem).where(
+        IndustryWorkItem.business_id == bid,
+        IndustryWorkItem.kind == "kds_category_route",
+        IndustryWorkItem.status == "active",
+    )).all()
+    return {
+        normalize_category(row.details["category"]): row.details["station"]
+        for row in rows if row.details and row.details.get("category")
+        and row.details.get("station") in ROUTE_STATIONS
+    }
+
+
+def dispatch_settings(db: Session, bid: str) -> dict:
+    row = db.scalar(select(IndustryWorkItem).where(
+        IndustryWorkItem.business_id == bid,
+        IndustryWorkItem.kind == "kds_settings",
+        IndustryWorkItem.reference_id == bid,
+    ))
+    return {"auto_dispatch": bool((row.details or {}).get("auto_dispatch", True))
+            if row else True}
+
+
+def auto_dispatch_order(db: Session, bid: str, order: SaleOrder, *,
+                        source: str = "pos", force: bool = False) -> dict:
+    """Create a single canonical KDS ticket/print outbox in the order transaction.
+
+    Replaying a sale or confirming payment NEVER enqueues a new ticket.
+    Non-prep-only orders are intentionally omitted. No external devices are
+    contacted; EZ Print outbox is committed atomically with the order.
+    """
+    if not force and not dispatch_settings(db, bid)["auto_dispatch"]:
+        return {"status": "manual", "ticket_id": None}
+    old = db.scalar(select(IndustryWorkItem).where(
+        IndustryWorkItem.business_id == bid,
+        IndustryWorkItem.kind == "kitchen",
+        IndustryWorkItem.reference_id == order.id,
+    ))
+    if old:
+        return {"status": "sent", "ticket_id": old.id}
+    db.flush()
+    lines = ticket_lines(db, bid, order)
+    if not lines:
+        return {"status": "no_prep", "ticket_id": None}
+    details = {
+        "source": source, "note": order.note,
+        "kds_lines": lines, "kds_revision": 0,
+        "auto_dispatched": not force,
+    }
+    ticket = IndustryWorkItem(
+        id=new_id(), business_id=bid, kind="kitchen",
+        reference_id=order.id, customer_id=order.customer_id,
+        title="Phiếu bếp • " + order.id[:8].upper(),
+        status="pending", details=details,
+    )
+    db.add(ticket)
+    from .printing import enqueue_kitchen
+    enqueue_kitchen(db, bid, order, ticket.id, details)
+    db.flush()
+    return {"status": "sent", "ticket_id": ticket.id}
+
+
 def ticket_lines(db: Session, bid: str, order: SaleOrder) -> list[dict]:
     """Snapshot all item/modifier information at the moment of firing."""
     items = order_out(db, order)["items"]
@@ -101,18 +186,24 @@ def ticket_lines(db: Session, bid: str, order: SaleOrder) -> list[dict]:
     )).all()
     by_product = {p.id: p for p in products}
     routes = routing(db, bid)
-    return [{
+    categories = category_routing(db, bid)
+    result = [{
         "id": x["id"],
         "product_id": x["product_id"],
         "name": x["name"],
         "quantity": x["quantity"],
-        "station": routes.get(x["product_id"], default_station(by_product.get(x["product_id"]))),
+        "station": routes.get(
+            x["product_id"], categories.get(
+                normalize_category(by_product[x["product_id"]].category)
+                if x["product_id"] in by_product else "",
+                default_station(by_product.get(x["product_id"])))),
         "status": "pending",
         "modifiers": [
             {"name": opt.get("name", ""), "group_name": opt.get("group_name", "")}
             for opt in x.get("modifiers", [])],
         "updated_at": None,
     } for x in items]
+    return [line for line in result if line["station"] != "skip"]
 
 
 def ticket_view(row: IndustryWorkItem, order: SaleOrder | None,
@@ -190,8 +281,10 @@ def queue(bid: str, branch_id: str | None = None,
 def routes(bid: str, user=Depends(current_user),
            db: Session = Depends(db_session)):
     guard(db, bid, user)
-    return {"stations": STATION_LABELS, "routes": routing(db, bid),
-            "fallback": "category_guess_then_expo"}
+    return {"stations": STATION_LABELS, "route_stations": ROUTE_LABELS,
+            "routes": routing(db, bid), "category_routes": category_routing(db, bid),
+            "settings": dispatch_settings(db, bid),
+            "fallback": "product_override_then_category_then_guess_or_expo"}
 
 
 @router.put("/routes")
@@ -222,6 +315,64 @@ def set_route(bid: str, body: RouteUpdate, user=Depends(current_user),
           {"product_id":body.product_id, "station":body.station})
     db.commit()
     return {"product_id": product.id, "station": body.station}
+
+
+@router.put("/category-routes")
+def set_category_route(bid: str, body: CategoryRouteUpdate,
+                       user=Depends(current_user),
+                       db: Session = Depends(db_session)):
+    guard(db, bid, user)
+    allow(db, bid, user, MANAGE_ROLES)
+    category = " ".join(body.category.split())
+    exists = db.scalar(select(Product.id).where(
+        Product.business_id == bid, Product.category == category))
+    if not exists:
+        fail(404, "Danh mục không thuộc doanh nghiệp hoặc chưa có sản phẩm")
+    db.scalar(select(Business).where(Business.id == bid).with_for_update())
+    key = category_route_key(category)
+    row = db.scalar(select(IndustryWorkItem).where(
+        IndustryWorkItem.business_id == bid,
+        IndustryWorkItem.kind == "kds_category_route",
+        IndustryWorkItem.reference_id == key).with_for_update())
+    if row is None:
+        db.add(IndustryWorkItem(
+            id=new_id(), business_id=bid, kind="kds_category_route",
+            reference_id=key, status="active",
+            title="Danh mục trạm • " + category[:125],
+            details={"category": category, "station": body.station},
+        ))
+    else:
+        row.details = {"category": category, "station": body.station}
+        row.status = "active"
+    audit(db, bid, user[0].id, "kds.category_route_changed", {
+        "category": category, "station": body.station})
+    db.commit()
+    return {"category": category, "station": body.station}
+
+
+@router.put("/settings")
+def set_dispatch_settings(bid: str, body: DispatchSettingsUpdate,
+                          user=Depends(current_user),
+                          db: Session = Depends(db_session)):
+    guard(db, bid, user)
+    allow(db, bid, user, MANAGE_ROLES)
+    db.scalar(select(Business).where(Business.id == bid).with_for_update())
+    row = db.scalar(select(IndustryWorkItem).where(
+        IndustryWorkItem.business_id == bid,
+        IndustryWorkItem.kind == "kds_settings",
+        IndustryWorkItem.reference_id == bid).with_for_update())
+    if row is None:
+        row = IndustryWorkItem(
+            id=new_id(), business_id=bid, kind="kds_settings",
+            reference_id=bid, status="active", title="Tự động phân trạm",
+            details={"auto_dispatch": body.auto_dispatch})
+        db.add(row)
+    else:
+        row.details = {"auto_dispatch": body.auto_dispatch}
+    audit(db, bid, user[0].id, "kds.dispatch_setting_changed", {
+        "auto_dispatch": body.auto_dispatch})
+    db.commit()
+    return {"auto_dispatch": body.auto_dispatch}
 
 
 @router.post("/fire", status_code=201)
