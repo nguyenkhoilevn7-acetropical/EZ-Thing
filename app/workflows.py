@@ -170,6 +170,11 @@ def create_item(bid: str, kind: str, body: CreateWorkItem,
               title=f"{product.name} • {customer.name}", assignee=assignee,
               scheduled_at=start, ends_at=end, status="scheduled", details={"note":body.note})
     db.add(row)
+    if kind == "kitchen":
+        # Enqueue only after the canonical KDS ticket is first created, in the
+        # same transaction. A repeat /fire call never queues a second ticket.
+        from .printing import enqueue_kitchen
+        enqueue_kitchen(db, bid, order, row.id, details)
     audit(db, bid, user[0].id, f"{kind}.created", {"id":row.id, "reference_id":row.reference_id})
     try:
         db.commit()

@@ -667,6 +667,9 @@ def order_paid(bid: str, oid: str, body: ConfirmPayment, user=Depends(current_us
         o.status = "paid"; o.paid_at = now()
         from .operations_v5 import loyalty_earn_on_paid
         loyalty_earn_on_paid(db, bid, o)
+        # Print a customer receipt only once after manual payment confirmation.
+        from .printing import enqueue_receipt
+        enqueue_receipt(db, bid, o)
         audit(db, bid, user[0].id, "order.marked_paid_manual", {"order_id": oid})
         db.commit()
     return order_out(db, o)
@@ -850,3 +853,9 @@ app.include_router(pos_v7_router)
 # SaleOrder line IDs; no duplicate order/payment ledger and no new DB tables.
 from .kds import router as kds_router  # noqa: E402
 app.include_router(kds_router)
+
+# EZ Print: separate device identities, tenant queue and Star CloudPRNT adapter.
+from .printing import merchant as print_router, device_api as print_device_router  # noqa: E402
+Base.metadata.create_all(bind=engine)  # Pilot only; production applies 20261116_08 migration.
+app.include_router(print_router)
+app.include_router(print_device_router)
