@@ -238,7 +238,7 @@ try:
   page.locator("#ezpay-submit").click()
   page.locator(".ezpay-modal").wait_for(state="detached",timeout=25000)
   assert page.locator(".ezreg-last").inner_text().strip()
-  assert page.locator(".ezreg-last-actions [data-ezreg='paid']").count()==0
+  page.locator(".ezreg-last-actions [data-ezreg='paid']").wait_for(state="detached",timeout=15000)
   print("PASS POS cash: saved check, tendered amount, change and manual confirmation",flush=True)
 
   # A new order can be created and manually confirmed as bank transfer
