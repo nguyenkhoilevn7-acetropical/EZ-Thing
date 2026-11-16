@@ -134,6 +134,8 @@ def create_item(bid: str, kind: str, body: CreateWorkItem,
             # firing time; no second ticket store, and POS edits stay blocked.
             from .kds import ticket_lines
             details["kds_lines"] = ticket_lines(db, bid, order)
+            if not details["kds_lines"]:
+                fail(409, "Đơn này không có món cần chế biến; không gửi phiếu trống")
             details["kds_revision"] = 0
         row = IndustryWorkItem(id=new_id(), business_id=bid, kind=kind,
               reference_id=order.id, customer_id=order.customer_id,
