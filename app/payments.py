@@ -54,7 +54,7 @@ def _intent_response(intent: POSPaymentIntent, account: MerchantBankAccount | No
         "id": intent.id, "order_id": intent.order_id,
         "method": intent.method, "amount_vnd": intent.amount_vnd,
         "reference": intent.reference, "status": intent.status,
-        "automatic_payment_confirmation": intent.method == "bank_qr",
+        "automatic_payment_confirmation": intent.method == "bank_qr" and _sepay_secret(intent.business_id) is not None,
         "payment_completed": intent.status == "paid",
     }
     if intent.method == "bank_qr" and account:
@@ -174,6 +174,32 @@ def payment_history(bid: str, oid: str, user=Depends(current_user),
         POSPaymentIntent.order_id == oid).order_by(
         POSPaymentIntent.created_at.desc()).limit(50)).all()
     return [_intent_response(row, account) for row in entries]
+
+
+class CancelPaymentIntent(BaseModel):
+    reason: str = Field(min_length=5, max_length=200)
+
+
+@merchant.post("/intents/{intent_id}/cancel")
+def cancel_intent(bid: str, intent_id: str, body: CancelPaymentIntent,
+                  user=Depends(current_user), db: Session = Depends(db_session)):
+    b = tenant(bid, user, db)
+    feature(b, "orders")
+    allow(db, bid, user, MANAGE_ROLES)
+    intent = db.scalar(select(POSPaymentIntent).where(
+        POSPaymentIntent.id == intent_id,
+        POSPaymentIntent.business_id == bid).with_for_update())
+    if intent is None:
+        _error(404, "Payment intent not found")
+    if intent.status == "pending":
+        intent.status = "superseded"
+        audit(db, bid, user[0].id, "payments.intent_cancelled", {
+            "intent_id": intent.id, "order_id": intent.order_id,
+            "reason": body.reason})
+        db.commit()
+    elif intent.status == "paid":
+        _error(409, "A settled payment cannot be cancelled here")
+    return _intent_response(intent, db.get(MerchantBankAccount, bid))
 
 
 def _sepay_secret(bid: str):
