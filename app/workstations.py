@@ -88,7 +88,17 @@ def register_current(bid: str, body: RegisterDevice, user=Depends(current_user),
               {"device_id": row.id, "mode": default_mode})
         db.commit()
         db.refresh(row)
-    return serial(row)
+    result = serial(row)
+    if role_for(db, bid, user[0].id) == "staff":
+        from .team import duty_for, duty_payload
+        duty = duty_payload(duty_for(db, bid, user[0].id))
+        result["device_mode"] = row.mode
+        result["mode"] = duty["mode"]
+        result["station"] = duty["station"]
+        result["branch_id"] = duty["branch_id"]
+        result["duty"] = duty
+        result["mode_mismatch"] = row.mode not in ("manager", duty["mode"])
+    return result
 
 
 @router.get("")

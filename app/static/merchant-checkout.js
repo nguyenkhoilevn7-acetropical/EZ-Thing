@@ -86,8 +86,17 @@
         '<strong>'+fmt(amount)+'</strong></button></footer></section>';
     }
     function paint(){
-      const host=document.getElementById("ezreg-payment-mount");
-      if(host)host.innerHTML=render();
+      let host=document.getElementById("ezreg-payment-mount");
+      if(!host&&state.open){
+        host=document.createElement("div");
+        host.id="ezreg-payment-mount";
+        host.dataset.ezpayStandalone="true";
+        document.body.append(host);
+      }
+      if(host){
+        host.innerHTML=render();
+        if(!state.open&&host.dataset.ezpayStandalone==="true")host.remove();
+      }
     }
     function sync(){
       const submit=document.getElementById("ezpay-submit");
@@ -145,7 +154,7 @@
     }
     document.addEventListener("click",event=>{
       const btn=event.target.closest("[data-ezpay]");
-      if(!btn||!document.getElementById("ez-register")?.contains(btn))return;
+      if(!btn||!document.getElementById("ezreg-payment-mount")?.contains(btn))return;
       event.preventDefault();event.stopPropagation();
       const action=btn.dataset.ezpay;
       if(action==="close"){if(!state.busy)reset()}
@@ -156,7 +165,7 @@
       }else if(action==="confirm")settle();
     },true);
     document.addEventListener("input",event=>{
-      if(!document.getElementById("ez-register"))return;
+      if(!document.getElementById("ezreg-payment-mount"))return;
       if(event.target.matches("[data-ezpay-cash]")){
         state.cash=event.target.value;state.confirmed=false;sync();
       }

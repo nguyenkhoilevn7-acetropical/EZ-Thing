@@ -78,7 +78,8 @@ def guard(db: Session, bid: str, user):
     if business.industry != "fnb":
         fail(404, "Bếp và pha chế chỉ dành cho nhà hàng/cafe")
     feature(business, "kitchen")
-    allow(db, bid, user, ROLES)
+    from .team import require_duty
+    require_duty(db, bid, user, {"kitchen", "bar"})
     return business
 
 
@@ -230,10 +231,33 @@ def ticket_view(row: IndustryWorkItem, order: SaleOrder | None,
     }
 
 
+def scoped_ticket_view(db: Session, bid: str, user,
+                       row: IndustryWorkItem, order: SaleOrder, lines: list[dict]) -> dict:
+    from .team import role_for, duty_for, require_branch, require_kds_station
+    duty = duty_for(db, bid, user[0].id) if role_for(db, bid, user[0].id) == "staff" else None
+    if duty:
+        require_branch(duty, order.branch_id)
+        permitted = []
+        for line in lines:
+            try:
+                require_kds_station(duty, line["station"])
+                permitted.append(line)
+            except HTTPException:
+                pass
+        lines = permitted
+    return ticket_view(row, order, lines)
+
+
 @router.get("/queue")
 def queue(bid: str, branch_id: str | None = None,
           user=Depends(current_user), db: Session = Depends(db_session)):
     guard(db, bid, user)
+    from .team import duty_for, require_branch, role_for
+    duty = duty_for(db, bid, user[0].id) if role_for(db, bid, user[0].id) == "staff" else None
+    if duty and duty.branch_id:
+        if branch_id and branch_id != duty.branch_id:
+            fail(403, "Không được xem phiếu bếp của chi nhánh khác")
+        branch_id = duty.branch_id
     if branch_id:
         from .models import Branch
         exists = db.scalar(select(Branch.id).where(Branch.business_id == bid,
@@ -264,10 +288,22 @@ def queue(bid: str, branch_id: str | None = None,
             for item in lines:
                 item["status"] = job.status if job.status in (
                     "pending", "preparing", "ready", "served") else "pending"
+        if duty:
+            from .team import require_kds_station
+            def allowed_line(line):
+                try:
+                    require_kds_station(duty, line["station"])
+                    return True
+                except HTTPException:
+                    return False
+            lines = [line for line in lines if allowed_line(line)]
+        if not lines:
+            continue
         for line in lines:
             if line["status"] not in DONE:
                 counts[line["station"]] += int(line["quantity"])
-        all_tickets.append(ticket_view(job, o, lines))
+        view = ticket_view(job, o, lines)
+        all_tickets.append(view)
     return {
         "server_time": datetime.now(timezone.utc).isoformat(),
         "stations": STATION_LABELS,
@@ -285,6 +321,7 @@ def queue(bid: str, branch_id: str | None = None,
 def routes(bid: str, user=Depends(current_user),
            db: Session = Depends(db_session)):
     guard(db, bid, user)
+    allow(db, bid, user, MANAGE_ROLES)
     return {"stations": STATION_LABELS, "route_stations": ROUTE_LABELS,
             "routes": routing(db, bid), "category_routes": category_routing(db, bid),
             "settings": dispatch_settings(db, bid),
@@ -424,7 +461,12 @@ def set_dispatch_settings(bid: str, body: DispatchSettingsUpdate,
 @router.post("/fire", status_code=201)
 def fire(bid: str, body: FireTicket,
          user=Depends(current_user), db: Session = Depends(db_session)):
-    guard(db, bid, user)
+    business = tenant(bid, user, db)
+    if business.industry != "fnb":
+        fail(404, "Chỉ dành cho nhà hàng/cafe")
+    feature(business, "kitchen")
+    from .team import require_duty
+    require_duty(db, bid, user, {"order"})
     # Reuse existing canonical IndustryWorkItem, including its unique
     # business/kind/order constraint and lock/validation behavior.
     from .workflows import create_item, CreateWorkItem
@@ -437,6 +479,8 @@ def change_line(bid: str, ticket_id: str, line_id: str, body: LineUpdate,
                 user=Depends(current_user), db: Session = Depends(db_session)):
     guard(db, bid, user)
     role = allow(db, bid, user, ROLES)
+    from .team import duty_for, require_branch, require_kds_station
+    assignment = duty_for(db, bid, user[0].id) if role == "staff" else None
     # Canonical order lock first, like cancel/edit/payment and firing.
     probe = db.scalar(select(IndustryWorkItem).where(
         IndustryWorkItem.business_id == bid, IndustryWorkItem.id == ticket_id,
@@ -461,8 +505,10 @@ def change_line(bid: str, ticket_id: str, line_id: str, body: LineUpdate,
     chosen = next((x for x in lines if x["id"] == line_id), None)
     if chosen is None:
         fail(404, "Món không thuộc phiếu bếp")
+    require_branch(assignment, order.branch_id)
+    require_kds_station(assignment, chosen["station"])
     if chosen["status"] == body.status and revision == body.expected_revision:
-        return ticket_view(job, order, lines)
+        return scoped_ticket_view(db, bid, user, job, order, lines)
     if revision != body.expected_revision:
         fail(409, "Phiếu đã thay đổi ở thiết bị khác. Hãy tải lại")
     old = chosen["status"]
@@ -491,7 +537,7 @@ def change_line(bid: str, ticket_id: str, line_id: str, body: LineUpdate,
         "revision":details["kds_revision"],
         "reason":body.reason.strip() if body.reason else None})
     db.commit()
-    return ticket_view(job, order, lines)
+    return scoped_ticket_view(db, bid, user, job, order, lines)
 
 
 
@@ -560,12 +606,16 @@ def lock_ticket_line(db: Session, bid: str, ticket_id: str, line_id: str):
 def call_runner(bid: str, ticket_id: str, line_id: str, body: CallRunner,
                 user=Depends(current_user), db: Session = Depends(db_session)):
     guard(db, bid, user)
+    from .team import duty_for, role_for, require_branch, require_kds_station
+    assignment = duty_for(db, bid, user[0].id) if role_for(db, bid, user[0].id) == "staff" else None
     order, job, details, lines, line = lock_ticket_line(db, bid, ticket_id, line_id)
+    require_branch(assignment, order.branch_id)
+    require_kds_station(assignment, line["station"])
     if line["status"] != "ready":
         fail(409, "Chỉ gọi phục vụ khi món đã sẵn sàng")
     # Internal flag only. No Zalo/SMS/push or third-party acknowledgement.
     if line.get("runner_called_at"):
-        return ticket_view(job, order, lines)
+        return scoped_ticket_view(db, bid, user, job, order, lines)
     revision = int(details.get("kds_revision", 0))
     if body.expected_revision != revision:
         fail(409, "Phiếu thay đổi ở thiết bị khác")
@@ -575,7 +625,7 @@ def call_runner(bid: str, ticket_id: str, line_id: str, body: CallRunner,
     audit(db, bid, user[0].id, "kds.runner_called", {
         "ticket_id": ticket_id, "line_id": line_id, "transport": "internal_flag"})
     db.commit()
-    return ticket_view(job, order, lines)
+    return scoped_ticket_view(db, bid, user, job, order, lines)
 
 
 @router.post("/tickets/{ticket_id}/lines/{line_id}/move-station")
@@ -592,7 +642,7 @@ def transfer_station(bid: str, ticket_id: str, line_id: str,
         fail(409, "Không chuyển trạm khi món đã xong")
     old = line["station"]
     if old == body.station:
-        return ticket_view(job, order, lines)
+        return scoped_ticket_view(db, bid, user, job, order, lines)
     line["station"] = body.station
     line["updated_at"] = datetime.now(timezone.utc).isoformat()
     details.update(kds_lines=lines, kds_revision=revision+1)
@@ -601,4 +651,4 @@ def transfer_station(bid: str, ticket_id: str, line_id: str,
         "ticket_id":ticket_id,"line_id":line_id,"from":old,
         "to":body.station,"reason":body.reason.strip()})
     db.commit()
-    return ticket_view(job, order, lines)
+    return scoped_ticket_view(db, bid, user, job, order, lines)

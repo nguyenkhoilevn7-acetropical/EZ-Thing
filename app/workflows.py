@@ -89,6 +89,9 @@ def output(row):
 @router.get("/{kind}")
 def list_items(bid: str, kind: str, user=Depends(current_user), db: Session = Depends(db_session)):
     scope(bid, kind, user, db)
+    if kind == "kitchen":
+        from .team import allow, MANAGE_ROLES
+        allow(db, bid, user, MANAGE_ROLES)
     if kind == "inventory":
         rows = db.execute(select(StockMovement, Product.name)
            .join(Product, (Product.id == StockMovement.product_id) & (Product.business_id == bid))
@@ -105,6 +108,9 @@ def list_items(bid: str, kind: str, user=Depends(current_user), db: Session = De
 def create_item(bid: str, kind: str, body: CreateWorkItem,
                 user=Depends(current_user), db: Session = Depends(db_session)):
     scope(bid, kind, user, db)
+    if kind == "kitchen":
+        from .team import require_duty
+        require_duty(db, bid, user, {"order"})
     if kind == "inventory":
         fail(405, "Dùng chức năng nhập/xuất kho có sẵn")
     if kind in ("kitchen", "delivery"):
@@ -189,6 +195,9 @@ def create_item(bid: str, kind: str, body: CreateWorkItem,
 def change_status(bid: str, kind: str, item_id: str, body: NextStatus,
                   user=Depends(current_user), db: Session = Depends(db_session)):
     scope(bid, kind, user, db)
+    if kind == "kitchen":
+        from .team import allow, MANAGE_ROLES
+        allow(db, bid, user, MANAGE_ROLES)
     if kind == "inventory": fail(405, "Không thể sửa lịch sử kho")
     # Serialize status updates with order cancellation, which locks the linked
     # pending ticket before marking it cancelled.

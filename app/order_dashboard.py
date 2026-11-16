@@ -32,6 +32,12 @@ def order_dashboard(
 ):
     b = tenant(bid, user, db)
     feature(b, "orders")
+    from .team import require_duty
+    duty = require_duty(db, bid, user, {"order", "cashier"})
+    if duty and duty.branch_id:
+        if branch_id and branch_id != duty.branch_id:
+            raise HTTPException(403, "Không được xem doanh thu chi nhánh khác")
+        branch_id = duty.branch_id
     if from_day and to_day and from_day > to_day:
         raise HTTPException(422, "Ngày bắt đầu phải trước ngày kết thúc")
     if from_day and to_day and (to_day - from_day).days > 365:

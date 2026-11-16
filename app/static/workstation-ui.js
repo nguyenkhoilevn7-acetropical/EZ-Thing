@@ -24,26 +24,26 @@
     }catch{return null}
   }
   window.EZWorkstations={
-    create({api,E,toast,getState,modal,onChanged}){
-      let current=blank(),biz="",drawerOpen=false,temporary=false,pending=false;
+    create({api,E,toast,getState,modal,closeModal,onChanged}){
+      let current=blank(),biz="",drawerOpen=false,temporary=false,pending=false,previewMode=null;
       const state=getState;
       const owner=()=>["owner","manager"].includes(state().business?.role);
       const active=()=>state().business?.industry==="fnb"&&!state().business?.billing_required;
-      const mode=()=>active()?current.mode:"manager";
-      const focused=()=>mode()!=="manager"&&!temporary;
+      const mode=()=>active()?(previewMode||current.mode):"manager";
+      const focused=()=>mode()!=="manager"&&(Boolean(previewMode)||!temporary);
       const home=()=>MODES[mode()]?.[2]||"overview";
       const lang=()=>window.EZI18N?.language?.()==="en";
       function applyProfile(row){
         current={...blank(),...(row||{})};
         if(!MODES[current.mode])current.mode="manager";
-        state().workstation=current;
-        if(state().business?.id===biz&&!temporary&&current.mode!=="manager")state().tab=home();
-        document.body.dataset.ezWorkstation=focused()?current.mode:"manager";
+        state().workstation=previewMode?virtualProfile(previewMode):current;
+        if(state().business?.id===biz&&!temporary&&current.mode!=="manager"&&!previewMode)state().tab=home();
+        document.body.dataset.ezWorkstation=focused()?mode():"manager";
         document.body.dataset.ezWorkstationActive=focused()?"true":"false";
       }
       async function load(){
         const b=state().business;
-        temporary=false;drawerOpen=false;
+        temporary=false;drawerOpen=false;previewMode=null;
         if(!b||b.industry!=="fnb"||b.billing_required){
           biz=b?.id||"";applyProfile(blank());return;
         }
@@ -63,6 +63,70 @@
       }
       const modeLabel=(id)=>{const x=MODES[id]||MODES.manager;return x[lang()?1:0]};
       const safe=(v)=>E(String(v??""));
+      const virtualProfile=(task)=>({
+        ...current,mode:task,
+        station:task==="bar"?"bar":task==="kitchen"?"kitchen":"all",
+        preview_only:true
+      });
+      const previewOnly=()=>Boolean(previewMode);
+      function previewNav(){
+        if(!previewMode||!owner())return "";
+        return '<div class="ezws-preview-bar" role="toolbar" aria-label="Xem thử tác vụ">'+
+          '<span class="ezws-preview-label">👁 '+safe(choose("CHỈ XEM · KHÔNG GHI DỮ LIỆU","READ-ONLY PREVIEW"))+'</span>'+
+          '<div class="ezws-preview-tabs">'+Object.keys(MODES).filter(id=>id!=="manager").map(id=>
+            '<button type="button" data-ezws="preview" data-value="'+id+'" class="'+
+            (previewMode===id?"active":"")+'" aria-pressed="'+(previewMode===id)+'">'+
+            safe(modeLabel(id))+'</button>').join("")+'</div>'+
+          '<button type="button" class="ezws-preview-fullscreen" data-ezws="fullscreen" title="'+
+          safe(choose("Toàn màn hình","Fullscreen"))+'">⛶</button>'+
+          '<button type="button" class="ezws-preview-exit" data-ezws="exit-preview">'+
+          safe(choose("Thoát xem thử","Back to Admin"))+'</button></div>';
+      }
+      function openPreviewPicker(){
+        if(!owner()||!active())return;
+        const icons={order:"🧾",kitchen:"🍳",bar:"🥤",cashier:"💳",host:"🪑"};
+        const hints={order:choose("Nhận món, tạo đơn","Take orders"),
+          kitchen:choose("Xử lý món ăn","Prepare food"),
+          bar:choose("Pha chế đồ uống","Prepare drinks"),
+          cashier:choose("Thu tiền và in phiếu","Collect payments"),
+          host:choose("Bàn, đón khách","Host & seating")};
+        modal(choose("Xem thử màn hình theo tác vụ","Preview employee workstations"),
+          '<div class="ezws-preview-picker"><p>'+
+          choose("Xem trực tiếp từng màn hình của hệ thống. Chế độ này chỉ đọc, không tạo đơn hoặc sửa dữ liệu.",
+            "See each real workspace. Preview is read-only and cannot alter data.")+
+          '</p><div class="ezws-preview-choices">'+
+          Object.keys(MODES).filter(id=>id!=="manager").map(id=>
+          '<button type="button" class="ezws-preview-choice" data-ezws="preview" data-value="'+id+'">'+
+          '<span aria-hidden="true">'+icons[id]+'</span><strong>'+safe(modeLabel(id))+
+          '</strong><small>'+safe(hints[id])+'</small></button>').join("")+
+          '</div></div>');
+      }
+      function preview(task){
+        if(!owner()||!active()||!MODES[task]||task==="manager")return;
+        closeModal?.();
+        previewMode=task;temporary=false;drawerOpen=false;
+        state().workstation=virtualProfile(task);
+        onChanged(home());
+      }
+      function exitPreview(){
+        if(!previewMode)return;
+        previewMode=null;temporary=true;drawerOpen=false;
+        state().workstation=current;
+        onChanged("overview");
+      }
+      async function fullscreen(){
+        try{
+          if(document.fullscreenElement)await document.exitFullscreen();
+          else if(document.documentElement.requestFullscreen){
+            await document.documentElement.requestFullscreen();
+            document.body.classList.remove("ezws-immersive");
+          }else throw Error("not supported");
+        }catch{
+          document.body.classList.toggle("ezws-immersive");
+          toast(choose("Trình duyệt không hỗ trợ toàn màn hình. Đã bật chế độ tập trung; Safari có thể vẫn hiện thanh địa chỉ.",
+            "Fullscreen unavailable; focused mode enabled, browser chrome may remain."));
+        }
+      }
       const menuList=(items)=>items.map(([tab,icon,title])=>
          '<button type="button" data-ezws="navigate" data-value="'+safe(tab)+'">'+safe(title)+'</button>'
       ).join("");
@@ -135,7 +199,9 @@
             '<div class="ezws-settings"><p>'+choose(
                "Mỗi thiết bị xuất hiện sau khi nhân viên mở EZ Thing tại máy đó. Quản lý gán chức năng tại đây; thiết bị cập nhật sau khi tải lại.",
                "Devices appear when staff first open EZ Thing. Assign a mode here; refresh the terminal to load changes.")+
-            '</p><div class="ezws-device-grid">'+
+            '</p><div class="ezws-preview-link"><button type="button" class="btn" data-ezws="preview-picker">👁 '+
+            choose("Xem thử 5 màn hình nhân viên","Preview 5 employee screens")+'</button></div>'+
+            '<div class="ezws-device-grid">'+
             (data.workstations.length?data.workstations.map(deviceFields).join(""):
              '<p>'+choose("Chưa có thiết bị nào","No terminals registered")+'</p>')+
             '</div><small>'+choose(
@@ -168,6 +234,17 @@
       async function showSettingsSoon(){
         // Full refresh on next user opening avoids destroying focused form controls.
       }
+      // Preview is display-only: block all app/KDS/POS mutations before handlers.
+      document.addEventListener("click",event=>{
+        if(!previewMode)return;
+        if(event.target.closest("[data-ezws]"))return;
+        if(event.target.closest("#page-content")||event.target.closest("#modal-root")){
+          event.preventDefault();event.stopImmediatePropagation();
+        }
+      },true);
+      document.addEventListener("submit",event=>{
+        if(previewMode){event.preventDefault();event.stopImmediatePropagation()}
+      },true);
       document.addEventListener("click",event=>{
         const button=event.target.closest("[data-ezws]");
         if(!button)return;
@@ -176,6 +253,10 @@
         if(action==="toggle")switchDrawer(!drawerOpen);
         else if(action==="close")switchDrawer(false);
         else if(action==="settings")showSettings();
+        else if(action==="preview-picker")openPreviewPicker();
+        else if(action==="preview")preview(button.dataset.value);
+        else if(action==="exit-preview")exitPreview();
+        else if(action==="fullscreen")fullscreen();
         else if(action==="manager"&&owner()){
           temporary=true;drawerOpen=false;onChanged("overview");
         }else if(action==="return"&&owner()){
@@ -195,12 +276,14 @@
       document.addEventListener("keydown",event=>{
         if(event.key==="Escape"&&drawerOpen){switchDrawer(false)}
       });
-      return {load,mode,focused,home,drawer,modeLabel,isTemporary:()=>temporary,
+      return {load,mode,focused,home,drawer,previewNav,openPreviewPicker,
+              previewOnly,exitPreview,fullscreen,modeLabel,isTemporary:()=>temporary,
               current:()=>current,owner,showSettings,
               allowNavigation:tab=>!focused()||tab===home(),
               applyDocument:()=>{
                 document.body.dataset.ezWorkstation=focused()?mode():"manager";
                 document.body.dataset.ezWorkstationActive=focused()?"true":"false";
+                document.body.dataset.ezWorkstationPreview=previewOnly()?"true":"false";
               }};
     }
   };

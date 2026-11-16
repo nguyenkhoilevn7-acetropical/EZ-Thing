@@ -150,6 +150,10 @@ def test_tenant_isolation_and_cashier_staff_is_audited():
             db.add(Membership(id=str(uuid.uuid4()),business_id=bid,
                               user_id=staff_id,role="staff"))
             db.commit()
+        assigned=owner.put(f"/api/businesses/{bid}/team/members/{staff_id}/duty",
+            headers={"x-csrf-token":csrf},
+            json={"mode":"cashier","branch_id":None,"station":"all"})
+        assert assigned.status_code==200,assigned.text
         paid=post(staff,path,payload(request="staff-payment-12345"),staff_csrf)
         assert paid.status_code==200,paid.text
         assert paid.json()["order"]["status"]=="paid"

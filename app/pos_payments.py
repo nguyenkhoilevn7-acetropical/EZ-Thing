@@ -74,11 +74,13 @@ def get_tender(bid: str, oid: str, user=Depends(current_user),
                db: Session = Depends(db_session)):
     business = tenant(bid, user, db)
     feature(business, "orders")
-    allow(db, bid, user, ROLES)
+    from .team import require_duty, require_branch
+    duty = require_duty(db, bid, user, {"cashier"})
     order = db.scalar(select(SaleOrder).where(
         SaleOrder.business_id == bid, SaleOrder.id == oid))
     if not order:
         raise HTTPException(404, "Không tìm thấy đơn")
+    require_branch(duty, order.branch_id)
     receipt = db.scalar(select(ManualTenderReceipt).where(
         ManualTenderReceipt.business_id == bid, ManualTenderReceipt.order_id == oid))
     return {
@@ -96,7 +98,8 @@ def collect_manual_tender(
     b = tenant(bid, user, db)
     feature(b, "orders")
     # Staff can act as cashiers at POS. All manual confirmations are audited.
-    allow(db, bid, user, ROLES)
+    from .team import require_duty, require_branch
+    duty = require_duty(db, bid, user, {"cashier"})
 
     # Lock order first: cancellation, payment via legacy /paid and two
     # concurrent cashier devices cannot both settle the same sale.
@@ -104,6 +107,7 @@ def collect_manual_tender(
         SaleOrder.business_id == bid, SaleOrder.id == oid).with_for_update())
     if not order:
         raise HTTPException(404, "Không tìm thấy đơn")
+    require_branch(duty, order.branch_id)
 
     prior = db.scalar(select(ManualTenderReceipt).where(
         ManualTenderReceipt.business_id == bid,

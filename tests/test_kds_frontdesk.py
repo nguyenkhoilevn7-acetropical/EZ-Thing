@@ -197,6 +197,9 @@ def test_kds_staff_can_bump_but_cannot_set_routes_recall_or_hide_menu(cli):
             db.add(Membership(id=str(uuid.uuid4()),business_id=bid,
                               user_id=user_id,role="staff"))
             db.commit()
+        assigned=request(cli,"PUT",f"/businesses/{bid}/team/members/{user_id}/duty",{
+            "mode":"bar","branch_id":None,"station":"bar"},csrf)
+        assert assigned.status_code==200,assigned.text
         assert cashier.get("/api"+kds(bid,"/queue")).status_code==200
         assert request(cashier,"PUT",kds(bid,"/routes"),{
             "product_id":p,"station":"cold"},csrf_staff).status_code==403

@@ -62,7 +62,7 @@
       s=defaultState();
       checkout?.reset();
       s.bid=business().id;
-      s.branch=branches()[0]?.id||"";
+      s.branch=getState().workstation?.branch_id||branches()[0]?.id||"";
     }
     function total(){return s.cart.reduce((sum,line)=>{
       const p=byId(line.productId);
@@ -150,7 +150,9 @@
         t("Đóng giỏ hàng","Close cart")+'">✕</button></div>'+
         '<div class="ezreg-cart-meta"><label>'+t("Chi nhánh","Branch")+
         '<select data-ezreg-select="branch" aria-label="'+t("Chọn chi nhánh","Select branch")+'">'+
-        branches().map(b=>'<option value="'+E(b.id)+'"'+(b.id===s.branch?" selected":"")+">"+
+        branches().filter(b=>!getState().workstation?.branch_id||
+          getState().workstation.branch_id===b.id).map(b=>
+          '<option value="'+E(b.id)+'"'+(b.id===s.branch?" selected":"")+">"+
           E(b.name)+'</option>').join("")+'</select></label>'+
         (hasTables?'<label>'+t("Hình thức / bàn","Service / table")+
           '<select data-ezreg-select="table" aria-label="'+t("Chọn bàn","Select table")+'">'+
@@ -177,11 +179,11 @@
         t("Tạm tính","Estimated subtotal")+'</span><strong>'+fmt(total())+'</strong></div>'+
         '<div class="ezreg-finance-hint">'+t("Giá cuối cùng được xác nhận trên máy chủ. Chưa thu tiền.",
         "Final prices are verified on the server. No payment collected.")+'</div>'+
-        '<button type="button" class="ezreg-create ezreg-pay-primary" data-ezreg="checkout" '+
+        (business().role==="staff"&&getState().workstation?.mode==="order"?"":'<button type="button" class="ezreg-create ezreg-pay-primary" data-ezreg="checkout" '+
         (!s.cart.length||s.busy||!navigator.onLine?"disabled":"")+'>'+
         (s.busy?t("Đang xử lý...","Processing..."):
           t("Thanh toán","Checkout"))+
-        '<span>'+fmt(total())+'</span></button>'+
+        '<span>'+fmt(total())+'</span></button>')+
         '<button type="button" class="ezreg-save-check" data-ezreg="create" '+
         (!s.cart.length||s.busy||!navigator.onLine?"disabled":"")+'>'+t("Lưu đơn · Chưa thu tiền","Save check · Unpaid")+'</button>'+
         '<div class="ezreg-secondary-actions"><button type="button" data-ezreg="clear" '+
@@ -207,7 +209,7 @@
         (business().industry==="fnb"&&o.kdsStatus==="manual"?
           '<button type="button" data-ezreg="send-kitchen">'+
           t("Gửi bếp thủ công","Send manually")+'</button>':"")+
-        (!o.paid?'<button type="button" data-ezreg="paid">'+
+        (!o.paid&&!(business().role==="staff"&&getState().workstation?.mode==="order")?'<button type="button" data-ezreg="paid">'+
           t("Thanh toán đơn này","Take payment")+'</button>':
           '<button type="button" data-ezreg="print">'+t("🖨 In phiếu thanh toán","🖨 Print receipt")+'</button>')+
         '<button type="button" data-ezreg="orders">'+t("Danh sách đơn","Order list")+
@@ -224,6 +226,8 @@
           "Select items, customize and create checks in one workspace.")+'</p></div>'+
         '<div class="ezreg-header-actions"><span class="ezreg-online" role="status">'+
         (navigator.onLine?t("● Đang kết nối","● Online"):t("● Mất kết nối","● Offline"))+'</span>'+
+        '<button type="button" data-ezws="fullscreen" aria-label="'+t("Bật toàn màn hình","Fullscreen")+
+        '" title="'+t("Toàn màn hình","Fullscreen")+'">⛶</button>'+
         '<button type="button" data-ezreg="orders">'+t("Đơn hàng →","Orders →")+
         '</button></div></div>'+lastHtml()+
         '<div class="ezreg-layout"><section class="ezreg-catalog">'+
@@ -528,8 +532,8 @@
     function openPayment(order){
       initTenant();
       if(!order||order.status==="paid"||order.paid)return;
+      if(!(business().role==="staff"&&getState().workstation?.mode==="cashier"))navigate("pos");
       checkout?.begin(order);
-      navigate("pos");
     }
     return {render,mount,open,openPayment};
   };
