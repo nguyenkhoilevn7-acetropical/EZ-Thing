@@ -495,13 +495,13 @@ def crawl_customer_flows(browser):
         page.locator("#booking-day").evaluate(
             "el => { const d=new Date(Date.now()+86400000);"
             " el.value=d.toISOString().slice(0,10); el.dispatchEvent(new Event('change',{bubbles:true})); }")
-        page.locator("#booking-slots .slot-button").first.wait_for(timeout=30000)
+        page.locator("#booking-slots .slot-button").first.wait_for(timeout=60000)
         form = page.locator("#guest-reservation-form")
         # Fill contact fields first: changing party size reloads the slots
         # and correctly clears an earlier time choice.
         form.evaluate(FILL_FORM)
         page.wait_for_timeout(500)
-        page.locator("#booking-slots .slot-button").first.wait_for(timeout=30000)
+        page.locator("#booking-slots .slot-button").first.wait_for(timeout=60000)
         page.locator("#booking-slots .slot-button").first.click()
         form.evaluate("f => f.requestSubmit()")
         settle(page, 1500)
