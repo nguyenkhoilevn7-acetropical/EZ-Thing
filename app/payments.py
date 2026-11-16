@@ -219,7 +219,7 @@ def _verify_signature(request: Request, raw: bytes, bid: str):
         _error(413, "Webhook payload too large")
     timestamp = request.headers.get("x-sepay-timestamp", "")
     signature = request.headers.get("x-sepay-signature", "")
-    if not timestamp.isascii() or not timestamp.isdigit():
+    if len(timestamp) > 12 or not timestamp.isascii() or not timestamp.isdigit():
         _error(401, "Invalid SePay timestamp")
     if abs(int(time.time()) - int(timestamp)) > 300:
         _error(401, "Expired SePay webhook")
