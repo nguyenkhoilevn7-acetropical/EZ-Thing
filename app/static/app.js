@@ -183,14 +183,14 @@ function overviewTab(){const o=s.cache.overview||{};const orders=s.cache.orders|
  <div class="split"><div class="surface pad"><div class="panel-title"><h3>Đơn hàng gần đây</h3><button class="btn ghost sm" data-action="tab" data-value="orders">Xem tất cả ${I('arrow','sm')}</button></div>${orders.length?`<div class="table-wrap"><table class="data-table"><thead><tr><th>Đơn hàng</th><th>Thời gian</th><th>Giá trị</th><th>Trạng thái</th></tr></thead><tbody>${orders.slice(0,5).map(o=>`<tr><td class="table-name">#${E(o.id.slice(0,8).toUpperCase())}</td><td>${D(o.created_at)}</td><td><b>${V(o.total_vnd)}</b></td><td>${status(o.status)}</td></tr>`).join('')}</tbody></table></div>`:cardEmpty('orders','Chưa có đơn hàng','Tạo đơn đầu tiên để bắt đầu theo dõi doanh thu.','new-order','Tạo đơn đầu tiên')}</div>
  <div class="surface pad"><div class="panel-title"><h3>Thao tác nhanh</h3><span class="pill">QUẢN LÝ</span></div><div class="task-list">${[['new-order','orders','Tạo đơn hàng','Bán hàng tại quầy hoặc tại bàn'],...(s.business.role==='staff'?[]:[['new-product','box','Thêm sản phẩm','Xây dựng danh mục kinh doanh']]),['new-customer','users','Thêm khách hàng','Lưu địa chỉ và thông tin liên hệ'],...(s.business.role!=='staff'&&has('tables')?[['new-table','tables','Thêm bàn','Thiết lập khu vực phục vụ']]:[])].map(([act,ico,name,desc])=>`<button class="task-item" data-action="${act}" style="background:var(--merchant-panel,var(--paper,#fff));color:var(--merchant-ink,var(--ink));text-align:left;cursor:pointer"><span class="task-icon">${I(ico)}</span><span style="flex:1"><strong>${name}</strong><p>${desc}</p></span>${I('chevron','sm')}</button>`).join('')}</div></div></div>`}
 function status(val){return val==='cancelled'?'<span class="pill red">Đã hủy</span>':val==='paid'?`<span class="pill paid">Đã nhận tiền</span>`:val==='open'?`<span class="pill yellow">Chờ thanh toán</span>`:`<span class="pill">${E(val)}</span>`}
-function ordersTab(){const result=s.cache.orderDashboard;const list=(result?.orders||s.cache.orders||[]).filter(x=>!s.orderSearch||[x.id,...x.items.map(i=>i.name)].join(' ').toLocaleLowerCase('vi').includes(s.orderSearch.toLocaleLowerCase('vi')));const ordersCount=result?.total_count??list.length;const opened=result?.open_count??list.filter(x=>x.status==='open').length;const paid=result?.paid_count??list.filter(x=>x.status==='paid').length;const cancelled=result?.cancelled_count??list.filter(x=>x.status==='cancelled').length;const revenue=s.business.role==='staff'?null:(result?.paid_vnd??list.filter(x=>x.status==='paid').reduce((sum,x)=>sum+x.total_vnd,0));return `${section('Quản lý đơn hàng','Đơn được tính giá từ dữ liệu sản phẩm trên server.',`<button class="btn" data-action="new-order">${I('plus','sm')} Tạo đơn</button>`)}<div class="suite-summary order-kpis"><div><strong>${ordersCount}</strong><span>Tổng đơn trong kỳ</span></div><div><strong>${opened}</strong><span>Chưa thanh toán</span></div><div><strong>${paid}</strong><span>Đã nhận tiền</span></div><div><strong>${revenue==null?'—':V(revenue)}</strong><span>Doanh thu từ đơn tạo trong kỳ</span></div></div>
+function ordersTab(){const result=s.cache.orderDashboard;const list=(result?.orders||s.cache.orders||[]).filter(x=>!s.orderSearch||[x.id,...x.items.map(i=>i.name)].join(' ').toLocaleLowerCase('vi').includes(s.orderSearch.toLocaleLowerCase('vi')));const ordersCount=result?.total_count??list.length;const opened=result?.open_count??list.filter(x=>x.status==='open').length;const paid=result?.paid_count??list.filter(x=>x.status==='paid').length;const cancelled=result?.cancelled_count??list.filter(x=>x.status==='cancelled').length;const revenue=s.business.role==='staff'?null:(result?.paid_vnd??list.filter(x=>x.status==='paid').reduce((sum,x)=>sum+x.total_vnd,0));return `${section('Quản lý đơn hàng','Đơn được tính giá từ dữ liệu sản phẩm trên server.',`${s.business.role==='owner'?'<button class="btn secondary" data-action="payment-bank-settings">🏦 Ngân hàng QR</button>':''}<button class="btn" data-action="new-order">${I('plus','sm')} Tạo đơn</button>`)}<div class="suite-summary order-kpis"><div><strong>${ordersCount}</strong><span>Tổng đơn trong kỳ</span></div><div><strong>${opened}</strong><span>Chưa thanh toán</span></div><div><strong>${paid}</strong><span>Đã nhận tiền</span></div><div><strong>${revenue==null?'—':V(revenue)}</strong><span>Doanh thu từ đơn tạo trong kỳ</span></div></div>
  <div class="order-range-bar">
  <label>Từ ngày<input type="date" data-order-filter="from" value="${E(s.orderDateFrom)}"></label>
  <label>Đến ngày<input type="date" data-order-filter="to" value="${E(s.orderDateTo)}"></label>
  <label>Chi nhánh<select data-order-filter="branch"><option value="all">Tất cả chi nhánh</option>${(s.cache.branches||[]).map(b=>`<option value="${E(b.id)}" ${s.orderBranchFilter===b.id?'selected':''}>${E(b.name)}</option>`).join('')}</select></label>
  ${has('tables')?`<label>Bàn<select data-order-filter="table"><option value="all">Tất cả bàn</option>${(s.cache.tables||[]).filter(t=>s.orderBranchFilter==='all'||t.branch_id===s.orderBranchFilter).map(t=>`<option value="${E(t.id)}" ${s.orderTableFilter===t.id?'selected':''}>${E(t.label)}</option>`).join('')}</select></label>`:''}
  <button type="button" class="btn secondary sm" data-action="order-reset">Xóa bộ lọc</button></div>
- <div class="toolbar"><div class="search">${I('search')}<input data-order-search type="search" value="${E(s.orderSearch)}" placeholder="Tìm mã đơn, sản phẩm..." aria-label="Tìm đơn hàng"/></div><div class="filters">${[['all','Tất cả'],['open','Chờ thanh toán'],['paid','Đã nhận tiền'],['cancelled','Đã hủy']].map(([id,n])=>`<button class="filter-btn ${s.orderFilter===id?'active':''}" data-action="order-filter" data-value="${id}">${n}</button>`).join('')}</div></div><div class="surface pad order-list-surface">${list.length?window.EZOrderCards.renderList(list,{E,V,D,status,I,canMarkPaid:s.business.role!=='staff',canCancel:s.business.role==='owner',canEdit:true,canMove:has('tables')&&s.business.role!=='staff'}):cardEmpty('orders','Không có đơn hàng','Các đơn hàng sẽ hiển thị tại đây.','new-order','Tạo đơn')}</div><div class="subtle mt8">${result?.truncated?`Hiển thị ${result.limit} đơn gần nhất trong ${result.total_count} đơn phù hợp bộ lọc. Hãy thu hẹp ngày để xem phần còn lại. · `:''}Đã hủy: ${cancelled}. Xác nhận tiền là thao tác thủ công; doanh thu hiển thị theo ngày tạo đơn, không phải ngày nhận tiền. Chưa tích hợp ngân hàng.</div>`}
+ <div class="toolbar"><div class="search">${I('search')}<input data-order-search type="search" value="${E(s.orderSearch)}" placeholder="Tìm mã đơn, sản phẩm..." aria-label="Tìm đơn hàng"/></div><div class="filters">${[['all','Tất cả'],['open','Chờ thanh toán'],['paid','Đã nhận tiền'],['cancelled','Đã hủy']].map(([id,n])=>`<button class="filter-btn ${s.orderFilter===id?'active':''}" data-action="order-filter" data-value="${id}">${n}</button>`).join('')}</div></div><div class="surface pad order-list-surface">${list.length?window.EZOrderCards.renderList(list,{E,V,D,status,I,canMarkPaid:s.business.role!=='staff',canCancel:s.business.role==='owner',canEdit:true,canMove:has('tables')&&s.business.role!=='staff'}):cardEmpty('orders','Không có đơn hàng','Các đơn hàng sẽ hiển thị tại đây.','new-order','Tạo đơn')}</div><div class="subtle mt8">${result?.truncated?`Hiển thị ${result.limit} đơn gần nhất trong ${result.total_count} đơn phù hợp bộ lọc. Hãy thu hẹp ngày để xem phần còn lại. · `:''}Đã hủy: ${cancelled}. Xác nhận tiền là thao tác thủ công; doanh thu hiển thị theo ngày tạo đơn, không phải ngày nhận tiền. VietQR chỉ tự xác nhận khi có SePay webhook được cấu hình.</div>`}
 async function loadOrdersDashboard(){
  const business=s.business?.id;if(!business)return;
  const query=new URLSearchParams();
@@ -217,7 +217,7 @@ function orderDetails(id){
  <div class="order-detail-lines">${o.items.map(item=>`<div><span>${E(item.name)} ×${item.quantity} <small>${V(item.unit_price_vnd)} / món</small>${item.modifiers?.length?`<small>${E(item.modifiers.map(m=>m.group_name+': '+m.name).join(' · '))}</small>`:''}</span><strong>${V(item.total_vnd)}</strong></div>`).join('')}</div>
  <p><strong>Ghi chú:</strong> ${E(o.note||'Không có')}</p>
  <div class="summary-line"><strong>Tổng tiền</strong><b>${V(o.total_vnd)}</b></div>
- <div class="modal-footer"><button class="btn secondary" data-action="close-modal">Đóng</button>${o.status==='open'?`<button class="btn secondary" data-action="pos-edit" data-value="${E(o.id)}">✎ Sửa món</button>${has('tables')&&s.business.role!=='staff'?`<button class="btn secondary" data-action="pos-move" data-value="${E(o.id)}">⇄ Chuyển bàn</button>`:''}`:''}${o.status==='open'?`${s.business.role==='owner'?`<button class="btn" data-action="cancel-order" data-value="${E(o.id)}">Hủy đơn</button>`:''} ${s.business.role!=='staff'?`<button class="btn" data-action="confirm-paid" data-value="${E(o.id)}">Xác nhận đã nhận tiền</button>`:''}`:''}</div></div>`,true)
+ <div class="modal-footer"><button class="btn secondary" data-action="close-modal">Đóng</button>${o.status==='open'?`<button class="btn secondary" data-action="pay-qr" data-value="${E(o.id)}">▦ Thanh toán VietQR</button><button class="btn secondary" data-action="pos-edit" data-value="${E(o.id)}">✎ Sửa món</button>${has('tables')&&s.business.role!=='staff'?`<button class="btn secondary" data-action="pos-move" data-value="${E(o.id)}">⇄ Chuyển bàn</button>`:''}`:''}${o.status==='open'?`${s.business.role==='owner'?`<button class="btn" data-action="cancel-order" data-value="${E(o.id)}">Hủy đơn</button>`:''} ${s.business.role!=='staff'?`<button class="btn" data-action="confirm-paid" data-value="${E(o.id)}">Xác nhận đã nhận tiền</button>`:''}`:''}</div></div>`,true)
 }
 function productsTab(){const p=s.cache.products||[];return `${section('Danh mục sản phẩm',`${p.length} sản phẩm đang quản lý`,s.business.role==='staff'?'':`<button class="btn" data-action="new-product">${I('plus','sm')} Thêm sản phẩm</button>`)}<div class="toolbar"><div class="search">${I('search')}<input data-search="#product-rows" placeholder="Tìm tên sản phẩm, mã SKU..."/></div></div><div id="product-rows" class="product-grid">${p.length?p.map((x,idx)=>`<article data-match="${E((x.name+' '+x.sku+' '+x.category).toLowerCase())}" class="surface product-card"><div class="product-main"><div class="product-visual">${['☕','🍰','🥤','🛒','📦','🍽️'][idx%6]}</div><div style="min-width:0"><h3 title="${E(x.name)}">${E(x.name)}</h3><p>${E(x.category)} • ${E(x.sku)}</p></div></div><div class="product-footer"><div><strong>${V(x.price_vnd)}</strong><div class="subtle">${x.track_stock?'Tồn kho: '+x.stock:'Không theo dõi kho'}</div></div>${has('inventory_adjust')&&x.track_stock&&s.business.role!=='staff'?`<button class="btn sm secondary" data-action="adjust-stock" data-value="${E(x.id)}">${I('plus','sm')} Kho</button>`:`<span class="pill">${x.stock<=5&&x.track_stock?'Sắp hết':'Đang bán'}</span>`}</div>${s.business.role!=='staff'?`<button type="button" class="btn sm secondary" data-action="edit-modifiers" data-value="${E(x.id)}">⚙ ${E('Size / Topping')}${x.modifier_groups?.length?' · '+x.modifier_groups.length:''}</button>`:''}</article>`).join(''):cardEmpty('box','Chưa có sản phẩm','Thêm sản phẩm để bắt đầu tạo đơn bán hàng.','new-product','Thêm sản phẩm')}</div>`}
 function tablesTab(){const t=s.cache.tables||[];return `${section('Sơ đồ bàn',`${t.filter(x=>!x.occupied).length} bàn trống • ${t.filter(x=>x.occupied).length} bàn có khách`,s.business.role==='staff'?'':`<button class="btn" data-action="new-table">${I('plus','sm')} Thêm bàn</button>`)}<div class="table-grid">${t.length?t.map(x=>`<button class="table-tile ${x.occupied?'occupied':''}" data-action="table-order" data-value="${E(x.id)}"><div class="table-symbol">${I('tables')}</div><strong>${E(x.label)}</strong><small>${x.occupied?'● Đang phục vụ':'● Còn trống'} • ${x.seats} chỗ</small></button>`).join(''):`<div class="surface" style="grid-column:1/-1">${cardEmpty('tables','Chưa có bàn','Thiết lập bàn cho nhà hàng hoặc quán cafe.','new-table','Tạo bàn')}</div>`}</div><div class="subtle mt8">Bấm vào bàn để tạo đơn mới. Bàn có đơn chưa thanh toán sẽ được đánh dấu đang phục vụ.</div>`}
@@ -273,6 +273,83 @@ function newOrder(preTable=''){const p=s.cache.products||[];if(!p.length){toast(
  const tables=s.cache.tables||[];const cust=s.cache.customers||[];const currentBranch=tables.find(t=>t.id===preTable)?.branch_id||(s.cache.branches||[])[0]?.id||'';modal('Tạo đơn bán hàng',`<form id="order-form" data-request-id="${(crypto.randomUUID?crypto.randomUUID():Date.now().toString(36)+Math.random().toString(36).slice(2))}"><div class="formrow"><div class="formfield"><label>Khách hàng</label><select name="customer_id"><option value="">Khách lẻ</option>${cust.map(c=>`<option value="${E(c.id)}">${E(c.name)}</option>`).join('')}</select></div><div class="formfield"><label>Bàn ${has('tables')?'':'(không áp dụng)'}</label><select name="table_id" ${has('tables')?'':'disabled'}><option value="">Mang đi / giao hàng</option>${tables.map(t=>`<option value="${E(t.id)}" ${t.id===preTable?'selected':''}>${E(t.label)}</option>`).join('')}</select></div></div><div class="formfield"><label>Chi nhánh xuất hàng</label><select name="branch_id" required>${(s.cache.branches||[]).map(br=>'<option value="'+E(br.id)+'"'+(br.id===currentBranch?' selected':'')+'>'+E(br.name)+'</option>').join('')}</select></div><label>Chi tiết sản phẩm</label><div id="order-lines">${row()}</div><button type="button" class="btn sm secondary" data-action="add-line">${I('plus','sm')} Thêm món / sản phẩm</button><div class="formfield" style="margin-top:17px"><label>Ghi chú</label><textarea name="note" maxlength="300" rows="2" placeholder="Ghi chú cho đơn hàng..."></textarea></div><div class="summary-line"><strong>Tổng tiền hàng</strong><b id="order-total">${V(p[0].price_vnd)}</b></div><div class="subtle mt8">Giá bán và tồn kho sẽ được tính lại trên server. Chưa có tính thuế, phí giao hay thanh toán tự động.</div>${submitFoot('Tạo đơn')}</form>`,true);s.newOrderRow=row;modifiersUI?.updateLine(document.querySelector('#order-lines .order-line'));updateOrderTotal()}
 function updateOrderTotal(){const el=document.getElementById('order-total');if(!el)return;let sum=0;document.querySelectorAll('#order-lines .order-line').forEach(row=>{const selected=row.querySelector('select').selectedOptions[0];sum+=((Number(selected?.dataset.price)||0)+(modifiersUI?.lineExtra(row)||0))*(Number(row.querySelector('input[name=quantity]').value)||0)});el.textContent=V(sum)}
 function adjustStock(id){const p=s.cache.products?.find(x=>x.id===id);if(!p)return;modal(`Điều chỉnh kho • ${p.name}`,`<form id="stock-form" data-id="${E(id)}"><div class="pill green" style="margin-bottom:16px">Tồn hiện tại: ${p.stock}</div><div class="formfield"><label>Chi nhánh điều chỉnh</label><select name="branch_id" required>${(s.cache.branches||[]).map(br=>'<option value="'+E(br.id)+'">'+E(br.name)+'</option>').join('')}</select></div><div class="formfield"><label>Thay đổi số lượng (+ nhập / - xuất)</label><input type="number" name="delta" value="1" min="-100000" max="100000" required/></div><div class="formfield"><label>Lý do điều chỉnh</label><input name="reason" placeholder="Nhập bổ sung / Hàng hỏng..." required minlength="4" maxlength="40"/></div>${submitFoot('Lưu điều chỉnh')}</form>`)}
+async function paymentBankSettings(){
+ const bid=encodeURIComponent(s.business.id);
+ const bank=await api('/businesses/'+bid+'/payments/bank');
+ if(s.business.role!=='owner'){toast('Chỉ chủ doanh nghiệp được sửa ngân hàng',true);return}
+ modal('Ngân hàng nhận VietQR','<form id="payment-bank-form">'
+  +'<p class="subtle">Tài khoản thụ hưởng của doanh nghiệp. Chỉ chủ doanh nghiệp có quyền thay đổi.</p>'
+  +'<div class="formfield"><label>Mã BIN ngân hàng (6 số)</label><input name="bank_bin" required maxlength="6" pattern="[0-9]{6}" value="'+E(bank.bank_bin||'970436')+'"/></div>'
+  +'<div class="formfield"><label>Số tài khoản</label><input name="account_number" required maxlength="19" pattern="[0-9]{6,19}" value="'+E(bank.account_number||'')+'"/></div>'
+  +'<div class="formfield"><label>Tên chủ tài khoản</label><input name="account_name" required maxlength="100" minlength="5" value="'+E(bank.account_name||'')+'"/></div>'
+  +'<p class="subtle">'+(bank.sepay_webhook_configured?'✓ Có cấu hình webhook SePay phía máy chủ.':'⚠ Chưa cấu hình webhook SePay: QR chưa tự xác nhận tiền về.')+'</p>'
+  +'<div class="modal-footer"><button class="btn secondary" type="button" data-action="close-modal">Đóng</button>'
+  +'<button class="btn" type="submit">Lưu tài khoản</button></div></form>',true);
+}
+async function payByVietQR(oid){
+ const bid=encodeURIComponent(s.business.id), order=(s.cache.orderDashboard?.orders||s.cache.orders||[]).find(x=>x.id===oid);
+ if(!order||order.status!=='open'){toast('Đơn không còn chờ thanh toán',true);return}
+ const base='/businesses/'+bid+'/payments';
+ const account=await api(base+'/bank');
+ if(!account.configured){
+   if(s.business.role==='owner')return paymentBankSettings();
+   toast('Chủ doanh nghiệp chưa cấu hình ngân hàng nhận QR',true);return;
+ }
+ const history=await api(base+'/orders/'+encodeURIComponent(oid));
+ let payment=history.find(p=>p.method==='bank_qr'&&p.status==='pending'&&p.amount_vnd===order.total_vnd);
+ if(!payment)payment=await api(base+'/intents',{method:'POST',body:JSON.stringify({
+   request_id:crypto.randomUUID(),order_id:oid,method:'bank_qr'
+ })});
+ if(payment.status!=='pending'){toast('Yêu cầu QR đã thay đổi, vui lòng thử lại',true);return}
+ const ref=payment.reference;
+ const statusMessage=payment.automatic_payment_confirmation
+   ?'Hệ thống chỉ xác nhận khi nhận webhook SePay hợp lệ. Không chấp nhận ảnh chuyển khoản.'
+   :'Chưa kết nối webhook SePay. QR chỉ hiển thị thông tin chuyển khoản, KHÔNG xác nhận thanh toán tự động.';
+ modal('Thanh toán VietQR','<section class="ez-pos-qr" id="ez-pos-qr-code" data-ref="'+E(ref)+'" style="text-align:center">'
+  +'<h3>'+V(payment.amount_vnd)+'</h3>'
+  +'<img src="'+E(payment.qr_image_url)+'" alt="VietQR của đơn hàng" loading="eager" style="display:block;max-width:min(100%,320px);width:100%;margin:12px auto;border-radius:12px" />'
+  +'<div style="font-weight:700;letter-spacing:.06em">'+E(ref)+'</div>'
+  +'<div class="subtle">'+E(payment.account_name)+' · '+E(payment.account_number)+'</div>'
+  +'<p class="subtle" role="status">'+statusMessage+'</p>'
+  +'<div class="modal-footer"><button class="btn secondary" data-action="close-modal">Đóng</button>'
+  +'<button class="btn secondary" data-action="payment-check" data-value="'+E(oid+'|'+ref)+'">Kiểm tra trạng thái</button>'
+  +(s.business.role!=='staff'?'<button class="btn secondary" data-action="payment-cancel" data-value="'+E(payment.id)+'">Hủy yêu cầu QR</button>':'')
+  +'</div></section>',true);
+ if(payment.automatic_payment_confirmation)watchVietQR(oid,ref);
+}
+async function checkVietQR(oid,ref){
+ const history=await api('/businesses/'+encodeURIComponent(s.business.id)+'/payments/orders/'+encodeURIComponent(oid));
+ const payment=history.find(x=>x.reference===ref);
+ if(payment?.status==='paid'){closeModal();await refresh();toast('Đã xác nhận tiền về qua SePay')}
+ else toast(payment?.status==='pending'?'Đang chờ ngân hàng xác nhận':'QR không còn hiệu lực. Kiểm tra lịch sử thanh toán.',payment?.status!=='pending');
+ return payment?.status;
+}
+function watchVietQR(oid,ref){
+ setTimeout(async()=>{
+   const el=document.getElementById('ez-pos-qr-code');
+   if(!el||el.dataset.ref!==ref)return;
+   try{
+     const status=await checkVietQRQuiet(oid,ref);
+     if(status!=='pending')return;
+   }catch(_){/* Temporary network issues must not mark order paid. */}
+   if(document.getElementById('ez-pos-qr-code')?.dataset.ref===ref)watchVietQR(oid,ref);
+ },6500);
+}
+async function checkVietQRQuiet(oid,ref){
+ const history=await api('/businesses/'+encodeURIComponent(s.business.id)+'/payments/orders/'+encodeURIComponent(oid));
+ const payment=history.find(x=>x.reference===ref);
+ if(payment?.status==='paid'){closeModal();await refresh();toast('✓ Chuyển khoản đã được xác nhận');}
+ else if(payment?.status!=='pending'){toast('QR đã ngừng hiệu lực; vui lòng kiểm tra đơn',true);}
+ return payment?.status;
+}
+async function cancelVietQR(intentId){
+ if(!window.confirm('Chỉ hủy yêu cầu QR khi đã kiểm tra khách chưa chuyển tiền. Nếu tiền đến sau sẽ cần đối soát thủ công.'))return;
+ await api('/businesses/'+encodeURIComponent(s.business.id)+'/payments/intents/'+encodeURIComponent(intentId)+'/cancel',{
+   method:'POST',body:JSON.stringify({reason:'Thu ngân hủy QR để đổi phương thức thanh toán'})
+ });
+ closeModal();toast('Đã hủy yêu cầu QR. Kiểm tra giao dịch trước khi thu bằng cách khác.');
+}
+
 function confirmPaid(id){const o=(s.cache.orderDashboard?.orders||s.cache.orders||[]).find(x=>x.id===id);if(!o||o.status!=='open')return;modal('Xác nhận đã nhận tiền',`<div style="text-align:center;padding:9px"><div class="empty-icon" style="margin:0 auto 15px">${I('wallet','xl')}</div><h3 style="font-size:23px">${V(o.total_vnd)}</h3><p class="muted">Chỉ xác nhận sau khi bạn thực sự đã nhận đủ tiền từ khách hàng. Hệ thống chưa tự đối soát ngân hàng.</p></div><div class="modal-footer"><button class="btn secondary" data-action="close-modal">Quay lại</button><button class="btn" data-action="mark-paid" data-value="${E(id)}">Xác nhận đã nhận tiền</button></div>`)}
 function cancelOrder(id){
  const o=(s.cache.orderDashboard?.orders||s.cache.orders||[]).find(x=>x.id===id);
@@ -373,6 +450,10 @@ async function handleAction(act,val,button){try{
  else if(act==='new-branch')newBranch()
  else if(act==='table-order')newOrder(val)
  else if(act==='adjust-stock')adjustStock(val)
+ else if(act==='payment-bank-settings')await paymentBankSettings()
+ else if(act==='pay-qr')await payByVietQR(val)
+ else if(act==='payment-check')await checkVietQR(...val.split('|'))
+ else if(act==='payment-cancel')await cancelVietQR(val)
  else if(act==='confirm-paid')confirmPaid(val)
  else if(act==='cancel-order')cancelOrder(val)
  else if(act==='mark-paid'){await api(`/businesses/${s.business.id}/orders/${val}/paid`,{method:'POST',body:JSON.stringify({confirmed:true})});restaurantSuite?.invalidate();operationsV5?.invalidate();closeModal();await refresh();toast('Đã ghi nhận thanh toán thủ công')}
@@ -442,6 +523,16 @@ async function handleSubmit(form){const bid=s.business?.id;const data=Object.fro
       <div class="formfield"><label>Link tham gia</label><input id="ez-team-share-url" readonly value="${E(link)}"/></div>
       <div class="modal-footer"><button class="btn secondary" data-action="close-modal">Đóng</button>
       <button class="btn" data-action="team-copy-link">Sao chép link</button></div>`);
+   return;
+ }
+ if(form.id==='payment-bank-form'){
+   await api('/businesses/'+encodeURIComponent(bid)+'/payments/bank',{
+     method:'PUT',body:JSON.stringify({
+       bank_bin:data.bank_bin,account_number:data.account_number,
+       account_name:data.account_name
+     })
+   });
+   closeModal();toast('Đã lưu ngân hàng. Các QR cũ sẽ hết hiệu lực.');
    return;
  }
  if(form.id==='product-form'){await api(`/businesses/${bid}/products`,{method:'POST',body:JSON.stringify({name:data.name,sku:data.sku,category:data.category,price_vnd:Number(data.price_vnd),cost_vnd:Number(data.cost_vnd||0),stock:Number(data.stock||0),track_stock:form.querySelector('[name=track_stock]').checked})});toast('Đã thêm sản phẩm')}
