@@ -32,13 +32,16 @@ def shop(c,tag):
     csrf,uid=signup(c,tag)
     b=req(c,"POST","/businesses",{
         "name":"Dining "+tag,"industry":"fnb","need_tables":True,
-        "need_inventory":True,"selected_plan":"PRO"},csrf)
+        "need_inventory":True,"need_branches":True,"selected_plan":"PRO"},csrf)
     assert b.status_code==201,b.text
     bid=b.json()["id"]
     branch=c.get(f"/api/businesses/{bid}/branches").json()[0]["id"]
     t=req(c,"POST",f"/businesses/{bid}/tables",{
         "label":"T02","seats":4,"branch_id":branch},csrf)
     assert t.status_code==201,t.text
+    extra=req(c,"POST",f"/businesses/{bid}/tables",{
+        "label":"T03","seats":6,"branch_id":branch},csrf)
+    assert extra.status_code==201,extra.text
     return csrf,bid,branch
 
 def table_ids(c,bid):
