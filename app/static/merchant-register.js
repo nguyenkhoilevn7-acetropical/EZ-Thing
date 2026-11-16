@@ -273,7 +273,7 @@
           const max=Number(g.max_select)||1;
           const min=Number(g.min_select)||0;
           const selected=(g.options||[]).filter(o=>s.optionIds.includes(o.id)).length;
-          return '<fieldset class="ezreg-option-group" data-group="'+E(g.id)+'">'+
+          return '<fieldset class="ezreg-option-group" data-group="'+E(g.id)+' data-min="'+min+'" data-max="'+max+'">'+
             '<legend><strong>'+E(g.name)+'</strong><small>'+
             (min?t("Bắt buộc","Required")+' · '+t("Chọn ít nhất ","Select at least ")+min:
             t("Tùy chọn","Optional"))+' · '+t("Tối đa ","Max ")+max+
@@ -408,7 +408,7 @@
         s.requestId=uid();
         s.last={id:order.id,total_vnd:order.total_vnd,kitchenSent:false,paid:false};
         toast(t("Đã tạo đơn #","Created order #")+order.id.slice(0,8).toUpperCase());
-        if(onCreated)await onCreated(order);
+        if(onCreated){try{await onCreated(order)}catch(error){toast(t("Đã lưu đơn nhưng chưa tải lại danh sách","Order saved, refresh failed"),true)}}
         paint();
       }catch(error){
         // Do not generate a fresh request id on network timeout: the backend
