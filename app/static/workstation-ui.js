@@ -77,7 +77,7 @@
       const prepStation=p=>{
         const name=String((p?.name||"")+" "+(p?.category||"")).toLocaleLowerCase("vi");
         if(/salad|nguội|cold kitchen|gỏi/.test(name))return "cold";
-        if(/trà|tea|matcha|nước|coffee|cafe|cà phê|juice|soda|drink|latte|sữa|sinh tố|smoothie/.test(name))return "bar";
+        if(/trà|tea|matcha|nước|coffee|cafe|cà phê|juice|soda|drink|latte|sữa|sinh tố|smoothie|đồ uống|beverage|cold brew|espresso/.test(name))return "bar";
         if(/bánh|food|món|cơm|phở|bún|mì|lẩu|thịt|nướng|chiên|soup|pizza|burger/.test(name))return "hot";
         return "expo";
       };
@@ -85,7 +85,9 @@
         const bid=state().business?.id;
         if(!sandbox||sandbox.bid!==bid){
           sandbox={bid,orders:clone(state().cache.orders||[]),
-            tables:clone(state().cache.tables||[]),tickets:[],
+            tables:clone(state().cache.tables||[]),
+            originalOrders:clone(state().cache.orders||[]),
+            originalTables:clone(state().cache.tables||[]),tickets:[],
             originalTickets:null,idempotency:new Map(),payments:new Map()};
         }
         return sandbox;
@@ -255,6 +257,10 @@
       function exitPreview(){
         if(!previewMode)return;
         previewMode=null;temporary=true;drawerOpen=false;
+        if(sandbox){
+          state().cache.orders=clone(sandbox.originalOrders);
+          state().cache.tables=clone(sandbox.originalTables);
+        }
         sandbox=null;
         state().workstation=current;
         onChanged("overview",{reload:true});
