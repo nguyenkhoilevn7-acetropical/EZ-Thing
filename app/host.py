@@ -167,8 +167,11 @@ def act(bid: str, tid: str, body: HostAction, branch_id: str | None = Query(defa
                 fail(409, "Chưa đến khung giờ nhận khách của lịch đặt.")
     elif body.reservation_id:
         fail(422, "Chỉ được liên kết lịch đặt khi nhận khách")
-    if action == "seat" and body.guest_count and body.guest_count > table.seats:
-        fail(409, "Số khách vượt số ghế. Hãy ghép thêm bàn trước")
+    if action == "seat":
+        seat_count = body.guest_count or (
+            int((reservation.details or {}).get("party_size", 1)) if reservation else 1)
+        if seat_count > table.seats:
+            fail(409, "Số khách vượt số ghế. Hãy chọn bàn phù hợp trước khi nhận khách.")
     if action == "block" and before["status"] not in ("available", "blocked"):
         fail(409, "Chỉ có thể khóa bàn đang trống")
     if action in ("transfer", "join") and not body.target_table_id:
@@ -264,6 +267,8 @@ def act(bid: str, tid: str, body: HostAction, branch_id: str | None = Query(defa
         details.update({"guest_count": 0, "group_id": None, "note":body.note.strip()})
     elif action == "update":
         details.update({"guest_count":body.guest_count or before["guest_count"],
+                        "guest_name":body.guest_name.strip() or before["guest_name"],
+                        "guest_phone":body.guest_phone.strip() or before["guest_phone"],
                         "note":body.note.strip()})
     elif action == "join":
         group_id = before["group_id"] or tid
