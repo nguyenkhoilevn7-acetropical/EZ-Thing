@@ -1,7 +1,7 @@
 """Host workstation: branch scoping, concurrency, audited table sessions, booking edits."""
 import os, uuid
 from pathlib import Path
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 import pytest
 from fastapi.testclient import TestClient
@@ -11,6 +11,7 @@ os.environ["DATABASE_URL"]="sqlite:///"+str(Path(__file__).parent/"pilot-tests.d
 from app.database import Base, SessionLocal, engine
 from app.main import app
 from app.models import AuditEvent, Membership, SaleOrder
+from app.workflows import IndustryWorkItem
 
 @pytest.fixture(autouse=True)
 def db_reset(monkeypatch):
@@ -192,3 +193,77 @@ def test_future_reservation_edit_cancel_and_overlapping_booking():
         assert cancelled.json()["status"]=="cancelled"
         assert req(worker,"POST",f"/businesses/{bid}/reservations/{rid}/edit",
                    edit,staff_csrf).status_code==409
+
+
+def test_checkin_links_confirmed_reservation_and_prevents_double_seating():
+    with TestClient(app) as owner:
+        csrf,bid,branch=shop(owner,"linked-checkin")
+        first=table_ids(owner,bid)[0]
+        rid=str(uuid.uuid4())
+        arrival=datetime.now(timezone.utc)+timedelta(minutes=10)
+        with SessionLocal() as db:
+            db.add(IndustryWorkItem(id=rid,business_id=bid,kind="reservations",
+                reference_id="checkin-"+rid[:8],title="Lịch đặt bàn",
+                status="confirmed",scheduled_at=arrival,
+                ends_at=arrival+timedelta(minutes=90),
+                details={"branch_id":branch,"table_id":first["id"],
+                         "customer_name":"Nguyễn An","phone":"0912345678",
+                         "party_size":2,"note":"Gần cửa"}))
+            db.commit()
+
+        # A walk-in cannot silently occupy a confirmed reservation window.
+        occupied=host_action(owner,csrf,bid,first["id"],"seat",guest_count=1)
+        assert occupied.status_code==409,occupied.text
+        # Identity, tenant, table, and capacity are checked on the server.
+        invalid=host_action(owner,csrf,bid,first["id"],"seat",
+            guest_count=2,reservation_id=str(uuid.uuid4()))
+        assert invalid.status_code==409,invalid.text
+        oversized=host_action(owner,csrf,bid,first["id"],"seat",
+            guest_count=first["seats"]+1,reservation_id=rid)
+        assert oversized.status_code==409,oversized.text
+
+        checked=host_action(owner,csrf,bid,first["id"],"seat",guest_count=2,
+            reservation_id=rid,guest_name="Nguyễn An",guest_phone="0912345678",
+            note="Đã đến đủ")
+        assert checked.status_code==200,checked.text
+        row=next(t for t in checked.json()["tables"] if t["id"]==first["id"])
+        assert row["status"]=="occupied" and row["guest_count"]==2
+        assert row["guest_name"]=="Nguyễn An" and row["guest_phone"]=="0912345678"
+        assert row["reservation_id"]==rid and row["seated_at"]
+        assert row["revision"]==1
+        with SessionLocal() as db:
+            booking=db.get(IndustryWorkItem,rid)
+            assert booking.status=="seated"
+            audit_rows=db.scalars(select(AuditEvent).where(
+                AuditEvent.business_id==bid,
+                AuditEvent.action=="host.table_seat")).all()
+            assert len(audit_rows)==1
+        assert host_action(owner,csrf,bid,first["id"],"seat",
+            revision=1,guest_count=2,reservation_id=rid).status_code==409
+        released=host_action(owner,csrf,bid,first["id"],"release",revision=1)
+        assert released.status_code==200
+        r=next(t for t in released.json()["tables"] if t["id"]==first["id"])
+        assert r["status"]=="cleaning" and r["guest_name"]==""
+        assert r["guest_phone"]=="" and r["reservation_id"] is None
+
+
+def test_checkin_walkin_guest_details_and_conflicting_table_revision():
+    with TestClient(app) as owner:
+        csrf,bid,branch=shop(owner,"walkin-checkin")
+        t=table_ids(owner,bid)[0]
+        bad=host_action(owner,csrf,bid,t["id"],"seat",guest_count=t["seats"]+1)
+        assert bad.status_code==409
+        done=host_action(owner,csrf,bid,t["id"],"seat",guest_count=1,
+            guest_name="Khách A",guest_phone="0900000000",note="Ít đá")
+        assert done.status_code==200,done.text
+        row=next(x for x in done.json()["tables"] if x["id"]==t["id"])
+        assert row["guest_count"]==1 and row["guest_name"]=="Khách A"
+        assert row["reservation_id"] is None
+        assert host_action(owner,csrf,bid,t["id"],"seat",revision=1,
+            guest_count=1).status_code==409
+        # Staff may update the seated group's details without creating an order.
+        updated=host_action(owner,csrf,bid,t["id"],"update",revision=1,
+            guest_count=2,guest_name="Khách B",guest_phone="0900000001")
+        assert updated.status_code==200
+        current=next(x for x in updated.json()["tables"] if x["id"]==t["id"])
+        assert current["guest_count"]==2
