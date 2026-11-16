@@ -154,7 +154,7 @@ try:
   page.locator('.mobile-only [data-action="tab"]').first.wait_for(timeout=25000)
   more=page.locator('.mobile-only [data-action="tab"]').evaluate_all("(nodes)=>nodes.map(n=>n.dataset.value)")
   assert "operations" in more and "products" in more and "tables" in more,more
-  assert "kitchen" not in more and "reservations" not in more,more
+  assert "kitchen" not in more and "pos" not in more and "reservations" in more,more
   print("PASS F&B mobile navigation, Front Desk name and KDS station/item controls",flush=True)
 
   # V6 options are still managed in Product Settings, but actual sale
