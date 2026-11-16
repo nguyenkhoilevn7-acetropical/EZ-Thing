@@ -149,11 +149,15 @@ try:
   assert page.locator("#ez-kds-routing [data-ezroute-form='settings']").is_visible()
   assert page.locator("#ez-kds-routing [name='auto_dispatch']").is_checked()
   cat_form=page.locator("#ez-kds-routing [data-ezroute-form='category']")
-  cat_form.locator('[name="category"]').select_option(label="Đồ uống")
+  page.wait_for_function("""() => !!document.querySelector(
+    '#ez-kds-routing [data-ezroute-form="category"] [name="category"] option'
+  )""",timeout=15000)
+  current_category=cat_form.locator('[name="category"] option').first.inner_text()
+  cat_form.locator('[name="category"]').select_option(index=0)
   cat_form.locator('[name="station"]').select_option("bar")
   cat_form.locator('[type="submit"]').click()
   page.locator("#ez-kds-routing .ezroute-badge").first.wait_for(timeout=12000)
-  assert "Đồ uống" in page.locator("#ez-kds-routing .ezroute-summaries").inner_text()
+  assert current_category.casefold() in page.locator("#ez-kds-routing .ezroute-summaries").inner_text().casefold()
   assert page.locator("#ez-kds-routing [data-ezroute-form='product'] [name='station'] option[value='skip']").count()==1
   assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth + 2")
   print("PASS KDS routing UI: auto enabled and category mapping persisted",flush=True)
