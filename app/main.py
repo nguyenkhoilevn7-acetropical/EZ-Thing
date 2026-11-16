@@ -434,6 +434,8 @@ def branch_create(bid: str, body: BranchCreate, user=Depends(current_user), db: 
 @app.get("/api/businesses/{bid}/products")
 def products(bid: str, user=Depends(current_user), db: Session = Depends(db_session)):
     b = tenant(bid, user, db); feature(b, "products")
+    from .team import require_duty
+    require_duty(db, bid, user, {"order", "cashier"})
     from .team import role_for
     can_view_cost = role_for(db, bid, user[0].id) in ("owner", "manager")
     products = db.scalars(select(Product).where(Product.business_id == bid).order_by(Product.created_at.desc())).all()
@@ -502,6 +504,8 @@ def stock_adjust(bid: str, pid: str, body: StockAdjust, user=Depends(current_use
 @app.get("/api/businesses/{bid}/customers")
 def customers(bid: str, user=Depends(current_user), db: Session = Depends(db_session)):
     tenant(bid, user, db)
+    from .team import require_duty
+    require_duty(db, bid, user, {"order", "host", "cashier"})
     return [customer_out(c) for c in db.scalars(select(Customer).where(Customer.business_id == bid).order_by(Customer.name))]
 
 
@@ -512,6 +516,8 @@ def customer_out(c):
 @app.post("/api/businesses/{bid}/customers", status_code=201)
 def customer_create(bid: str, body: CustomerCreate, user=Depends(current_user), db: Session = Depends(db_session)):
     tenant(bid, user, db)
+    from .team import require_duty
+    require_duty(db, bid, user, {"order", "host"})
     from .team import allow, ROLES
     allow(db, bid, user, ROLES)
     c = Customer(id=new_id(), business_id=bid, name=body.name.strip(),
@@ -523,9 +529,14 @@ def customer_create(bid: str, body: CustomerCreate, user=Depends(current_user), 
 @app.get("/api/businesses/{bid}/tables")
 def tables(bid: str, user=Depends(current_user), db: Session = Depends(db_session)):
     b = tenant(bid, user, db); feature(b, "tables")
+    from .team import require_duty
+    duty = require_duty(db, bid, user, {"order", "host"})
     active = set(db.scalars(select(SaleOrder.table_id).where(SaleOrder.business_id == bid,
                                                             SaleOrder.status == "open", SaleOrder.table_id.is_not(None))).all())
-    rows = db.scalars(select(DiningTable).where(DiningTable.business_id == bid).order_by(DiningTable.label)).all()
+    table_scope = [DiningTable.business_id == bid]
+    if duty and duty.branch_id:
+        table_scope.append(DiningTable.branch_id == duty.branch_id)
+    rows = db.scalars(select(DiningTable).where(*table_scope).order_by(DiningTable.label)).all()
     return [{"id": t.id, "label": t.label, "seats": t.seats, "branch_id": t.branch_id,
              "occupied": t.id in active} for t in rows]
 
@@ -574,7 +585,12 @@ def order_out(db, o, items=None, selections=None):
 @app.get("/api/businesses/{bid}/orders")
 def orders(bid: str, user=Depends(current_user), db: Session = Depends(db_session)):
     b = tenant(bid, user, db); feature(b, "orders")
-    rows = db.scalars(select(SaleOrder).where(SaleOrder.business_id == bid)
+    from .team import require_duty
+    duty = require_duty(db, bid, user, {"order", "cashier"})
+    scope = [SaleOrder.business_id == bid]
+    if duty and duty.branch_id:
+        scope.append(SaleOrder.branch_id == duty.branch_id)
+    rows = db.scalars(select(SaleOrder).where(*scope)
                       .order_by(SaleOrder.created_at.desc()).limit(100)).all()
     if not rows:
         return []
@@ -593,6 +609,8 @@ def orders(bid: str, user=Depends(current_user), db: Session = Depends(db_sessio
 @app.post("/api/businesses/{bid}/orders", status_code=201)
 def order_create(bid: str, body: CreateOrder, user=Depends(current_user), db: Session = Depends(db_session)):
     b = tenant(bid, user, db); feature(b, "orders")
+    from .team import require_duty, require_branch
+    duty = require_duty(db, bid, user, {"order"})
     fingerprint = hashlib.sha256(body.model_dump_json(exclude_none=True).encode()).hexdigest()
     old = db.scalar(select(SaleOrder).where(SaleOrder.business_id == bid,
                                             SaleOrder.idempotency_key == body.idempotency_key))
@@ -614,6 +632,7 @@ def order_create(bid: str, body: CreateOrder, user=Depends(current_user), db: Se
             }
         return result
     branch = branch_for(db, bid, body.branch_id)
+    require_branch(duty, branch.id)
     if body.customer_id and not db.scalar(select(Customer).where(Customer.id == body.customer_id,
                                                                  Customer.business_id == bid)):
         fail(404, "Không tìm thấy khách hàng")
