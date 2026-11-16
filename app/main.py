@@ -55,7 +55,7 @@ async def security_headers(request: Request, call_next):
     response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
     response.headers["Content-Security-Policy"] = (
         "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
-        "font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://images.unsplash.com; "
+        "font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://images.unsplash.com https://img.vietqr.io; "
         "connect-src 'self'; " + ("frame-ancestors 'self'; " if same_origin_preview else "frame-ancestors 'none'; ") +
         "base-uri 'none'; form-action 'self'"
     )
