@@ -245,6 +245,24 @@
           });
           return {handled:true,data:clone(booking)};
         }
+        if(method==="POST"&&/^\/businesses\/[^/]+\/tables$/.test(tail)){
+          const body=payload(),bid=state().business?.id;
+          const table={id:fakeId(),branch_id:body.branch_id, label:body.label,
+            seats:body.seats||4,occupied:false,status:"available",guest_count:0,
+            group_id:null,note:"",order_count:0,has_open_check:false,revision:0};
+          sb.tables.push(clone(table));
+          if(sb.hostBoard&&sb.hostBoard.branch_id===body.branch_id)
+            sb.hostBoard.tables.push(clone(table));
+          if(sb.hostFloorplan&&sb.hostFloorplan.branch_id===body.branch_id){
+            const x=10+(sb.hostFloorplan.tables.length%5)*16,
+                  y=14+Math.floor(sb.hostFloorplan.tables.length/5)*18;
+            sb.hostFloorplan.tables.push({...table,
+              placement:{table_id:table.id,zone_id:sb.hostFloorplan.zones?.[0]?.id||"inside",
+                         x,y,shape:"round"}});
+          }
+          return {handled:true,data:{id:table.id,label:table.label,seats:table.seats,
+                                      branch_id:table.branch_id}};
+        }
         if(method==="POST"&&/\/reservations$/.test(tail)){
           const body=payload();
           if(!sb.hostBookings)sb.hostBookings=[];
