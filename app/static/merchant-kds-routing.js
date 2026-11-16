@@ -17,10 +17,11 @@
     const key=category=>String(category||"").trim().toLocaleLowerCase("vi").replace(/\s+/g," ");
     const list=()=>state().cache?.products||[];
     const url=path=>"/businesses/"+encodeURIComponent(bid())+"/kds"+path;
-    function selectors(inherit=true){
-      return (inherit?'<option value="">'+T("Theo danh mục / tự nhận diện","Use category/default")+'</option>':"")+
+    function selectors(selected=""){
+      return '<option value=""'+(!selected?' selected':'')+'>'+
+        T("Theo danh mục / tự nhận diện","Use category/default")+'</option>'+
         Object.entries(stations).map(([id,name])=>
-          '<option value="'+id+'">'+E(name)+'</option>').join("");
+          '<option value="'+id+'"'+(selected===id?' selected':'')+'>'+E(name)+'</option>').join("");
     }
     function badges(){
       if(!config)return "";
@@ -68,12 +69,14 @@
         '<form data-ezroute-form="category" class="ezroute-card"><h4>'+
         T("2. Cấu hình theo danh mục","2. Category routing")+'</h4>'+
         '<label>'+T("Danh mục","Category")+'<select name="category" required>'+catOptions+'</select></label>'+
-        '<label>'+T("Khu vực tiếp nhận","Destination")+'<select name="station">'+selectors()+'</select></label>'+
+        '<label>'+T("Khu vực tiếp nhận","Destination")+'<select name="station">'+
+        selectors(config?.category_routes?.[key(categories[0])]||"")+'</select></label>'+
         '<button type="submit" class="btn sm">'+T("Lưu danh mục","Save category")+'</button></form>'+
         '<form data-ezroute-form="product" class="ezroute-card"><h4>'+
         T("3. Ngoại lệ theo sản phẩm","3. Product exception")+'</h4>'+
         '<label>'+T("Sản phẩm","Product")+'<select name="product_id" required>'+itemOptions+'</select></label>'+
-        '<label>'+T("Khu vực tiếp nhận","Destination")+'<select name="station">'+selectors()+'</select></label>'+
+        '<label>'+T("Khu vực tiếp nhận","Destination")+'<select name="station">'+
+        selectors(config?.routes?.[items[0]?.id]||"")+'</select></label>'+
         '<button type="submit" class="btn sm">'+T("Lưu sản phẩm","Save item")+'</button></form>'+
         '</div>'+badges()+
         '<p class="ezroute-disclaimer">'+T(
