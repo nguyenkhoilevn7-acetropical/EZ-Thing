@@ -46,7 +46,14 @@ def owner(c, email, industry="fnb"):
              "selected_plan":"PRO","need_tables":industry=="fnb",
              "need_inventory":True,"need_insights":True,"need_branches":True},csrf)
     assert x.status_code==201,x.text
-    return csrf,x.json()["id"]
+    bid=x.json()["id"]
+    if industry=="fnb":
+        # Legacy POS edit/move tests require a check that has NOT been sent
+        # to kitchen yet. Auto-dispatch is tested separately at its default ON.
+        settings=put(c,f"/businesses/{bid}/kds/settings",{
+            "auto_dispatch":False},csrf)
+        assert settings.status_code==200,settings.text
+    return csrf,bid
 
 
 def item(c,bid,csrf,name,sku,price=35000,cost=0,stock=0,tracked=False):
