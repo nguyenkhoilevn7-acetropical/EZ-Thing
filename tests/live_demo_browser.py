@@ -388,8 +388,7 @@ try:
   assert page.locator("#ez-register").is_visible()
   assert page.evaluate("document.body.dataset.ezWorkstationPreview")== "true"
   assert page.locator('.ezreg-product:not([disabled])').first.evaluate("(el)=>getComputedStyle(el).pointerEvents")=="auto"
-  assert page.locator('#ez-register [data-ezreg="checkout"]').count()==0, "Order-only preview cannot show cashier action"
-  assert page.locator('#ez-register [data-ezreg="orders"]').count()==0, "Order terminal has no Orders navigation"
+  assert page.locator('#ez-register [data-ezreg="checkout"]').count()==1, "Owner preview should demonstrate checkout; actual staff duty remains restricted"
   for width in (412,820,1000,1280):
    page.set_viewport_size({"width":width,"height":860})
    # Changing viewport size can preserve the old document scroll offset.
@@ -442,7 +441,7 @@ try:
   print("PASS preview sandbox: clickable product, variants, cart and simulated order",flush=True)
   for task,selector in (
     ("kitchen","#ez-kds"),("bar","#ez-kds"),
-    ("cashier",".ezrole-task"),("host",".ezrole-table-grid"),
+    ("cashier",".ezrole-task"),("host","#ezhost-workspace"),
     ("order","#ez-register")
   ):
    page.locator('.ezws-preview-tabs [data-value="'+task+'"]').click()
@@ -457,14 +456,22 @@ try:
       return t && h && h.top>=t.bottom-3
     }""",timeout=8000)
    if task=="host":
-    assert page.locator('.ezhost-stat').count()==3
-    assert page.locator('.ezhost-filters button').count()==3
-    assert page.locator('.ezrole-table').count()>=3
-    assert page.locator('[data-action="host-preview-toggle"]').count()>=3
-    before=page.locator('.ezhost-stat-free strong').inner_text()
-    page.locator('[data-action="host-preview-toggle"]').first.click()
-    after=page.locator('.ezhost-stat-free strong').inner_text()
-    assert before!=after,"Host simulation did not toggle table occupancy"
+    page.locator('.ezhost-room-kpi').first.wait_for(timeout=15000)
+    page.locator('.ezhost-room-table').first.wait_for(timeout=15000)
+    assert page.locator('.ezhost-room-kpi').count()==4
+    assert page.locator('.ezhost-room-table').count()>=3
+    first=page.locator('[data-ezhost-action="seat"]').first
+    first.click()
+    page.locator('[data-ezhost-form="action"] [name="guest_count"]').fill("3")
+    page.locator('[data-ezhost-form="action"] [type="submit"]').click()
+    page.locator('.ezhost-room-table.busy').first.wait_for(timeout=12000)
+    assert page.locator('.ezhost-room-kpi.occupied strong').inner_text().strip()
+    page.locator('[data-ezhost-tab="bookings"]').click()
+    page.locator('[data-ezhost-action="book"]').wait_for(timeout=12000)
+    page.locator('[data-ezhost-tab="floor"]').click()
+    page.locator('.ezhost-room-map').wait_for(timeout=12000)
+    assert page.locator('[data-ezhost-placement]').count()>=3
+    page.locator('[data-ezhost-tab="tables"]').click()
    if task=="bar":
     page.locator('.kds-ticket').first.wait_for(timeout=10000)
     btn=page.locator('.kds-ticket [data-kds="status"][data-status="preparing"]').first
