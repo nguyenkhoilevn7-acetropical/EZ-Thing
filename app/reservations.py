@@ -117,6 +117,30 @@ class ReservationStatus(BaseModel):
     status: Literal["confirmed", "seated", "completed", "cancelled", "no_show"]
 
 
+class ReservationEdit(BaseModel):
+    customer_name: str = Field(min_length=2, max_length=100)
+    phone: str = Field(min_length=8, max_length=25)
+    party_size: int = Field(ge=1, le=20)
+    start_at: datetime
+    duration_minutes: Literal[60,90,120] = 90
+    table_id: str
+    note: str = Field(default="", max_length=240)
+
+    @field_validator("start_at")
+    @classmethod
+    def aware_time(cls, value):
+        if value.tzinfo is None or value.utcoffset() is None:
+            raise ValueError("Cần cung cấp giờ có múi giờ")
+        return value
+
+    @field_validator("phone")
+    @classmethod
+    def checked_phone(cls, value):
+        if not PHONE.fullmatch(value.strip()):
+            raise ValueError("Số điện thoại không hợp lệ")
+        return value.strip()
+
+
 class InquiryStatus(BaseModel):
     status: Literal["contacted", "closed"]
 
@@ -237,7 +261,7 @@ def eligible_area_tables(db, business, zone_id=None, branch_id=None):
             if not zone_id or t["placement"]["zone_id"] == zone_id}
 
 
-def free_tables(db, bid, start, end, party_size, requested_table=None, allowed_ids=None):
+def free_tables(db, bid, start, end, party_size, requested_table=None, allowed_ids=None, exclude_id=None):
     tables = db.scalars(select(DiningTable).where(DiningTable.business_id == bid,
                                                  DiningTable.seats >= party_size)
                        .order_by(DiningTable.seats, DiningTable.label)).all()
@@ -247,7 +271,7 @@ def free_tables(db, bid, start, end, party_size, requested_table=None, allowed_i
         IndustryWorkItem.status.in_(BUSY),
         IndustryWorkItem.scheduled_at < end,
         IndustryWorkItem.ends_at > start)).all()
-    taken = {(w.details or {}).get("table_id") for w in overlaps}
+    taken = {(w.details or {}).get("table_id") for w in overlaps if w.id != exclude_id}
     return [t for t in tables if t.id not in taken and
             (requested_table is None or t.id == requested_table) and
             (allowed_ids is None or t.id in allowed_ids)]
@@ -343,9 +367,14 @@ def create_reservation(db, b, body, actor_id, source):
 @router.get("/businesses/{bid}/reservations")
 def merchant_reservations(bid: str, user=Depends(current_user), db: Session = Depends(db_session)):
     b = fnb_scope(bid, user, db)
-    records = db.scalars(select(IndustryWorkItem).where(
-        IndustryWorkItem.business_id == b.id, IndustryWorkItem.kind == "reservations")
+    from .team import require_duty
+    duty = require_duty(db, bid, user, {"host","order"})
+    conditions = [IndustryWorkItem.business_id == b.id,
+                  IndustryWorkItem.kind == "reservations"]
+    records = db.scalars(select(IndustryWorkItem).where(*conditions)
         .order_by(IndustryWorkItem.scheduled_at.desc()).limit(150)).all()
+    if duty and duty.branch_id:
+        records = [r for r in records if (r.details or {}).get("branch_id")==duty.branch_id]
     return [reservation_out(w) for w in records]
 
 
@@ -353,6 +382,12 @@ def merchant_reservations(bid: str, user=Depends(current_user), db: Session = De
 def merchant_book(bid: str, body: ReservationCreate,
                   user=Depends(current_user), db: Session = Depends(db_session)):
     b = fnb_scope(bid, user, db)
+    from .team import require_duty, require_branch
+    duty = require_duty(db, bid, user, {"host"})
+    if duty and duty.branch_id:
+        if body.branch_id and body.branch_id!=duty.branch_id:
+            fail(403, "Không được đặt bàn cho chi nhánh khác")
+        body = body.model_copy(update={"branch_id":duty.branch_id})
     return create_reservation(db, b, body, user[0].id, "merchant")
 
 
@@ -360,17 +395,63 @@ def merchant_book(bid: str, body: ReservationCreate,
 def update_reservation(bid: str, rid: str, body: ReservationStatus,
                        user=Depends(current_user), db: Session = Depends(db_session)):
     b = fnb_scope(bid, user, db)
+    from .team import require_duty, require_branch
+    duty = require_duty(db, bid, user, {"host"})
     rec = db.scalar(select(IndustryWorkItem).where(
         IndustryWorkItem.id == rid, IndustryWorkItem.business_id == b.id,
-        IndustryWorkItem.kind == "reservations"))
+        IndustryWorkItem.kind == "reservations").with_for_update())
     if rec is None:
         fail(404, "Không tìm thấy lượt đặt")
+    if duty and duty.branch_id:
+        require_branch(duty, (rec.details or {}).get("branch_id"))
     if body.status not in STATUS_NEXT.get(rec.status, ()):
         fail(409, "Không thể chuyển sang trạng thái yêu cầu")
     rec.status = body.status
     db.add(AuditEvent(id=new_id(), business_id=b.id, actor_id=user[0].id,
                       action="reservation.status",
                       payload=json.dumps({"id": rid, "status": body.status})))
+    db.commit()
+    return reservation_out(rec)
+
+
+@router.post("/businesses/{bid}/reservations/{rid}/edit")
+def edit_merchant_reservation(bid: str, rid: str, body: ReservationEdit,
+                              user=Depends(current_user), db: Session = Depends(db_session)):
+    """Edit a future booking with capacity rechecked under the tenant reservation lock."""
+    b = fnb_scope(bid, user, db)
+    from .team import require_duty, require_branch
+    duty = require_duty(db, bid, user, {"host"})
+    lock_capacity(db, bid)
+    rec = db.scalar(select(IndustryWorkItem).where(
+        IndustryWorkItem.id == rid, IndustryWorkItem.business_id == bid,
+        IndustryWorkItem.kind == "reservations").with_for_update())
+    if rec is None:
+        fail(404, "Không tìm thấy lượt đặt")
+    if rec.status not in ("pending", "confirmed"):
+        fail(409, "Chỉ chỉnh sửa lịch đang chờ hoặc đã xác nhận, chưa check-in")
+    prev = dict(rec.details or {})
+    branch_id = prev.get("branch_id")
+    if duty and duty.branch_id:
+        require_branch(duty, branch_id)
+    start, end = valid_start(body.start_at, body.duration_minutes, b, branch_id)
+    table = db.scalar(select(DiningTable).where(
+        DiningTable.business_id == bid, DiningTable.branch_id == branch_id,
+        DiningTable.id == body.table_id))
+    if not table or table.seats < body.party_size:
+        fail(422, "Bàn không đủ chỗ hoặc không thuộc chi nhánh")
+    free = free_tables(db, bid, start, end, body.party_size,
+                       requested_table=table.id, exclude_id=rec.id)
+    if not free:
+        fail(409, "Bàn có lịch đặt trùng giờ. Vui lòng chọn giờ hoặc bàn khác")
+    rec.scheduled_at, rec.ends_at = start, end
+    rec.details = {**prev, "customer_name":body.customer_name.strip(),
+                   "phone":body.phone.strip(),"party_size":body.party_size,
+                   "table_id":table.id,"table_label":table.label,
+                   "note":body.note.strip()}
+    db.add(AuditEvent(id=new_id(), business_id=bid, actor_id=user[0].id,
+                      action="reservation.edited",
+                      payload=json.dumps({"id":rid,"before":prev,
+                                          "after":rec.details},ensure_ascii=False)))
     db.commit()
     return reservation_out(rec)
 
