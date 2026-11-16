@@ -134,7 +134,7 @@
             · ${categories.size} ${T("danh mục", "categories")}</p></div>
         </div>
         <div class="shop-grid">${products.map(p => `<article class="shop-product">
-          <div class="shop-product-photo" aria-hidden="true">${symbol}</div>
+          <div class="shop-product-photo" aria-hidden="true">${p.image_url?.startsWith('/api/public/shops/')?`<img src="${E(p.image_url)}" alt="" loading="lazy" decoding="async">`:symbol}</div>
           <div class="shop-product-info">
             <span class="shop-category">${E(p.category)}</span>
             <h3>${E(p.name)}</h3>
