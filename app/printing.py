@@ -486,3 +486,197 @@ def cloud_confirm(pid: str, request: Request,
     row.printed_at = now() if success else None
     db.commit()
     return Response(status_code=200)
+
+# Manual operational printouts: Sapo/iPOS parity without a second order ledger.
+class ManualDocument(BaseModel):
+    kind: Literal["prebill", "packing", "cup_label"]
+    device_id: str = Field(min_length=1, max_length=36)
+    request_id: str = Field(min_length=12, max_length=80, pattern=r"^[A-Za-z0-9_-]+$")
+
+
+DOCUMENT_STATIONS = {
+    "prebill": {"receipt"},
+    "packing": {"receipt", "packing", "expo"},
+    "cup_label": {"bar", "label"},
+}
+
+
+def document_order(db: Session, bid: str, oid: str) -> SaleOrder:
+    order = db.scalar(select(SaleOrder).where(
+        SaleOrder.business_id == bid, SaleOrder.id == oid))
+    if not order:
+        raise HTTPException(404, "Đơn hàng không thuộc doanh nghiệp")
+    if order.status == "cancelled":
+        raise HTTPException(409, "Không in chứng từ cho đơn đã hủy")
+    return order
+
+
+def documents_for_order(db: Session, bid: str, order: SaleOrder,
+                        kind: str) -> list[dict]:
+    if kind not in DOCUMENT_STATIONS:
+        raise HTTPException(422, "Loại phiếu không được hỗ trợ")
+    if kind == "prebill" and order.status != "open":
+        raise HTTPException(409, "Chỉ in tạm tính cho đơn chưa thanh toán")
+    if kind == "cup_label":
+        from .models import Business
+        business = db.scalar(select(Business).where(Business.id == bid))
+        if not business or business.industry != "fnb":
+            raise HTTPException(404, "Tem dán ly chỉ áp dụng cho nhà hàng/cafe")
+
+    snapshot = order_out(db, order)
+    table = None
+    if order.table_id:
+        table = db.scalar(select(DiningTable).where(
+            DiningTable.id == order.table_id,
+            DiningTable.business_id == bid,
+            DiningTable.branch_id == order.branch_id))
+    table_label = clean(table.label, 50) if table else "Mang di / Delivery"
+    order_ref = order.id[:8].upper()
+    if kind == "prebill":
+        return [{"title": "Tam tinh #" + order_ref,
+                 "content": render_ticket("PHIEU TAM TINH | " + table_label,
+                                          order.id, snapshot["items"], order.note,
+                                          total=order.total_vnd,
+                                          payment_note="CHUA THANH TOAN - NOT PAID",
+                                          breakdown=pos_breakdown(db, order))}]
+    if kind == "packing":
+        lines = [{
+            "quantity": line["quantity"],
+            "name": "[  ] " + clean(line["name"]),
+            "modifiers": line.get("modifiers", []),
+        } for line in snapshot["items"]]
+        content = render_ticket("PHIEU KIEM DO | " + table_label,
+                                order.id, lines, order.note)
+        content += "\n[  ] DA KIEM / VERIFIED\n[  ] DA DONG GOI / PACKED\n"
+        return [{"title": "Kiem do #" + order_ref, "content": content}]
+
+    # Beverage cup labels: one immutable print job for each cup so the
+    # local ESC/POS cutter separates labels rather than one uncut strip.
+    # Product routing follows KDS's current station for an unfired order,
+    # or the canonical ticket snapshot once it has been fired.
+    from .kds import default_station, routing
+    from .workflows import IndustryWorkItem
+    job = db.scalar(select(IndustryWorkItem).where(
+        IndustryWorkItem.business_id == bid,
+        IndustryWorkItem.kind == "kitchen",
+        IndustryWorkItem.reference_id == order.id))
+    kds_lines = (job.details or {}).get("kds_lines") if job else None
+    if kds_lines is not None:
+        beverage_ids = {line["id"] for line in kds_lines if line.get("station") == "bar"}
+    else:
+        products = db.scalars(select(Product).where(
+            Product.business_id == bid,
+            Product.id.in_([line["product_id"] for line in snapshot["items"]]))).all()
+        by_product = {p.id: p for p in products}
+        routes = routing(db, bid)
+        beverage_ids = {
+            line["id"] for line in snapshot["items"]
+            if routes.get(line["product_id"], default_station(
+                by_product.get(line["product_id"]))) == "bar"}
+    beverages = [line for line in snapshot["items"] if line["id"] in beverage_ids]
+    total_cups = sum(line["quantity"] for line in beverages)
+    if not total_cups:
+        raise HTTPException(409, "Đơn chưa có đồ uống được phân vào quầy pha chế")
+    if total_cups > 40:
+        raise HTTPException(422, "Tối đa 40 tem cho một lần in. Hãy chia đơn")
+
+    documents = []
+    count = 0
+    for line in beverages:
+        modifiers = [
+            clean((opt.get("group_name", "") + ": " if opt.get("group_name") else "")
+                  + opt.get("name", ""), 120)
+            for opt in line.get("modifiers", [])]
+        for unit in range(line["quantity"]):
+            count += 1
+            content = "\n".join([
+                "EZ THING | CUP LABEL",
+                "-" * 32,
+                "ORDER #" + order_ref,
+                "BAN / TABLE: " + table_label,
+                "LY / CUP: " + str(count) + "/" + str(total_cups),
+                clean(line["name"], 120),
+                *["+" + extra for extra in modifiers],
+                "NOTE: " + clean(order.note, 250) if order.note else "",
+                "-" * 32, "", "",
+            ])
+            documents.append({
+                "title": "Tem ly #" + order_ref + " " + str(count) + "/" + str(total_cups),
+                "content": content,
+            })
+    return documents
+
+
+def available_document_devices(db: Session, bid: str, order: SaleOrder, kind: str):
+    return db.scalars(select(PrintDevice).where(
+        PrintDevice.business_id == bid,
+        PrintDevice.branch_id == order.branch_id,
+        PrintDevice.enabled.is_(True),
+        PrintDevice.station.in_(DOCUMENT_STATIONS[kind]))).all()
+
+
+@merchant.get("/documents/{oid}/preview")
+def preview_document(bid: str, oid: str,
+                     kind: Literal["prebill", "packing", "cup_label"] = "prebill",
+                     user=Depends(current_user), db: Session = Depends(db_session)):
+    tenant(bid, user, db)
+    allow(db, bid, user, ROLES)
+    order = document_order(db, bid, oid)
+    docs = documents_for_order(db, bid, order, kind)
+    devices = available_document_devices(db, bid, order, kind)
+    return {
+        "order_id": order.id,
+        "kind": kind,
+        "documents": docs,
+        "available_devices": [{"id": x.id, "name": x.name,
+                               "protocol": x.protocol, "station": x.station}
+                              for x in devices],
+        "tax_invoice": False,
+        "status": "preview_only",
+    }
+
+
+@merchant.post("/documents/{oid}/print", status_code=201)
+def print_document(bid: str, oid: str, body: ManualDocument,
+                   user=Depends(current_user), db: Session = Depends(db_session)):
+    tenant(bid, user, db)
+    allow(db, bid, user, ROLES)
+    order = document_order(db, bid, oid)
+    device = db.scalar(select(PrintDevice).where(
+        PrintDevice.id == body.device_id,
+        PrintDevice.business_id == bid,
+        PrintDevice.branch_id == order.branch_id,
+        PrintDevice.enabled.is_(True)).with_for_update())
+    if device is None:
+        raise HTTPException(404, "Máy in không thuộc chi nhánh hoặc đã tắt")
+    if device.station not in DOCUMENT_STATIONS[body.kind]:
+        raise HTTPException(409, "Máy in không được gán cho loại chứng từ này")
+    docs = documents_for_order(db, bid, order, body.kind)
+    keys = []
+    for index, document in enumerate(docs):
+        key = "manual:" + body.kind + ":" + oid + ":" + body.request_id + ":" + str(index)
+        keys.append(key)
+        enqueue(db, device, key, document["title"], document["content"])
+    # Device row lock serializes repeat requests; the DB unique index is the
+    # last line of defence when multiple application workers race.
+    try:
+        db.flush()
+        queued_count = db.scalar(select(PrintJob.id).where(
+            PrintJob.device_id == device.id, PrintJob.event_key == keys[0]))
+        if queued_count is None:
+            raise HTTPException(409, "Không thể lưu lệnh in")
+        audit(db, bid, user[0].id, "print.manual_document",
+              {"order_id": oid, "device_id": device.id,
+               "kind": body.kind, "request_id": body.request_id,
+               "document_count": len(docs)})
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        # Two requests using the same idempotency key can race on SQLite.
+        # Check the committed queue; never blindly enqueue a second copy.
+        present = db.scalars(select(PrintJob.event_key).where(
+            PrintJob.device_id == device.id, PrintJob.event_key.in_(keys))).all()
+        if len(present) != len(keys):
+            raise HTTPException(409, "Lệnh in đang được xử lý ở thiết bị khác")
+    return {"queued": True, "device_id": device.id, "kind": body.kind,
+            "document_count": len(docs), "request_id": body.request_id}
