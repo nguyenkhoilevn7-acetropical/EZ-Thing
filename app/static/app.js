@@ -358,7 +358,7 @@ function newIndustryWork(){
  const kind=activeIndustry()[0],bid=s.business.id;
  if(kind==='kitchen'||kind==='delivery'){
   const existing=new Set((s.cache.industry||[]).map(x=>x.reference_id));
-  const options=(s.cache.orders||[]).filter(o=>!existing.has(o.id)&&(kind==='kitchen'||(o.customer_id&&(s.cache.customers||[]).some(c=>c.id===o.customer_id&&c.address))));
+  const options=(s.cache.orders||[]).filter(o=>o.status!=='cancelled'&&!existing.has(o.id)&&(kind==='kitchen'||(o.customer_id&&(s.cache.customers||[]).some(c=>c.id===o.customer_id&&c.address))));
   if(!options.length){toast(kind==='kitchen'?'Cần có đơn chưa chuyển bếp':'Cần có đơn với khách và địa chỉ giao',true);return}
   modal(kind==='kitchen'?'Gửi phiếu xuống bếp':'Tạo phiếu giao hàng',`<form id="industry-form"><div class="formfield"><label>Đơn hàng</label><select name="order_id" required>${options.map(o=>`<option value="${E(o.id)}">#${E(o.id.slice(0,8).toUpperCase())} • ${V(o.total_vnd)}</option>`).join('')}</select></div>${kind==='delivery'?`<div class="formrow"><div class="formfield"><label>Đơn vị vận chuyển (tùy chọn)</label><input name="carrier" placeholder="Giao nội bộ" maxlength="80"/></div><div class="formfield"><label>Mã vận đơn (tùy chọn)</label><input name="tracking_number" maxlength="100"/></div></div>`:''}<div class="formfield"><label>Ghi chú</label><input name="note" maxlength="300" placeholder="Hướng dẫn xử lý..."/></div>${submitFoot('Tạo phiếu')}</form>`);
   return;

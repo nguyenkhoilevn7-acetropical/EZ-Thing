@@ -1,0 +1,32 @@
+name: Demo full browser crawl
+on:
+  pull_request:
+    paths:
+      - 'app/**'
+      - 'tests/demo_full_crawl.py'
+      - '.github/workflows/demo-full-crawl.yml'
+  push:
+    branches:
+      - 'fix/demo-*'
+  workflow_dispatch:
+jobs:
+  crawl:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: pip install -r requirements-dev.txt playwright
+      - run: python -m playwright install --with-deps chromium
+      - name: Crawl every demo tab, dialog and customer page
+        run: python tests/demo_full_crawl.py demo-crawl-report.json
+      - name: Upload crawl report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: demo-crawl-report
+          path: |
+            demo-crawl-report.json
+            demo-crawl-server.log
