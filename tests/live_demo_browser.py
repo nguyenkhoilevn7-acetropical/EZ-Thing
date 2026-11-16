@@ -489,10 +489,33 @@ try:
     assert page.locator('.ezhost-room-table').count()>=3
     first=page.locator('[data-ezhost-action="seat"]').first
     first.click()
-    page.locator('[data-ezhost-form="action"] [name="guest_count"]').fill("3")
-    page.locator('[data-ezhost-form="action"] [type="submit"]').click()
-    page.locator('.ezhost-room-table.busy').first.wait_for(timeout=12000)
+    page.locator('.ezhost-seat-form').wait_for(timeout=10000)
+    confirm=page.locator('#modal-root .ezhost-confirm')
+    assert confirm.count()==1 and confirm.is_visible(), "Host seat confirm CTA is missing"
+    assert "Xác nhận" in confirm.inner_text()
+    # The modal is outside .ezhost-room; its button must retain blue contrast.
+    style=confirm.evaluate("""el => ({
+       bg:getComputedStyle(el).backgroundColor,
+       color:getComputedStyle(el).color,
+       display:getComputedStyle(el).display,
+       width:el.getBoundingClientRect().width
+    })""")
+    assert style["bg"] not in ("rgba(0, 0, 0, 0)","rgb(255, 255, 255)"),style
+    assert style["width"]>150,style
+    page.set_viewport_size({"width":412,"height":850})
+    assert confirm.is_visible(), "Mobile modal confirm CTA must be visible"
+    page.locator('[data-ezhost-step="1"]').click()
+    assert page.locator('.ezhost-seat-form [name="guest_count"]').input_value()=="2"
+    page.locator('.ezhost-seat-form [name="guest_count"]').fill("3")
+    page.locator('.ezhost-seat-form [name="guest_name"]').fill("Khách thử")
+    confirm.click()
+    page.locator('.ezhost-seat-success').wait_for(timeout=12000)
+    assert "Đang phục vụ" in page.locator('.ezhost-seat-success').inner_text()
+    assert page.locator('.ezhost-room-table.busy').count()>=1
+    assert "Khách thử" in page.locator('.ezhost-room-table.busy').first.inner_text()
+    page.locator('.ezhost-seat-success [data-ezhost-action="dismiss"]').click()
     assert page.locator('.ezhost-room-kpi.occupied strong').inner_text().strip()
+    page.set_viewport_size({"width":1280,"height":850})
     page.locator('[data-ezhost-tab="bookings"]').click()
     page.locator('[data-ezhost-action="book"]').wait_for(timeout=12000)
     page.locator('[data-ezhost-tab="floor"]').click()
