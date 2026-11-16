@@ -867,6 +867,11 @@ app.include_router(print_router)
 app.include_router(print_device_router)
 app.include_router(product_media_router)
 
+# Cashier manual tender receipts annotate the EXISTING SaleOrder ledger.
+from .pos_payments import router as pos_payments_router  # noqa: E402
+Base.metadata.create_all(bind=engine)  # Pilot; migrate PostgreSQL via Alembic 20261116_10.
+app.include_router(pos_payments_router)
+
 # Cashier daily reconciliation reads the existing SaleOrder ledger only.
 from .cashier import router as cashier_router  # noqa: E402
 app.include_router(cashier_router)
