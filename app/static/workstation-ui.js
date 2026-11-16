@@ -209,7 +209,7 @@
       function previewNav(){
         if(!previewMode||!owner())return "";
         return '<div class="ezws-preview-bar" role="toolbar" aria-label="Xem thử tác vụ">'+
-          '<span class="ezws-preview-label">👁 '+safe(choose("CHỈ XEM · KHÔNG GHI DỮ LIỆU","READ-ONLY PREVIEW"))+'</span>'+
+          '<span class="ezws-preview-label">👁 '+safe(choose("DÙNG THỬ TƯƠNG TÁC · KHÔNG LƯU","INTERACTIVE SANDBOX · NO SAVES"))+'</span>'+
           '<div class="ezws-preview-tabs">'+Object.keys(MODES).filter(id=>id!=="manager").map(id=>
             '<button type="button" data-ezws="preview" data-value="'+id+'" class="'+
             (previewMode===id?"active":"")+'" aria-pressed="'+(previewMode===id)+'">'+
@@ -229,8 +229,8 @@
           host:choose("Bàn, đón khách","Host & seating")};
         modal(choose("Xem thử màn hình theo tác vụ","Preview employee workstations"),
           '<div class="ezws-preview-picker"><p>'+
-          choose("Xem trực tiếp từng màn hình của hệ thống. Chế độ này chỉ đọc, không tạo đơn hoặc sửa dữ liệu.",
-            "See each real workspace. Preview is read-only and cannot alter data.")+
+          choose("Bấm nút để thử tạo đơn, chế biến, thu ngân và xếp bàn. Mọi thay đổi chỉ tồn tại trong tab này, không ghi dữ liệu thật.",
+            "Try ordering, preparation, cashier and tables. Every change stays in this tab and never updates real data.")+
           '</p><div class="ezws-preview-choices">'+
           Object.keys(MODES).filter(id=>id!=="manager").map(id=>
           '<button type="button" class="ezws-preview-choice" data-ezws="preview" data-value="'+id+'">'+
@@ -241,6 +241,7 @@
       function preview(task){
         if(!owner()||!active()||!MODES[task]||task==="manager")return;
         closeModal?.();
+        ensureSandbox();
         previewMode=task;temporary=false;drawerOpen=false;
         state().workstation=virtualProfile(task);
         onChanged(home());
@@ -254,8 +255,9 @@
       function exitPreview(){
         if(!previewMode)return;
         previewMode=null;temporary=true;drawerOpen=false;
+        sandbox=null;
         state().workstation=current;
-        onChanged("overview");
+        onChanged("overview",{reload:true});
         requestAnimationFrame(()=>{
           syncPreviewLayout();
           document.scrollingElement?.scrollTo({top:0,behavior:"instant"});
@@ -388,16 +390,15 @@
       async function showSettingsSoon(){
         // Full refresh on next user opening avoids destroying focused form controls.
       }
-      // Preview is display-only: block all app/KDS/POS mutations before handlers.
+      // Interactive demo: allow ordinary controls and intercept all API writes.
+      // Prevent physical printing while showing the exact employee interface.
       document.addEventListener("click",event=>{
         if(!previewMode)return;
-        if(event.target.closest("[data-ezws]"))return;
-        if(event.target.closest("#page-content")||event.target.closest("#modal-root")){
+        if(event.target.closest('[data-kds="print"],[data-ezreg="print"],[data-action="print-doc-open"]')){
           event.preventDefault();event.stopImmediatePropagation();
+          toast(choose("Chế độ mô phỏng không in phiếu thật.",
+            "Interactive preview does not print physical receipts."));
         }
-      },true);
-      document.addEventListener("submit",event=>{
-        if(previewMode){event.preventDefault();event.stopImmediatePropagation()}
       },true);
       document.addEventListener("click",event=>{
         const button=event.target.closest("[data-ezws]");
@@ -431,7 +432,8 @@
         if(event.key==="Escape"&&drawerOpen){switchDrawer(false)}
       });
       return {load,mode,focused,home,drawer,previewNav,openPreviewPicker,
-              previewOnly,exitPreview,fullscreen,syncPreviewLayout,modeLabel,isTemporary:()=>temporary,
+              previewOnly,previewResponse,previewRead,togglePreviewTable,exitPreview,
+              fullscreen,syncPreviewLayout,modeLabel,isTemporary:()=>temporary,
               current:()=>current,owner,showSettings,
               allowNavigation:tab=>!focused()||tab===home(),
               applyDocument:()=>{
