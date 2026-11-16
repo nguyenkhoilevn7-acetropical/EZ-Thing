@@ -129,6 +129,8 @@ def act(bid: str, tid: str, body: HostAction, branch_id: str | None = Query(defa
         fail(409, "Bàn còn đơn bán hàng chưa thanh toán. Phải chuyển hoặc hoàn tất đơn tại POS trước.")
     if action == "seat" and before["status"] not in ("available",):
         fail(409, "Bàn đang có khách, đang dọn hoặc tạm khóa")
+    if action == "seat" and body.guest_count and body.guest_count > table.seats:
+        fail(409, "Số khách vượt số ghế. Hãy ghép thêm bàn trước")
     if action == "block" and before["status"] not in ("available", "blocked"):
         fail(409, "Chỉ có thể khóa bàn đang trống")
     if action in ("transfer", "join") and not body.target_table_id:
@@ -141,8 +143,27 @@ def act(bid: str, tid: str, body: HostAction, branch_id: str | None = Query(defa
         fail(409, "Không có phiên dùng bàn để kết thúc")
     if action == "unjoin" and not before["group_id"]:
         fail(409, "Bàn không thuộc nhóm ghép")
+    if action == "unjoin" and before["group_id"] == tid:
+        fail(409, "Chọn bàn phụ để tách; bàn chính không được tách khi còn khách")
+    if action == "transfer" and before["group_id"]:
+        others = [s for sid,s in states.items() if sid!=tid and
+                  s.status=="occupied" and
+                  (s.details or {}).get("group_id")==before["group_id"]]
+        if others:
+            fail(409, "Hãy tách các bàn ghép trước khi chuyển bàn chính")
     if action == "update" and before["status"] != "occupied":
         fail(409, "Chỉ cập nhật số khách cho bàn đang có khách")
+    if action == "update" and body.guest_count:
+        linked = [table]
+        if before["group_id"]:
+            linked = db.scalars(select(DiningTable).where(
+                DiningTable.business_id == bid, DiningTable.branch_id == branch.id,
+                DiningTable.id.in_([
+                    tid for tid,row in states.items()
+                    if (row.details or {}).get("group_id") == before["group_id"]
+                ]))).all()
+        if body.guest_count > sum(t.seats for t in linked):
+            fail(409, "Số khách vượt sức chứa. Hãy ghép thêm bàn trước")
     if action == "ready" and before["status"] not in ("cleaning", "blocked", "available"):
         fail(409, "Bàn chưa hoàn tất khâu dọn dẹp")
     if action == "unblock" and before["status"] != "blocked":
@@ -168,6 +189,18 @@ def act(bid: str, tid: str, body: HostAction, branch_id: str | None = Query(defa
         details.update({"guest_count": body.guest_count or 1, "note": body.note.strip(),
                         "group_id": None, "seated_at": now().isoformat()})
     elif action in ("release", "cleaning"):
+        # Releasing a joined party also frees its attached empty-check tables.
+        if before["group_id"]:
+            for sid,child in states.items():
+                if sid == tid or child.status != "occupied" or (
+                    child.details or {}).get("group_id") != before["group_id"]:
+                    continue
+                if orders.get(sid):
+                    fail(409, "Bàn ghép vẫn còn đơn chưa thanh toán")
+                cd=dict(child.details or {})
+                cd.update({"revision":int(cd.get("revision",0))+1,
+                           "guest_count":0,"group_id":None,"note":body.note.strip()})
+                child.details=cd;child.status="cleaning"
         row.status = "cleaning"
         details.update({"guest_count": 0, "group_id": None, "note": body.note.strip()})
     elif action in ("ready", "unblock"):
@@ -212,6 +245,15 @@ def act(bid: str, tid: str, body: HostAction, branch_id: str | None = Query(defa
     elif action == "unjoin":
         row.status="available"
         details.update({"guest_count":0,"group_id":None,"note":""})
+        # Do not leave a one-table "linked group" badge after last unlink.
+        group=before["group_id"]
+        left=[s for sid,s in states.items()
+              if sid!=tid and s.status=="occupied"
+              and (s.details or {}).get("group_id")==group]
+        if len(left)==1:
+            main=left[0];md=dict(main.details or {})
+            md.update({"group_id":None,"revision":int(md.get("revision",0))+1})
+            main.details=md
     row.details = details
     audit(db,bid,user[0].id,"host.table_"+action,{
         "table_id":tid,"target_table_id":body.target_table_id,"before":before,
