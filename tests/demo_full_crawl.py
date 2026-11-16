@@ -22,7 +22,7 @@ BASE = f"http://127.0.0.1:{PORT}"
 REPORT = sys.argv[1] if len(sys.argv) > 1 else "demo-crawl-report.json"
 # Expected, handled responses (not defects): unauthenticated probe before demo
 # session, and plan-gated endpoints answered with an explicit 403 the UI shows.
-IGNORED_STATUS = {("GET", "/api/auth/me", 401)}
+IGNORED_STATUS = {("GET", "/api/auth/me", 401), ("GET", "/api/admin/session", 403)}
 
 env = os.environ.copy()
 env.update({
@@ -480,9 +480,13 @@ def crawl_customer_flows(browser):
             "el => { const d=new Date(Date.now()+86400000);"
             " el.value=d.toISOString().slice(0,10); el.dispatchEvent(new Event('change',{bubbles:true})); }")
         page.locator("#booking-slots .slot-button").first.wait_for(timeout=30000)
-        page.locator("#booking-slots .slot-button").first.click()
         form = page.locator("#guest-reservation-form")
+        # Fill contact fields first: changing party size reloads the slots
+        # and correctly clears an earlier time choice.
         form.evaluate(FILL_FORM)
+        page.wait_for_timeout(500)
+        page.locator("#booking-slots .slot-button").first.wait_for(timeout=30000)
+        page.locator("#booking-slots .slot-button").first.click()
         form.evaluate("f => f.requestSubmit()")
         settle(page, 1500)
         if not page.locator("#booking-result").inner_text().strip():
