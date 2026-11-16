@@ -598,6 +598,17 @@ document.addEventListener('input',e=>{
  }
  if(e.target.closest('#order-lines'))updateOrderTotal();if(e.target.matches('[data-search]')){const query=e.target.value.toLowerCase().trim();document.querySelectorAll(e.target.dataset.search+' [data-match]').forEach(el=>el.classList.toggle('hide',!el.dataset.match.includes(query)))}});
 document.addEventListener('change',e=>{
+ if(e.target.matches('#ez-product-photo-file')){
+  const file=e.target.files?.[0],preview=document.getElementById('ez-product-photo-preview');
+  if(currentProductPhotoPreview){URL.revokeObjectURL(currentProductPhotoPreview);currentProductPhotoPreview=null}
+  if(!file||!preview)return;
+  if(!['image/jpeg','image/png','image/webp'].includes(file.type)||file.size>6*1024*1024){
+   toast('Chỉ chọn JPEG/PNG/WebP tối đa 6 MB',true);e.target.value='';return;
+  }
+  currentProductPhotoPreview=URL.createObjectURL(file);
+  preview.innerHTML='<img src="'+E(currentProductPhotoPreview)+'" alt="Xem trước ảnh sản phẩm">';
+  return;
+ }
  if(e.target.matches('[data-team-role]')){
    const id=e.target.dataset.teamRole;
    api('/businesses/'+encodeURIComponent(s.business.id)+'/team/members/'+encodeURIComponent(id),{
