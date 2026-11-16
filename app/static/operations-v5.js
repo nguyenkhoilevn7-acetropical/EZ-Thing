@@ -147,7 +147,7 @@ window.EZOperationsV5=function(deps){
       var close=data.cashierClose||{},paid=close.paid_at_day||{},
         source=close.created_at_day||{};
       output+=box(tx('Đối soát cuối ngày · xem trước','Daily closing · preview'),
-        tx('Theo ngày nhận tiền, không phải ngày tạo đơn. Không khóa ca, không xác nhận tiền mặt hoặc ngân hàng.','Uses paid-at time, not order creation. No cash count, bank verification or actual shift closure.'),
+        tx('Theo ngày nhận tiền. Phương thức do nhân viên xác nhận, chưa kiểm kê tiền mặt hoặc xác minh ngân hàng.','Uses paid-at time. Tender methods are manually declared, without cash counting or bank verification.'),
         form('close-preview',
           '<div class="v5-formrow"><label>'+tx('Ngày','Date')+
           '<input type="date" name="day" required value="'+E(closingDay)+'"></label>'+
@@ -159,9 +159,12 @@ window.EZOperationsV5=function(deps){
         '<span>'+tx('Đơn nhận tiền trong ngày','Paid that day')+'<b>'+E(paid.count||0)+'</b></span>'+
         '<span>'+tx('Tổng tiền đánh dấu đã nhận','Marked received')+'<b>'+V(paid.amount_vnd||0)+'</b></span>'+
         '<span>'+tx('Đơn mới còn mở','New orders still open')+'<b>'+E(source.open_now||0)+'</b></span>'+
-        '<span>'+tx('Đơn còn mở toàn chi nhánh','All outstanding orders')+'<b>'+E(close.outstanding_now_count||0)+'</b></span></div>'+
-        '<p class="v5-note">'+tx('⚠ Chưa ghi phương thức thanh toán; không suy luận đây là tiền mặt. Chưa thể chốt ca chính thức.',
-          '⚠ Payment methods are not captured; these totals are not cash. This is not a final shift close.')+'</p>',true);
+        '<span>'+tx('Đơn còn mở toàn chi nhánh','All outstanding orders')+'<b>'+E(close.outstanding_now_count||0)+'</b></span>'+
+        '<span>'+tx('Tiền mặt khai báo','Manually recorded cash')+'<b>'+V(close.manual_cash_vnd||0)+'</b></span>'+
+        '<span>'+tx('Chuyển khoản khai báo','Manually recorded transfers')+'<b>'+V(close.manual_bank_transfer_vnd||0)+'</b></span>'+
+        '<span>'+tx('Chưa rõ phương thức (đơn cũ)','Unknown method (older checks)')+'<b>'+V(close.unknown_payment_method_vnd||0)+'</b></span></div>'+
+        '<p class="v5-note">'+tx('⚠ Phương thức chỉ ghi nhận thủ công, chưa đối soát ngân hàng hay đếm tiền trong két. Không phải chốt ca chính thức.',
+          '⚠ Tender types are self-reported, not bank-verified or cash-counted. Not a formal shift close.')+'</p>',true);
     }
     if(role!=='staff'&&business().active_modules?.includes('insights')){
       var fin=data.finance||{};
