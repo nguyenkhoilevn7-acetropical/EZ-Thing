@@ -2,7 +2,7 @@
    Admin's interactive preview uses the existing zero-write API sandbox. */
 (() => {
 "use strict";
-window.EZHostWorkstation = function init({api,E,toast,getState,modal,closeModal,previewOnly,onCreatePhysicalTable}) {
+window.EZHostWorkstation = function init({api,E,toast,getState,modal,closeModal,previewOnly,onCreatePhysicalTable,onOpenOrder}) {
   const state=getState, biz=()=>state().business||{},id=()=>encodeURIComponent(biz().id||"");
   const url=p=>"/businesses/"+id()+p;
   const T=(vi,en)=>window.EZI18N?.language?.()==="en"?en:vi;
@@ -13,7 +13,7 @@ window.EZHostWorkstation = function init({api,E,toast,getState,modal,closeModal,
   const branchList=()=>state().cache.branches||[];
   const assigned=()=>state().workstation?.branch_id||"";
   let board=null,bookings=[],floorplan=null,branchId="",view="tables",filter="all",search="",
-      zone="all",editing=false,loading=false,ready=false,serial=0;
+      zone="all",editing=false,loading=false,ready=false,serial=0,saving=false;
   const STATUS={
     available:["Trống","Available","free"],occupied:["Có khách","Occupied","busy"],
     cleaning:["Chờ dọn","Cleaning","cleaning"],blocked:["Tạm khóa","Blocked","blocked"],
@@ -40,6 +40,8 @@ window.EZHostWorkstation = function init({api,E,toast,getState,modal,closeModal,
       '<span class="ezhost-room-status '+st[2]+'">● '+T(st[0],st[1])+'</span></div>'+
       '<div class="ezhost-room-meta">'+
       (t.guest_count?'<span>👥 '+esc(t.guest_count)+' '+T("khách","guests")+'</span>':"")+
+      (t.guest_name?'<span>👤 '+esc(t.guest_name)+'</span>':"")+
+      (t.seated_at?'<span>🕒 '+fmtTime(t.seated_at)+'</span>':"")+
       (t.group_id?'<span>🔗 '+T("Bàn ghép","Linked table")+'</span>':"")+
       (t.has_open_check?'<span>🧾 '+esc(t.order_count)+' '+T("đơn chưa thu","open checks")+'</span>':"")+
       (t.note?'<p>'+esc(t.note)+'</p>':"")+'</div>'+
@@ -207,8 +209,76 @@ window.EZHostWorkstation = function init({api,E,toast,getState,modal,closeModal,
       '<option value="'+esc(x.id)+'">'+esc(x.label)+' · '+esc(x.seats)+' '+T("chỗ","seats")+
       '</option>').join("")+'</select></label>';
   }
-  function actionDialog(action,t){
-    const label={seat:"Nhận khách",release:"Trả bàn",cleaning:"Chờ dọn",
+  function roomZone(t){
+    const position=floorplan?.tables?.find(x=>x.id===t.id)?.placement;
+    return floorplan?.zones?.find(z=>z.id===position?.zone_id)?.name||
+      T("Khu vực chung","Main area");
+  }
+  function nearbyBookings(t){
+    const time=Date.now();
+    return bookings.filter(r=>r.table_id===t.id&&r.status==="confirmed"&&
+      new Date(r.scheduled_at).getTime()<=time+3*3600000&&
+      (!r.ends_at||new Date(r.ends_at).getTime()>time-3600000))
+      .sort((a,b)=>Math.abs(new Date(a.scheduled_at)-time)-Math.abs(new Date(b.scheduled_at)-time));
+  }
+  function seatDialog(t,reservation=null){
+    const choices=nearbyBookings(t);
+    const linked=reservation||choices.find(r=>{
+      const start=new Date(r.scheduled_at).getTime(),end=new Date(r.ends_at).getTime();
+      return Date.now()>=start-30*60000&&Date.now()<=end;
+    })||null;
+    const count=linked?.party_size||t.guest_count||1;
+    const max=Math.max(1,Number(t.seats)||1);
+    const note=linked?.note||t.note||"";
+    const match=choices.some(r=>r.id===linked?.id);
+    const selectOptions='<option value="">'+T("Khách vãng lai · Không có đặt bàn",
+      "Walk-in · No reservation")+'</option>'+choices.map(r=>
+      '<option value="'+esc(r.id)+'"'+(r.id===linked?.id?" selected":"")+'>'+
+      esc(r.customer_name)+' · '+fmtTime(r.scheduled_at)+'</option>').join("");
+    modal(T("Nhận khách","Seat guests")+' · '+t.label,
+      '<form class="ezhost-seat-form" data-ezhost-form="action" data-id="'+esc(t.id)+
+      '" data-command="seat" data-capacity="'+max+'">'+
+      '<div class="ezhost-seat-details"><span>🪑 '+esc(t.label)+'</span>'+
+      '<span>'+esc(roomZone(t))+'</span><span>👥 '+max+' '+T("chỗ","seats")+'</span>'+
+      '<span class="ezhost-seat-free">● '+T("Bàn trống","Available")+'</span></div>'+
+      (choices.length?'<label>'+T("Liên kết lịch đặt bàn","Link reservation")+
+        '<select name="reservation_id" data-ezhost-booking-select>'+selectOptions+'</select></label>':
+        '<input type="hidden" name="reservation_id" value="">')+
+      '<div class="ezhost-form-grid"><label>'+T("Tên khách (không bắt buộc)","Guest name (optional)")+
+      '<input name="guest_name" autocomplete="off" maxlength="100" value="'+esc(linked?.customer_name||"")+
+      '" placeholder="'+T("Tên người đại diện","Guest name")+'"></label>'+
+      '<label>'+T("Điện thoại (không bắt buộc)","Phone (optional)")+
+      '<input name="guest_phone" type="tel" inputmode="tel" maxlength="25" value="'+
+      esc(linked?.phone||"")+'" placeholder="09..."></label></div>'+
+      '<label>'+T("Số khách thực tế","Guests arriving")+
+      '<div class="ezhost-guest-stepper">'+
+      '<button type="button" data-ezhost-step="-1" aria-label="'+T("Giảm một khách","Remove one guest")+'">−</button>'+
+      '<input name="guest_count" type="number" inputmode="numeric" min="1" max="'+max+
+      '" value="'+esc(Math.min(max,count))+'" required>'+
+      '<button type="button" data-ezhost-step="1" aria-label="'+T("Thêm một khách","Add one guest")+'">+</button></div>'+
+      '<small class="ezhost-capacity-hint">'+T("Sức chứa tối đa: ","Maximum capacity: ")+max+
+      ' '+T("khách. Nếu vượt, hãy chọn bàn lớn hơn.","guests. Choose a larger table if needed.")+
+      '</small></label>'+
+      (linked&&count>max?'<p class="ezhost-capacity-alert">'+
+        T("Lịch đặt có nhiều khách hơn số ghế; vui lòng đổi hoặc ghép bàn trước.",
+          "The reservation exceeds table capacity; change or combine tables first.")+'</p>':"")+
+      '<label>'+T("Ghi chú tiếp đón","Reception note")+
+      '<textarea name="note" maxlength="240" rows="2" placeholder="'+T(
+        "Ví dụ: Ghế trẻ em, dị ứng thực phẩm…","For example: High chair, food allergy…")+
+      '">'+esc(note)+'</textarea></label>'+
+      (previewOnly()?'<p class="ezhost-demo-note">🧪 '+T(
+        "Chế độ xem thử: xác nhận chỉ thay đổi dữ liệu trong phiên xem thử.",
+        "Interactive preview: this only changes the in-session demo.")+'</p>':"")+
+      '<footer class="modal-footer ezhost-form-footer">'+
+      '<button type="button" class="btn secondary" data-ezhost-action="dismiss">'+
+      T("Quay lại","Back")+'</button>'+
+      '<button type="submit" class="btn ezhost-confirm" data-ezhost-confirm>'+
+      T("✓ Xác nhận nhận khách","✓ Confirm seating")+'</button></footer></form>');
+    document.querySelector('[data-ezhost-form="action"] [name="guest_count"]')?.focus();
+  }
+  function actionDialog(action,t,booking=null){
+    if(action==="seat")return seatDialog(t,booking);
+    const label={release:"Trả bàn",cleaning:"Chờ dọn",
       ready:"Đã dọn xong",block:"Khóa bàn",unblock:"Mở khóa",update:"Sửa thông tin",
       transfer:"Chuyển bàn",join:"Ghép bàn",unjoin:"Tách bàn"}[action]||action;
     if(["ready","unblock","unjoin","release"].includes(action)){
@@ -223,20 +293,44 @@ window.EZHostWorkstation = function init({api,E,toast,getState,modal,closeModal,
         T("Thông tin sẽ được ghi nhận cho chi nhánh được phân công.",
           "Changes are logged under the assigned branch."))+'</p>'+
       (destination?targetSelect(t):"")+
-      (["seat","update"].includes(action)?
-        '<label>'+T("Số khách","Guests")+'<input name="guest_count" type="number" min="1" max="60" value="'+
-        esc(t.guest_count||1)+'" required></label>':"")+
+      (action==="update"?
+        '<label>'+T("Số khách","Guests")+'<input name="guest_count" type="number" min="1" max="'+
+        esc(t.seats)+'" value="'+esc(t.guest_count||1)+'" required></label>'+
+        '<div class="ezhost-form-grid"><label>'+T("Tên khách","Guest name")+
+        '<input name="guest_name" maxlength="100" value="'+esc(t.guest_name||"")+'"></label>'+
+        '<label>'+T("Điện thoại","Phone")+
+        '<input name="guest_phone" type="tel" maxlength="25" value="'+esc(t.guest_phone||"")+
+        '"></label></div>':"")+
       '<label>'+T("Ghi chú","Notes")+'<textarea name="note" maxlength="240" rows="2">'+
         esc(t.note||"")+'</textarea></label>'+
-      '<footer><button type="button" data-ezhost-action="dismiss">'+T("Quay lại","Back")+
-      '</button><button type="submit" class="ezhost-room-primary">'+T(label,action)+'</button></footer></form>');
+      '<footer class="modal-footer ezhost-form-footer"><button type="button" class="btn secondary" data-ezhost-action="dismiss">'+
+      T("Quay lại","Back")+'</button><button type="submit" class="btn ezhost-confirm">'+
+      T(label,action)+'</button></footer></form>');
   }
   async function submitAction(t,body){
     const result=await api(url("/host/tables/"+encodeURIComponent(t.id)+
       "/action?branch_id="+encodeURIComponent(activeBranch())),{
       method:"POST",body:JSON.stringify(body)
     });
-    board=result;paint();closeModal?.();toast(T("Đã cập nhật bàn","Table updated"));
+    board=result;
+    if(body.reservation_id)bookings=bookings.map(r=>
+      r.id===body.reservation_id?{...r,status:"seated"}:r);
+    paint();closeModal?.();
+    if(body.action==="seat"){
+      modal(T("Đã nhận khách","Guests seated")+' · '+t.label,
+        '<div class="ezhost-seat-success" role="status">'+
+        '<strong>✓ '+T("Nhận khách thành công","Guests seated successfully")+'</strong>'+
+        '<p>🪑 '+esc(t.label)+' · '+esc(body.guest_count||1)+' '+T("khách","guests")+
+        '</p><p>'+T("Bàn đã chuyển sang Đang phục vụ. Máy nhận Order có thể gọi món cho bàn này.",
+        "The table is now occupied. The Order terminal can take its check.")+'</p>'+
+        '<div class="ezhost-success-actions">'+
+        '<button type="button" class="btn secondary" data-ezhost-action="dismiss">'+
+        T("Tiếp tục lễ tân","Continue front desk")+'</button>'+
+        ((biz().role==="owner"||biz().role==="manager")&&onOpenOrder?
+          '<button type="button" class="btn ezhost-confirm" data-ezhost-action="start-order" data-value="'+
+          esc(t.id)+'">'+T("Gọi món ngay","Take order now")+'</button>':"")+
+        '</div></div>');
+    }else toast(T("Đã cập nhật bàn","Table updated"));
   }
   function bookingDialog(r){
     const edit=Boolean(r),target=r?.table_id||"",defaultTime=new Date(Date.now()+86400_000);
@@ -327,10 +421,20 @@ window.EZHostWorkstation = function init({api,E,toast,getState,modal,closeModal,
   }
   document.addEventListener("click",event=>{
     const btn=event.target.closest("[data-ezhost-action],[data-ezhost-tab],"+
-      "[data-ezhost-filter],[data-ezhost-zone],[data-ezhost-booking]");
+      "[data-ezhost-filter],[data-ezhost-zone],[data-ezhost-booking],[data-ezhost-step]");
     if(!btn||!document.getElementById("ezhost-workspace")&&
       !btn.closest("[data-ezhost-form]"))return;
     event.preventDefault();event.stopImmediatePropagation();
+    if(btn.hasAttribute("data-ezhost-step")){
+      const form=btn.closest('[data-ezhost-form="action"]');
+      const field=form?.querySelector('[name="guest_count"]');
+      if(field){
+        const max=Number(field.max)||60,min=1;
+        field.value=String(Math.max(min,Math.min(max,
+          (Number(field.value)||1)+Number(btn.dataset.ezhostStep))));
+      }
+      return;
+    }
     const job=async()=>{
       if(btn.dataset.ezhostTab){view=btn.dataset.ezhostTab;paint();return}
       if(btn.dataset.ezhostZone){zone=btn.dataset.ezhostZone;paint();return}
@@ -339,7 +443,12 @@ window.EZHostWorkstation = function init({api,E,toast,getState,modal,closeModal,
         const r=bookings.find(x=>x.id===btn.dataset.value);
         if(!r)return;
         if(btn.dataset.ezhostBooking==="edit")bookingDialog(r);
-        else await bookingAction(r.id,btn.dataset.ezhostBooking);
+        else if(btn.dataset.ezhostBooking==="seated"){
+          const t=at().find(x=>x.id===r.table_id);
+          if(!t||t.status!=="available")throw Error(T(
+            "Bàn đặt không còn trống; hãy kiểm tra sơ đồ bàn.","Reserved table is no longer available."));
+          actionDialog("seat",t,r);
+        }else await bookingAction(r.id,btn.dataset.ezhostBooking);
         return;
       }
       const action=btn.dataset.ezhostAction;
@@ -358,6 +467,9 @@ window.EZHostWorkstation = function init({api,E,toast,getState,modal,closeModal,
         if(!tab||!floorplan?.zones.some(x=>x.id===newZone))return;
         tab.placement.zone_id=newZone;zone=newZone;paint();return;
       }
+      if(action==="start-order"){
+        closeModal?.();onOpenOrder?.(btn.dataset.value);return;
+      }
       const t=at().find(x=>x.id===btn.dataset.value);
       if(t)await actionDialog(action,t);
     };
@@ -373,6 +485,21 @@ window.EZHostWorkstation = function init({api,E,toast,getState,modal,closeModal,
     }
   },true);
   document.addEventListener("change",event=>{
+    if(event.target.matches("[data-ezhost-booking-select]")){
+      const r=bookings.find(x=>x.id===event.target.value);
+      const form=event.target.closest('[data-ezhost-form="action"]');
+      if(form){
+        const name=form.querySelector('[name="guest_name"]'),
+          phone=form.querySelector('[name="guest_phone"]'),
+          count=form.querySelector('[name="guest_count"]'),
+          note=form.querySelector('[name="note"]');
+        if(name)name.value=r?.customer_name||"";
+        if(phone)phone.value=r?.phone||"";
+        if(note)note.value=r?.note||"";
+        if(count&&r)count.value=String(Math.min(Number(count.max)||60,r.party_size));
+      }
+      return;
+    }
     if(event.target.matches("[data-ezhost-branch]")){
       branchId=event.target.value;ready=false;zone="all";filter="all";load().catch(e=>toast(e.message,true));
     }
@@ -381,9 +508,20 @@ window.EZHostWorkstation = function init({api,E,toast,getState,modal,closeModal,
     const form=event.target.closest("[data-ezhost-form]");
     if(!form)return;
     event.preventDefault();event.stopImmediatePropagation();
+    if(saving)return;
     const data=Object.fromEntries(new FormData(form));
     const button=form.querySelector("[type=submit]");
-    if(button)button.disabled=true;
+    if(form.dataset.command==="seat"||form.dataset.command==="update"){
+      const count=Number(data.guest_count);
+      const capacity=Number(form.dataset.capacity||form.querySelector('[name="guest_count"]')?.max);
+      if(!Number.isInteger(count)||count<1||count>capacity){
+        toast(T("Số khách phải từ 1 đến sức chứa tối đa của bàn.",
+          "Guest count must be within table capacity."),true);
+        return;
+      }
+    }
+    saving=true;
+    if(button){button.disabled=true;button.textContent=T("Đang lưu…","Saving…")}
     const work=async()=>{
       if(form.dataset.ezhostForm==="action"){
         const t=at().find(x=>x.id===form.dataset.id);
@@ -391,6 +529,8 @@ window.EZHostWorkstation = function init({api,E,toast,getState,modal,closeModal,
         const action=form.dataset.command;
         await submitAction(t,{action,expected_revision:t.revision,
           guest_count:data.guest_count?Number(data.guest_count):null,
+          guest_name:data.guest_name||"",guest_phone:data.guest_phone||"",
+          reservation_id:data.reservation_id||null,
           target_table_id:data.target_table_id||null,note:data.note||""});
       }else if(form.dataset.ezhostForm==="booking"){
         const payload={customer_name:data.customer_name,phone:data.phone,
@@ -411,7 +551,11 @@ window.EZHostWorkstation = function init({api,E,toast,getState,modal,closeModal,
       }
     };
     work().catch(e=>toast(e.message,true)).finally(()=>{
-      if(button?.isConnected)button.disabled=false;
+      saving=false;
+      if(button?.isConnected){button.disabled=false;
+        button.textContent=form.dataset.command==="seat"?
+          T("✓ Xác nhận nhận khách","✓ Confirm seating"):
+          T("Lưu thay đổi","Save changes")}
     });
   },true);
   document.addEventListener("pointerdown",event=>{
