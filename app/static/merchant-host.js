@@ -193,8 +193,7 @@ window.EZHostWorkstation = function init({api,E,toast,getState,modal,closeModal,
         api(url("/floorplan?branch_id="+encodeURIComponent(branchId)))
       ]);
       if(generation!==serial||id()!==key)return;
-      board=newBoard;bookings=newBookings.filter(r=>
-        !assigned()||r.branch_id===assigned()||!r.branch_id);
+      board=newBoard;bookings=newBookings.filter(r=>r.branch_id===branchId);
       floorplan=newFloor;ready=true;
     }catch(e){if(generation===serial)toast(e.message,true)}
     finally{if(generation===serial){loading=false;paint()}}
@@ -278,7 +277,7 @@ window.EZHostWorkstation = function init({api,E,toast,getState,modal,closeModal,
     await api(url("/reservations/"+encodeURIComponent(rid)+"/status"),{
       method:"POST",body:JSON.stringify({status:action})
     });
-    bookings=await api(url("/reservations"));
+    bookings=(await api(url("/reservations"))).filter(r=>r.branch_id===activeBranch());
     paint();toast(T("Đã cập nhật lịch đặt bàn","Reservation updated"));
   }
   function addZone(){
@@ -407,7 +406,7 @@ window.EZHostWorkstation = function init({api,E,toast,getState,modal,closeModal,
           await api(url("/reservations"),{method:"POST",body:JSON.stringify({
             ...payload,request_id:uid(),branch_id:activeBranch()})});
         }
-        bookings=await api(url("/reservations"));
+        bookings=(await api(url("/reservations"))).filter(r=>r.branch_id===activeBranch());
         closeModal?.();paint();toast(T("Đã lưu lịch đặt bàn","Reservation saved"));
       }
     };
