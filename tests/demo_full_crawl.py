@@ -429,6 +429,19 @@ def crawl_workflows(browser):
                 if click_action(page, "new-branch"):
                     submit_open_form(page, "new branch")
             safe(f"{label} :: new branch", branch)
+        def verify_ledger():
+            if "pos" not in tabs:
+                return
+            orders = page.evaluate("bid => fetch('/api/businesses/'+bid+'/orders').then(r=>r.json())",
+                                   business["id"])
+            statuses = {}
+            for order in orders:
+                statuses[order["status"]] = statuses.get(order["status"], 0) + 1
+            print(f"LEDGER {business['industry']}: {statuses}", flush=True)
+            for wanted in ("paid", "cancelled"):
+                if not statuses.get(wanted):
+                    record("ledger", f"no {wanted} order was produced by the UI flow: {statuses}")
+        safe(f"{label} :: verify orders written by UI", verify_ledger)
         # Re-open every tab after the writes: data changes must still render.
         for tab in tabs:
             safe(f"{label} :: re-render {tab}", lambda tab=tab: open_tab(page, tab, False))
