@@ -266,11 +266,25 @@ def enqueue_receipt(db: Session, bid: str, order: SaleOrder) -> None:
         return
     snapshot = order_out(db, order)
     breakdown = pos_breakdown(db, order)
+    from .pos_payments import ManualTenderReceipt
+    receipt = db.scalar(select(ManualTenderReceipt).where(
+        ManualTenderReceipt.business_id == bid,
+        ManualTenderReceipt.order_id == order.id))
+    payment_note = "PAYMENT: marked received manually; method unspecified"
+    if receipt:
+        if receipt.method == "cash":
+            payment_note = (
+                f"CASH (MANUAL) RECEIVED {receipt.cash_received_vnd:,} VND; "
+                f"CHANGE {receipt.change_vnd:,} VND"
+            )
+        elif receipt.method == "bank_transfer":
+            payment_note = "BANK TRANSFER (STAFF CONFIRMED; NOT BANK VERIFIED)"
     for device in devices:
         enqueue(db, device, f"paid:{order.id}", "Receipt #" + order.id[:8],
                 render_ticket("CUSTOMER RECEIPT", order.id,
                               snapshot["items"], order.note,
-                              total=order.total_vnd, breakdown=breakdown))
+                              total=order.total_vnd, breakdown=breakdown,
+                              payment_note=payment_note))
 
 
 def claim_next(db: Session, row: PrintDevice) -> PrintJob | None:
