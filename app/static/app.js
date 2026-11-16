@@ -74,7 +74,8 @@ const hostWorkstation=window.EZHostWorkstation?.({
  api,E,toast,getState:()=>s,modal:(title,html)=>modal(title,html,true),
  closeModal:()=>closeModal(),
  previewOnly:()=>Boolean(workstationUI?.previewOnly()),
- onCreatePhysicalTable:branch=>newTable(branch)
+ onCreatePhysicalTable:branch=>newTable(branch),
+ onOpenOrder:tableId=>cashRegister?.open(tableId)
 });
 async function api(path,opt={}){
  // Interactive owner previews never invoke a mutation on the real tenant API.
