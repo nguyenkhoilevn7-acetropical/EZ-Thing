@@ -52,7 +52,7 @@ def owner(c):
     assert biz.status_code == 201, biz.text
     bid = biz.json()["id"]
     product = call(c, "POST", f"/businesses/{bid}/products", {
-        "name": "Milk Tea", "sku": "TEA", "price_vnd": 35000}, csrf)
+        "name": "Milk Tea", "sku": "TEA", "price_vnd": 35000, "track_stock": False}, csrf)
     assert product.status_code == 201, product.text
     order = call(c, "POST", f"/businesses/{bid}/orders", {
         "idempotency_key": uuid.uuid4().hex,
