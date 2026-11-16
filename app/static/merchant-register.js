@@ -3,7 +3,7 @@
    No automatic payment inference, offline writes, or client-side stock mutation. */
 (() => {
   "use strict";
-  window.EZRegisterUI = function init({api,E,V,toast,getState,navigate,onCreated,onPaid}) {
+  window.EZRegisterUI = function init({api,E,V,toast,getState,navigate,onCreated,onPaid,onPrint}) {
     const uid=()=>globalThis.crypto?.randomUUID?.()||
       "pos-"+Date.now().toString(36)+"-"+Math.random().toString(36).slice(2);
     const t=(vi,en)=>window.EZI18N?.language?.()==="en"?en:vi;
@@ -38,6 +38,16 @@
       .reduce((sum,o)=>sum+(Number(o.price_vnd)||0),0);
     const category=p=>String(p.category||t("Khác","Other")).trim()||t("Khác","Other");
     const belongs=()=>s.bid===business().id;
+    const checkout=window.EZCashierCheckout?.({api,E,V,toast,getBusiness:business,
+      getTotal:total,createOrder:create,onPaid:async result=>{
+        if(s.last?.id===result.order.id){s.last.paid=true;s.last.payment=result.payment}
+        else s.last={id:result.order.id,total_vnd:result.order.total_vnd,
+          paid:true,payment:result.payment,kitchenSent:false};
+        // Confirmed tender must update the register before async dashboard refresh.
+        paint();
+        if(onPaid)await onPaid();
+        paint();
+      }});
     const available=p=>p?.active!==false&&(!p?.track_stock||Number(p.stock)>0);
     const selectionsValid=(p,ids)=>{
       if(!p)return false;
@@ -50,6 +60,7 @@
     function initTenant(){
       if(belongs())return;
       s=defaultState();
+      checkout?.reset();
       s.bid=business().id;
       s.branch=branches()[0]?.id||"";
     }
@@ -166,11 +177,13 @@
         t("Tạm tính","Estimated subtotal")+'</span><strong>'+fmt(total())+'</strong></div>'+
         '<div class="ezreg-finance-hint">'+t("Giá cuối cùng được xác nhận trên máy chủ. Chưa thu tiền.",
         "Final prices are verified on the server. No payment collected.")+'</div>'+
-        '<button type="button" class="ezreg-create" data-ezreg="create" '+
+        '<button type="button" class="ezreg-create ezreg-pay-primary" data-ezreg="checkout" '+
         (!s.cart.length||s.busy||!navigator.onLine?"disabled":"")+'>'+
-        (s.busy?t("Đang tạo đơn...","Creating order..."):
-          t("Tạo đơn hàng","Create order"))+
+        (s.busy?t("Đang xử lý...","Processing..."):
+          t("Thanh toán","Checkout"))+
         '<span>'+fmt(total())+'</span></button>'+
+        '<button type="button" class="ezreg-save-check" data-ezreg="create" '+
+        (!s.cart.length||s.busy||!navigator.onLine?"disabled":"")+'>'+t("Lưu đơn · Chưa thu tiền","Save check · Unpaid")+'</button>'+
         '<div class="ezreg-secondary-actions"><button type="button" data-ezreg="clear" '+
         (!s.cart.length?"disabled":"")+'>'+t("Xóa giỏ hàng","Clear cart")+'</button>'+
         '<button type="button" data-ezreg="orders">'+t("Xem đơn đã tạo","View orders")+'</button></div></div>';
@@ -184,14 +197,17 @@
         ' #'+E(o.id.slice(0,8).toUpperCase())+'</strong>'+
         '<p>'+fmt(o.total_vnd)+' · '+(o.paid?t("Đã ghi nhận tiền","Payment confirmed"):
           t("Chưa xác nhận nhận tiền","Payment not yet confirmed"))+
+        (o.paid&&o.payment?.method==="cash"?' · '+t("Tiền thừa ","Change ")+fmt(o.payment.change_vnd):"")+
+        (o.paid&&o.payment?.method==="bank_transfer"?' · '+t("Chuyển khoản thủ công","Manual transfer"):"")+
         '</p><div class="ezreg-last-actions">'+
         (business().industry==="fnb"&&!o.kitchenSent?
           '<button type="button" data-ezreg="send-kitchen">'+
           t("Gửi bếp / pha chế","Send to kitchen")+'</button>':"")+
         (business().industry==="fnb"&&o.kitchenSent?'<span>'+
           t("Đã gửi bếp","Sent to kitchen")+'</span>':"")+
-        (role!=="staff"&&!o.paid?'<button type="button" data-ezreg="paid">'+
-          t("Xác nhận đã nhận tiền","Confirm money received")+'</button>':"")+
+        (!o.paid?'<button type="button" data-ezreg="paid">'+
+          t("Thanh toán đơn này","Take payment")+'</button>':
+          '<button type="button" data-ezreg="print">'+t("🖨 In phiếu thanh toán","🖨 Print receipt")+'</button>')+
         '<button type="button" data-ezreg="orders">'+t("Danh sách đơn","Order list")+
         '</button></div></div></section>';
     }
@@ -225,7 +241,7 @@
         '</strong><span>'+t("Xem giỏ ↑","View cart ↑")+'</span></button>'+
         '<div class="ezreg-cart-backdrop '+(s.mobileCart?"visible":"")+
         '" data-ezreg="cart-close"></div>'+
-        '<div id="ezreg-option-mount"></div></section>';
+        '<div id="ezreg-option-mount"></div><div id="ezreg-payment-mount">'+(checkout?.render()||"")+'</div></section>';
     }
     function paint(){
       const node=document.getElementById("ez-register");
@@ -414,10 +430,12 @@
         toast(t("Đã tạo đơn #","Created order #")+order.id.slice(0,8).toUpperCase());
         if(onCreated){try{await onCreated(order)}catch(error){toast(t("Đã lưu đơn nhưng chưa tải lại danh sách","Order saved, refresh failed"),true)}}
         paint();
+        return order;
       }catch(error){
         // Do not generate a fresh request id on network timeout: the backend
         // may have committed even if its response was lost.
         toast(error.message||t("Không thể lưu đơn","Unable to save order"),true);
+        return null;
       }finally{s.busy=false;syncCart()}
     }
     async function sendKitchen(){
@@ -434,20 +452,8 @@
       finally{s.busy=false;paint()}
     }
     async function markPaid(){
-      if(!s.last||s.busy||business().role==="staff")return;
-      if(!confirm(t("Chỉ xác nhận khi đã thực sự nhận đủ tiền. EZ Thing chưa kiểm tra giao dịch ngân hàng. Tiếp tục?",
-        "Confirm only after receiving all funds. EZ Thing does not verify bank payments. Continue?")))return;
-      s.busy=true;
-      try{
-        await api("/businesses/"+encodeURIComponent(s.bid)+"/orders/"+
-          encodeURIComponent(s.last.id)+"/paid",{
-          method:"POST",body:JSON.stringify({confirmed:true})
-        });
-        s.last.paid=true;
-        toast(t("Đã ghi nhận nhận tiền thủ công","Manual receipt confirmed"));
-        if(onPaid)await onPaid();
-      }catch(err){toast(err.message,true)}
-      finally{s.busy=false;paint()}
+      if(!s.last||s.busy||s.last.paid)return;
+      checkout?.begin(s.last);
     }
     function mount(){initTenant();paintCatalog()}
     function open(preTable=""){
@@ -481,9 +487,13 @@
       else if(action==="cart-close"){s.mobileCart=false;syncCart()}
       else if(action==="clear")closeDraft();
       else if(action==="create")create();
+      else if(action==="checkout"){
+        try{ensureValid();checkout?.begin()}catch(err){toast(err.message,true)}
+      }
       else if(action==="orders")navigate("orders");
       else if(action==="send-kitchen")sendKitchen();
       else if(action==="paid")markPaid();
+      else if(action==="print"&&s.last?.paid)onPrint?.(s.last.id);
     },true);
     document.addEventListener("input",event=>{
       if(!document.getElementById("ez-register"))return;
@@ -512,6 +522,12 @@
         event.preventDefault();document.querySelector("[data-ezreg-search]")?.focus()
       }
     });
-    return {render,mount,open};
+    function openPayment(order){
+      initTenant();
+      if(!order||order.status==="paid"||order.paid)return;
+      checkout?.begin(order);
+      navigate("pos");
+    }
+    return {render,mount,open,openPayment};
   };
 })();

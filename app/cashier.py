@@ -58,6 +58,22 @@ def close_preview(bid: str, day: date | None = None,
         *scoped, SaleOrder.status == "paid",
         SaleOrder.paid_at >= start, SaleOrder.paid_at < end)
         .order_by(SaleOrder.paid_at.desc(), SaleOrder.id.desc()).limit(40)).all()
+    from .pos_payments import ManualTenderReceipt
+    declared = db.execute(select(
+        ManualTenderReceipt.method, func.coalesce(func.sum(ManualTenderReceipt.amount_vnd), 0)
+    ).join(SaleOrder, SaleOrder.id == ManualTenderReceipt.order_id)
+      .where(*scoped, ManualTenderReceipt.business_id == bid,
+             SaleOrder.status == "paid", SaleOrder.paid_at >= start,
+             SaleOrder.paid_at < end)
+      .group_by(ManualTenderReceipt.method)).all()
+    by_method = {method: int(amount) for method, amount in declared}
+    cash_manual = by_method.get("cash", 0)
+    transfer_manual = by_method.get("bank_transfer", 0)
+    unclassified = max(0, int(paid[1] or 0) - cash_manual - transfer_manual)
+    payment_rows = db.scalars(select(ManualTenderReceipt).where(
+        ManualTenderReceipt.business_id == bid,
+        ManualTenderReceipt.order_id.in_([x.id for x in recent] or [""]))).all()
+    payment_map = {row.order_id: row for row in payment_rows}
     return {
         "mode": "read_only_preview", "can_close_shift": False,
         "business_id": bid, "branch_id": branch_id,
@@ -67,12 +83,17 @@ def close_preview(bid: str, day: date | None = None,
                            "cancelled_now": int(created[1] or 0),
                            "open_now": int(created[2] or 0)},
         "outstanding_now_count": int(outstanding_now),
-        "unknown_payment_method_vnd": int(paid[1] or 0),
+        "unknown_payment_method_vnd": unclassified,
+        "manual_cash_vnd": cash_manual,
+        "manual_bank_transfer_vnd": transfer_manual,
         "cash_counted_vnd": None, "cash_variance_vnd": None,
         "bank_verified": False,
         "entries": [{"order_id": x.id, "amount_vnd": x.total_vnd,
+                     "payment_method": (payment_map[x.id].method if x.id in payment_map
+                                        else "unknown_legacy"),
+                     "bank_verified": False,
                      "paid_at": x.paid_at.isoformat() if x.paid_at else None}
                     for x in recent],
         "entries_truncated": int(paid[0] or 0) > len(recent),
-        "notice": "Tiền đã nhận là đánh dấu thủ công; không phân biệt tiền mặt/thẻ/chuyển khoản, chưa đối soát ngân hàng hoặc đếm tiền két, không phải chốt ca chính thức.",
+        "notice": "Có phân loại tiền mặt và chuyển khoản do nhân viên xác nhận thủ công. Không có xác minh ngân hàng, không đếm tiền két, đơn cũ có thể chưa rõ phương thức. Đây không phải chốt ca chính thức.",
     }
