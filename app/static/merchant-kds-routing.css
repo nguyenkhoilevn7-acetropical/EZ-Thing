@@ -1,0 +1,61 @@
+/* EZ Thing category → station routing configuration; scoped to KDS. */
+#ez-kds-routing{min-width:0;margin:15px 0}
+.ezroute-panel{border:1px solid var(--merchant-line,var(--line,#dfe7ee));border-radius:18px;
+ background:var(--merchant-panel,var(--paper,#fff));overflow:hidden;color:var(--merchant-ink,var(--ink,#182335))}
+.ezroute-panel>summary{list-style:none;cursor:pointer;display:flex;align-items:center;
+ gap:10px;padding:16px 20px;font-weight:830;font-size:14px;min-height:52px;
+ color:var(--merchant-ink,var(--ink,#182335))}
+.ezroute-panel>summary::-webkit-details-marker{display:none}
+.ezroute-panel>summary:after{content:"⌄";margin-left:auto;color:var(--merchant-muted,#64748b)}
+.ezroute-panel[open]>summary:after{transform:rotate(180deg)}
+.ezroute-state{font-weight:840;font-size:10px;letter-spacing:.05em;padding:6px 9px;border-radius:99px}
+.ezroute-state.on{color:#08764d;background:rgba(21,172,100,.11)}
+.ezroute-state.off{color:#a04f15;background:rgba(225,147,37,.12)}
+.ezroute-intro{padding:14px 20px;margin:0;border-top:1px solid var(--merchant-line,#e3e9ee);
+ background:var(--merchant-panel-alt,#f5f7fb)}
+.ezroute-intro strong{font-size:13px;line-height:1.5}
+.ezroute-intro p{font-size:12px;margin:6px 0 0;color:var(--merchant-muted,#68758a);line-height:1.55}
+.ezroute-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;padding:17px}
+.ezroute-card{display:flex;flex-direction:column;gap:11px;padding:15px;
+ border:1px solid var(--merchant-line,#dce5ec);border-radius:15px;min-width:0;
+ background:var(--merchant-panel-alt,#f7f9fc)}
+.ezroute-card h4{font-size:13px;line-height:1.35;margin:0 0 4px;font-weight:850;color:var(--merchant-ink,#152238)}
+.ezroute-card label{display:flex;flex-direction:column;gap:6px;font-size:11px;
+ font-weight:770;color:var(--merchant-muted,#68758a)}
+.ezroute-card select{width:100%;min-height:42px;font:inherit;font-size:12px;min-width:0;
+ border:1px solid var(--merchant-line,#dce5ee);border-radius:10px;padding:8px 9px;
+ background:var(--merchant-panel,#fff);color:var(--merchant-ink,#1c293a)}
+.ezroute-card button{margin-top:auto;min-height:38px;border-radius:10px}
+.ezroute-card .ezroute-switch{flex-direction:row;align-items:flex-start;gap:10px;
+ font-size:12px;color:var(--merchant-ink,#152238);line-height:1.5;font-weight:760}
+.ezroute-switch input{width:19px;height:19px;min-width:19px;margin:1px 0 0;
+ accent-color:var(--merchant-accent,#0066cc)}
+.ezroute-summaries{padding:0 19px 15px;display:flex;flex-wrap:wrap;gap:7px}
+.ezroute-summaries p{width:100%;margin:7px 0 0;font-size:11px;color:var(--merchant-muted,#68758a)}
+.ezroute-badge{display:inline-flex;padding:8px 11px;border-radius:9px;
+ background:var(--merchant-panel-alt,#f4f7fa);border:1px solid var(--merchant-line,#dce5ee);
+ font-size:11px;font-weight:780;color:var(--merchant-ink,#152238)}
+.ezroute-disclaimer{border-top:1px solid var(--merchant-line,#dce5ec);
+ margin:0;padding:12px 19px 15px;color:var(--merchant-muted,#68758a);
+ line-height:1.5;font-size:11px}
+.ezroute-staff-hint{font-size:11px;color:var(--merchant-muted,#68758a)}
+.kds-fire-details{width:100%;min-width:0}
+.kds-fire-details>summary{cursor:pointer;font-size:12px;font-weight:800;list-style:none;
+ color:var(--merchant-accent,#0066cc);padding:9px 0}
+.kds-fire-details>summary::-webkit-details-marker{display:none}
+.kds-fire-details>summary:before{content:"+";margin-right:8px}
+.kds-fire-details[open]>summary:before{content:"−"}
+.kds-fire-details .kds-fire-form{padding:10px 0 0}
+:root[data-ez-merchant-theme="graphite"] .ezroute-panel,
+:root[data-ez-merchant-theme="graphite"] .ezroute-card{color:var(--merchant-ink,#f0f3f6)}
+:root[data-ez-merchant-theme="graphite"] .ezroute-card h4,
+:root[data-ez-merchant-theme="graphite"] .ezroute-card .ezroute-switch,
+:root[data-ez-merchant-theme="graphite"] .ezroute-badge{color:var(--merchant-ink,#f0f3f6)}
+@media(max-width:1100px){.ezroute-grid{grid-template-columns:1fr 1fr}}
+@media(max-width:680px){
+ .ezroute-grid{grid-template-columns:1fr;padding:10px}
+ .ezroute-panel>summary{padding:13px 14px;font-size:12px;flex-wrap:wrap}
+ .ezroute-intro{padding:11px 14px}
+ .ezroute-card{padding:13px}
+ .ezroute-disclaimer{padding:10px 14px}
+}
