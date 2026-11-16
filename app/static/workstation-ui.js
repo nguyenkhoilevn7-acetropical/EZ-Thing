@@ -97,6 +97,21 @@
         const sb=ensureSandbox();
         return [...sb.tickets,...(sb.originalTickets||[])];
       }
+      function sandboxPrintout(order,kind){
+        const money=v=>(Number(v)||0).toLocaleString("vi-VN")+"đ";
+        const title={prebill:choose("PHIẾU TẠM TÍNH","PRE-BILL"),receipt:choose("PHIẾU THANH TOÁN","RECEIPT"),
+          packing:choose("PHIẾU KIỂM ĐỒ","PACKING SLIP"),cup_label:choose("TEM LY","CUP LABEL")}[kind]||kind;
+        const lines=(order.items||[]).map(item=>{
+          const mods=(item.modifiers||[]).map(m=>"   + "+m.name).join("\n");
+          return item.quantity+" x "+item.name+"  "+money(item.total_vnd)+(mods?"\n"+mods:"");
+        });
+        return ["EZ THING · "+choose("BẢN DÙNG THỬ","SANDBOX"),title,
+          "#"+String(order.id).slice(0,8).toUpperCase()+" · "+new Date(order.created_at||Date.now()).toLocaleString("vi-VN"),
+          "--------------------------------",...lines,"--------------------------------",
+          choose("TỔNG","TOTAL")+": "+money(order.total_vnd),
+          order.status==="paid"?choose("Đã thanh toán","Paid"):choose("Chưa thanh toán","Unpaid"),
+          "",choose("Chế độ dùng thử: không gửi tới máy in thật.","Sandbox: never sent to a physical printer.")].join("\n");
+      }
       function previewResponse(path,opt={}){
         if(!previewMode)return {handled:false};
         const sb=ensureSandbox(),method=(opt.method||"GET").toUpperCase();
@@ -104,6 +119,17 @@
           try{return JSON.parse(opt.body||"{}")}catch{throw new Error("Dữ liệu thử không hợp lệ")}
         };
         if(method==="GET"){
+          // Sandbox orders only exist in this tab: build their printout locally
+          // instead of asking the server for an order it has never seen.
+          const printout=tail.match(/\/printers\/documents\/([^/]+)\/preview$/);
+          if(printout){
+            const order=sb.orders.find(o=>o.id===decodeURIComponent(printout[1]));
+            if(order){
+              const kind=new URLSearchParams(path.split("?")[1]||"").get("kind")||"receipt";
+              return {handled:true,data:{order_id:order.id,kind,available_devices:[],
+                documents:[{content:sandboxPrintout(order,kind)}]}};
+            }
+          }
           if(/^\/businesses\/[^/]+\/orders$/.test(tail))return {handled:true,data:clone(sb.orders)};
           if(/^\/businesses\/[^/]+\/tables$/.test(tail))return {handled:true,data:clone(sb.tables)};
           if(/\/host\/board$/.test(tail)&&sb.hostBoard)
@@ -501,7 +527,7 @@
       // Prevent physical printing while showing the exact employee interface.
       document.addEventListener("click",event=>{
         if(!previewMode)return;
-        if(event.target.closest('[data-kds="print"],[data-ezreg="print"],[data-action="print-doc-open"]')){
+        if(event.target.closest('[data-kds="print"]')){
           event.preventDefault();event.stopImmediatePropagation();
           toast(choose("Chế độ mô phỏng không in phiếu thật.",
             "Interactive preview does not print physical receipts."));

@@ -32,7 +32,11 @@ def id_() -> str:
 SEEDS = (
     {
         "industry": "fnb", "business": "Tropical Coffee • DEMO", "category": "Đồ uống",
-        "products": (("Matcha Latte", "MATCHA", 49000, 14000, 42),
+        # Food items make the kitchen (hot/cold) screen non-empty; drinks go to
+        # the bar. The first three also drive the seeded orders and tickets.
+        "products": (("Bánh mì trứng ốp la", "BM-TRUNG", 35000, 12000, 25, "Đồ ăn"),
+                     ("Matcha Latte", "MATCHA", 49000, 14000, 42),
+                     ("Salad gà sốt mè", "SALAD-GA", 55000, 21000, 14, "Đồ ăn"),
                      ("Cà phê sữa", "CAFE-SUA", 35000, 11000, 32),
                      ("Trà đào cam sả", "TRA-DAO", 45000, 13000, 21),
                      ("Cold Brew", "COLD-BREW", 42000, 12000, 16),
@@ -97,10 +101,10 @@ def seed_demo(db) -> User:
             sample_customers.append(customer)
 
         sample_products = []
-        for name, sku, price, cost, stock in spec["products"]:
+        for name, sku, price, cost, stock, *category in spec["products"]:
             track = spec["industry"] != "services"
             product = Product(id=id_(), business_id=biz_id, name=name, sku=sku,
-                              category=spec["category"], price_vnd=price,
+                              category=category[0] if category else spec["category"], price_vnd=price,
                               cost_vnd=cost, stock=stock, track_stock=track)
             db.add(product)
             sample_products.append(product)
