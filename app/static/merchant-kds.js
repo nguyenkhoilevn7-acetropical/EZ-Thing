@@ -9,6 +9,7 @@ function init({api,getState,E,V,toast,modal,closeModal,refresh}){
  let data=null,station="all",branch="all",view="order",showDone=false;
  let active=false,poll=null,generation=0,sound=false,first=true,busy=false,known=new Set();
  const st=()=>getState(),bid=()=>st().business?.id;
+ const routingUI=window.EZKDSRouting?.({api,E,toast,getState});
  const url=path=>"/businesses/"+encodeURIComponent(bid())+"/kds"+path;
  const tx=(vn,en)=>window.EZI18N?.language?.()==="en"?en:vn;
  const esc=x=>E(x??"");
@@ -52,7 +53,7 @@ function init({api,getState,E,V,toast,modal,closeModal,refresh}){
  }
  function markup(){
   const rows=filterRows();
-  if(!rows.length)return '<div class="kds-empty">☕ <strong>'+tx("Chưa có món ở trạm này","No dishes in this station")+'</strong><p>'+tx("Hãy gửi phiếu bếp từ đơn hàng để bắt đầu.","Fire an order to begin.")+'</p></div>';
+  if(!rows.length)return '<div class="kds-empty">☕ <strong>'+tx("Chưa có món ở trạm này","No dishes in this station")+'</strong><p>'+tx("Đơn mới tự phân trạm; kiểm tra cấu hình nếu không thấy món.","New orders route automatically; check station settings if nothing appears.")+'</p></div>';
   const cards=[];
   for(const t of rows){
     const header='<header class="kds-ticket-head"><div><strong>#'+esc(t.order_id.slice(0,8).toUpperCase())+'</strong><small>'+esc(st().cache?.tables?.find(x=>x.id===t.table_id)?.label||tx("Mang đi","Takeaway"))+'</small></div><span class="kds-timer '+age(t)+'">'+since(t)+' '+tx("phút","min")+'</span></header>';
@@ -68,7 +69,7 @@ function init({api,getState,E,V,toast,modal,closeModal,refresh}){
  function fireControl(){
    const orders=(st().cache?.orders||[]).filter(x=>x.status!=="cancelled"&&(branch==="all"||x.branch_id===branch)&&!(data?.tickets||[]).some(t=>t.order_id===x.id));
    if(!orders.length)return '<span class="subtle">'+tx("Không có đơn chưa gửi bếp","No unfired orders")+'</span>';
-   return '<form data-kds-form="fire" class="kds-fire-form"><select name="order_id" required aria-label="Đơn hàng">'+orders.map(x=>'<option value="'+esc(x.id)+'">#'+esc(x.id.slice(0,8).toUpperCase())+' · '+V(x.total_vnd)+'</option>').join("")+'</select><button class="btn sm" type="submit">'+tx("Gửi bếp","Fire")+'</button></form>';
+   return '<details class="kds-fire-details"><summary>'+tx("Chọn đơn để gửi thủ công","Select order for manual dispatch")+'</summary><form data-kds-form="fire" class="kds-fire-form"><select name="order_id" required aria-label="Đơn hàng">'+orders.map(x=>'<option value="'+esc(x.id)+'">#'+esc(x.id.slice(0,8).toUpperCase())+' · '+V(x.total_vnd)+'</option>').join("")+'</select><button class="btn sm" type="submit">'+tx("Gửi bếp","Fire")+'</button></form></details>';
  }
  function routeControl(){
    if(!manager())return "";
@@ -85,8 +86,8 @@ function init({api,getState,E,V,toast,modal,closeModal,refresh}){
    '<label>'+tx("Hiển thị","View")+'<select data-kds-filter="view"><option value="order" '+(view==="order"?"selected":"")+'>'+tx("Theo đơn","By ticket")+'</option><option value="item" '+(view==="item"?"selected":"")+'>'+tx("Theo món","By item")+'</option></select></label><label class="kds-check"><input type="checkbox" data-kds-filter="done" '+(showDone?"checked":"")+'>'+tx("Món đã giao","Served items")+'</label></div>'+
    '<div class="kds-stations" role="group" aria-label="Trạm xử lý">'+Object.entries(stations).map(([id,name])=>'<button class="kds-station '+(station===id?"active":"")+'" data-kds="station" data-value="'+id+'">'+esc(name)+' <span data-count="'+id+'">0</span></button>').join("")+'</div>'+
    '<div class="kds-metrics"><div><strong id="kds-ticket-count">0</strong><span>'+tx("Phiếu đang xử lý","Active tickets")+'</span></div><div><strong id="kds-item-count">0</strong><span>'+tx("Món chưa giao","Unserved units")+'</span></div><div><strong id="kds-late-count">0</strong><span>'+tx("Phiếu trên 7 phút","Late tickets")+'</span></div><small id="kds-live" role="status">'+tx("Đang kết nối...","Connecting...")+'</small></div>'+
-   '<div class="kds-fire"><div><strong>'+tx("Gửi phiếu xuống bếp","Send an order to kitchen")+'</strong><p>'+tx("Giá bán và kho đã ghi ở POS không thay đổi khi gửi bếp.","Firing a ticket does not alter POS pricing or stock.")+'</p></div><div id="kds-fire-slot">'+fireControl()+'</div></div>'+
-   routeControl()+'<div id="kds-content"><div class="kds-empty">'+tx("Đang tải phiếu bếp...","Loading tickets...")+'</div></div><p class="kds-disclaimer">'+tx("Đồng bộ 5 giây khi đang mở màn hình. Âm báo cần bật thủ công; có thể in qua trình duyệt hoặc máy in EZ Print đã cấu hình. Không có push khi tắt màn hình.","Foreground sync every 5s; opt-in sound; browser print or configured EZ Print hardware. No background push.")+'</p></div>';
+   '<div class="kds-fire"><div><strong>'+tx("Gửi phiếu thủ công · Chỉ dùng khi cần","Manual dispatch · Exceptions only")+'</strong><p>'+tx("Đơn mới đã tự phân trạm; chỉ gửi thủ công khi đã tắt tự động hoặc xử lý ngoại lệ.","New checks auto-route. Manual dispatch is for disabled auto mode or exceptions.")+'</p></div><div id="kds-fire-slot">'+fireControl()+'</div></div>'+
+   '<div id="ez-kds-routing">'+(routingUI?.render()||"")+'</div><div id="kds-content"><div class="kds-empty">'+tx("Đang tải phiếu bếp...","Loading tickets...")+'</div></div><p class="kds-disclaimer">'+tx("Đồng bộ 5 giây khi đang mở màn hình. Âm báo cần bật thủ công; có thể in qua trình duyệt hoặc máy in EZ Print đã cấu hình. Không có push khi tắt màn hình.","Foreground sync every 5s; opt-in sound; browser print or configured EZ Print hardware. No background push.")+'</p></div>';
  }
  function paint(){
   const root=document.getElementById("ez-kds");if(!root||!data)return;
@@ -127,13 +128,14 @@ function init({api,getState,E,V,toast,modal,closeModal,refresh}){
   if(st().business?.industry!=="fnb")return;
   active=true;generation++;data=null;first=true;known=new Set();
   if(poll)clearInterval(poll);
+  routingUI?.mount();
   try{await load(true)}catch(err){toast(err.message,true)}
   poll=setInterval(()=>{
     if(!active||document.hidden||st().tab!=="kitchen"||busy)return;
     load().catch(()=>{const live=document.getElementById("kds-live");if(live)live.textContent=tx("Mất kết nối","Offline")});
   },5000);
  }
- function invalidate(){active=false;generation++;if(poll)clearInterval(poll);poll=null;data=null;first=true;known=new Set()}
+ function invalidate(){active=false;generation++;if(poll)clearInterval(poll);poll=null;data=null;first=true;known=new Set();routingUI?.invalidate()}
  async function submit(form){
   if(busy)return;busy=true;
   const button=form.querySelector('[type=submit]');if(button)button.disabled=true;
