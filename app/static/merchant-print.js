@@ -11,11 +11,12 @@ function init({api,E,toast,getState}) {
    cloudprnt:"CloudPRNT (Star)",
    all:"Tất cả phiếu bếp",bar:"Pha chế",hot:"Bếp nóng",
    cold:"Bếp lạnh",expo:"Ra món",receipt:"Thu ngân",
+   packing:"Kiểm đồ / Đóng gói",label:"Tem dán ly",
    queued:"Chờ máy in",offered:"Đã gửi · chờ xác nhận",
    printed:"Đã xác nhận",failed:"Có lỗi",
  };
  const fmt=t=>t?new Date(t).toLocaleString(window.EZI18N?.locale()||"vi-VN"):"Chưa kết nối";
- const stationOptions=current=>["all","bar","hot","cold","expo","receipt"].map(x=>
+ const stationOptions=current=>["all","bar","hot","cold","expo","receipt","packing","label"].map(x=>
    '<option value="'+x+'" '+(current===x?"selected":"")+'>'+E(label[x])+'</option>').join("");
  function render() {
   const role=getState().business?.role;
