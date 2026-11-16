@@ -107,13 +107,30 @@
         previewMode=task;temporary=false;drawerOpen=false;
         state().workstation=virtualProfile(task);
         onChanged(home());
+        requestAnimationFrame(()=>{
+          syncPreviewLayout();
+          document.scrollingElement?.scrollTo({top:0,behavior:"instant"});
+          for(const node of document.querySelectorAll(".app>.main,.app .content"))node.scrollTop=0;
+          window.scrollTo(0,0);
+        });
       }
       function exitPreview(){
         if(!previewMode)return;
         previewMode=null;temporary=true;drawerOpen=false;
         state().workstation=current;
         onChanged("overview");
+        requestAnimationFrame(()=>{
+          syncPreviewLayout();
+          document.scrollingElement?.scrollTo({top:0,behavior:"instant"});
+          window.scrollTo(0,0);
+        });
       }
+      function syncPreviewLayout(){
+        const bar=document.querySelector(".ezws-preview-bar");
+        const height=bar?Math.ceil(bar.getBoundingClientRect().height):0;
+        document.body.style.setProperty("--ezws-preview-header-h",height+"px");
+      }
+      window.addEventListener("resize",()=>{if(previewMode)syncPreviewLayout()},{passive:true});
       async function fullscreen(){
         try{
           if(document.fullscreenElement)await document.exitFullscreen();
@@ -277,7 +294,7 @@
         if(event.key==="Escape"&&drawerOpen){switchDrawer(false)}
       });
       return {load,mode,focused,home,drawer,previewNav,openPreviewPicker,
-              previewOnly,exitPreview,fullscreen,modeLabel,isTemporary:()=>temporary,
+              previewOnly,exitPreview,fullscreen,syncPreviewLayout,modeLabel,isTemporary:()=>temporary,
               current:()=>current,owner,showSettings,
               allowNavigation:tab=>!focused()||tab===home(),
               applyDocument:()=>{
