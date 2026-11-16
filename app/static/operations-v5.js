@@ -4,6 +4,7 @@
 'use strict';
 window.EZOperationsV5=function(deps){
   var current='', data={}, generation=0, busy=false, poll=null;
+  var closingDay=new Date().toLocaleDateString('sv-SE',{timeZone:'Asia/Ho_Chi_Minh'}), closingBranch='';
   var E=deps.E,V=deps.V, api=deps.api, toast=deps.toast;
   function state(){return deps.getState()}
   function business(){return state().business||{}}
@@ -142,6 +143,26 @@ window.EZOperationsV5=function(deps){
           tx('Ghi nhận đổi thưởng','Record reward redemption'))+
         (data.loyalty?.transactions||[]).slice(0,15).map(x=>row(x,E(x.details.points)+' điểm')).join(''));
     }
+    if(role!=='staff'&&business().active_modules?.includes('orders')){
+      var close=data.cashierClose||{},paid=close.paid_at_day||{},
+        source=close.created_at_day||{};
+      output+=box(tx('Đối soát cuối ngày · xem trước','Daily closing · preview'),
+        tx('Theo ngày nhận tiền, không phải ngày tạo đơn. Không khóa ca, không xác nhận tiền mặt hoặc ngân hàng.','Uses paid-at time, not order creation. No cash count, bank verification or actual shift closure.'),
+        form('close-preview',
+          '<div class="v5-formrow"><label>'+tx('Ngày','Date')+
+          '<input type="date" name="day" required value="'+E(closingDay)+'"></label>'+
+          '<label>'+tx('Chi nhánh','Branch')+
+          '<select name="branch_id">'+opt('',tx('Tất cả chi nhánh','All branches'),closingBranch)+
+          branches.map(x=>opt(x.id,x.name,closingBranch)).join('')+'</select></label></div>',
+          tx('Xem đối soát','View summary'))+
+        '<div class="v5-figures">'+
+        '<span>'+tx('Đơn nhận tiền trong ngày','Paid that day')+'<b>'+E(paid.count||0)+'</b></span>'+
+        '<span>'+tx('Tổng tiền đánh dấu đã nhận','Marked received')+'<b>'+V(paid.amount_vnd||0)+'</b></span>'+
+        '<span>'+tx('Đơn mới còn mở','New orders still open')+'<b>'+E(source.open_now||0)+'</b></span>'+
+        '<span>'+tx('Đơn còn mở toàn chi nhánh','All outstanding orders')+'<b>'+E(close.outstanding_now_count||0)+'</b></span></div>'+
+        '<p class="v5-note">'+tx('⚠ Chưa ghi phương thức thanh toán; không suy luận đây là tiền mặt. Chưa thể chốt ca chính thức.',
+          '⚠ Payment methods are not captured; these totals are not cash. This is not a final shift close.')+'</p>',true);
+    }
     if(role!=='staff'&&business().active_modules?.includes('insights')){
       var fin=data.finance||{};
       output+=box(tx('Thu chi và lợi nhuận ước tính','Expenses and estimated profit'),
@@ -187,6 +208,11 @@ window.EZOperationsV5=function(deps){
       add('deliveries','/businesses/'+bid()+'/industry/delivery');
     if(b.role!=='staff'&&b.active_modules.includes('orders'))add('loyalty');
     if(b.role!=='staff'&&b.active_modules.includes('insights'))add('finance');
+    if(b.role!=='staff'&&b.active_modules.includes('orders')){
+      var params=new URLSearchParams({day:closingDay});
+      if(closingBranch)params.set('branch_id',closingBranch);
+      add('cashierClose','/businesses/'+bid()+'/cashier/close-preview?'+params);
+    }
     await Promise.allSettled(jobs);
     if(serial!==generation||current!==business().id)return;
     paint();
@@ -231,6 +257,15 @@ window.EZOperationsV5=function(deps){
     ev.preventDefault();ev.stopPropagation();if(busy)return;
     var kind=form.dataset.v5Form,button=form.querySelector('[type=submit]');
     var values=Object.fromEntries(new FormData(form));
+    if(kind==='close-preview'){
+      busy=true;if(button)button.disabled=true;
+      closingDay=values.day;closingBranch=values.branch_id||'';
+      var query=new URLSearchParams({day:closingDay});
+      if(closingBranch)query.set('branch_id',closingBranch);
+      load('cashierClose','/businesses/'+bid()+'/cashier/close-preview?'+query)
+        .then(()=>paint()).finally(()=>{busy=false;if(button)button.disabled=false});
+      return;
+    }
     if(kind==='recipe')values.ingredients=Array.from(form.querySelectorAll('[data-v5-ingredient]')).map(row=>({
       product_id:row.querySelector('select[name=ingredient_id]').value,
       quantity:Number(row.querySelector('input[name=quantity]').value)

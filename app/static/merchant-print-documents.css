@@ -1,0 +1,47 @@
+.ez-doc-modal{display:grid;gap:12px;min-width:0;color:var(--merchant-ink,var(--ink))}
+.ez-doc-kind{display:flex;flex-wrap:wrap;gap:8px}
+.ez-doc-kind .btn[aria-pressed="true"]{font-weight:700}
+.ez-doc-summary{font-size:12px;color:var(--merchant-muted,var(--muted,#607086))}
+.ez-doc-receipt{
+ font:12px/1.4 ui-monospace,SFMono-Regular,Consolas,monospace;
+ white-space:pre-wrap;overflow-wrap:anywhere;max-height:40vh;
+ overflow:auto;padding:16px;border-radius:12px;
+ background:var(--merchant-panel,var(--paper,#fff));
+ color:var(--merchant-ink,var(--ink));
+ border:1px dashed var(--merchant-border,#9aa9b5)
+}
+.ez-doc-controls label{display:grid;gap:7px;font-size:13px}
+.ez-doc-controls select{border-radius:9px;min-height:42px;padding:8px 12px;
+ background:var(--merchant-panel,var(--paper,#fff));
+ color:var(--merchant-ink,var(--ink));
+ border:1px solid var(--merchant-border,#b5c0cb);
+ width:100%}
+.ez-doc-modal .modal-footer{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+@media(max-width:600px){
+ .ez-doc-receipt{padding:11px;font-size:11px;max-height:38vh}
+ .ez-doc-modal .modal-footer .btn{flex:1 1 auto}
+}
+@media print{
+ body:has(#ez-print-document) #root,
+ body:has(#ez-print-document) #toast-root{display:none!important}
+ body:has(#ez-print-document) #modal-root{
+  display:block!important;position:static!important;overflow:visible!important
+ }
+ body:has(#ez-print-document) #modal-root .overlay,
+ body:has(#ez-print-document) #modal-root .dialog{
+  position:static!important;inset:auto!important;
+  background:white!important;color:black!important;
+  max-width:none!important;max-height:none!important;width:100%!important;
+  box-shadow:none!important;border:none!important;margin:0!important;
+  padding:0!important;overflow:visible!important
+ }
+ body:has(#ez-print-document) #ez-print-document>*:not(.ez-doc-receipt),
+ body:has(#ez-print-document) #modal-root .dialog>*:not(#ez-print-document){
+  display:none!important
+ }
+ body:has(#ez-print-document) .ez-doc-receipt{
+  display:block!important;max-height:none!important;overflow:visible!important;
+  background:white!important;color:black!important;border:0!important;
+  padding:0!important;margin:0!important;font-size:12px
+ }
+}

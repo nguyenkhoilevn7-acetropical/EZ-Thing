@@ -185,3 +185,84 @@ def test_tenant_and_branch_isolation(c):
                    {}, csrf2).status_code == 404
     finally:
         other.close()
+
+
+def test_operational_documents_preview_and_dispatch_are_idempotent(c):
+    bid, branch, csrf = owner(c, "doc-suite@example.com")
+    receipt = register(c, bid, branch, csrf, "connector_lan", "receipt")
+    packing = register(c, bid, branch, csrf, "connector_usb", "packing")
+    label = register(c, bid, branch, csrf, "cloudprnt", "label")
+    o = order(c, bid, csrf)
+    path = f"/businesses/{bid}/printers/documents/{o['id']}"
+
+    preview = api(c, "GET", path + "/preview?kind=prebill")
+    assert preview.status_code == 200, preview.text
+    assert preview.json()["tax_invoice"] is False
+    assert "CHUA THANH TOAN" in preview.json()["documents"][0]["content"]
+    assert "70,000 VND" in preview.json()["documents"][0]["content"]
+    assert [x["id"] for x in preview.json()["available_devices"]] == [receipt["id"]]
+
+    body = {"kind":"prebill", "device_id":receipt["id"], "request_id":"receipt-preview-0001"}
+    assert api(c,"POST",path+"/print",body,csrf).status_code == 201
+    repeated=api(c,"POST",path+"/print",body,csrf)
+    assert repeated.status_code == 201 and repeated.json()["replayed"] is True
+    bad=api(c,"POST",path+"/print",{**body,"device_id":label["id"]},csrf)
+    assert bad.status_code == 409
+
+    cup = api(c,"GET",path+"/preview?kind=cup_label")
+    assert cup.status_code == 200 and len(cup.json()["documents"]) == 2
+    assert "Trà sữa" in cup.json()["documents"][0]["content"]
+    assert "1/2" in cup.json()["documents"][0]["content"]
+    assert api(c,"POST",path+"/print",{
+        "kind":"cup_label","device_id":label["id"],
+        "request_id":"cup-labels-000001"},csrf).json()["document_count"]==2
+
+    checks=api(c,"GET",path+"/preview?kind=packing")
+    assert checks.status_code==200 and "[  ]" in checks.json()["documents"][0]["content"]
+    assert api(c,"POST",path+"/print",{
+        "kind":"packing","device_id":packing["id"],
+        "request_id":"packing-check-0001"},csrf).status_code==201
+    jobs=api(c,"GET",f"/businesses/{bid}/printers/jobs").json()["jobs"]
+    assert len(jobs)==4
+
+    assert api(c,"GET",path+"/preview?kind=receipt").status_code==409
+    assert api(c,"POST",f"/businesses/{bid}/orders/{o['id']}/paid",
+               {"confirmed":True},csrf).status_code==200
+    assert api(c,"GET",path+"/preview?kind=prebill").status_code==409
+    assert api(c,"GET",path+"/preview?kind=receipt").status_code==200
+    assert api(c,"POST",path+"/print",{
+        "kind":"receipt","device_id":receipt["id"],
+        "request_id":"paid-copy-000001"},csrf).status_code==201
+    assert len(api(c,"GET",f"/businesses/{bid}/printers/jobs").json()["jobs"])==6
+
+
+def test_tokenless_cloudprnt_confirmation_only_acknowledges_offered_job(c):
+    bid, branch, csrf=owner(c,"cloud-legacy@example.com")
+    device=register(c,bid,branch,csrf,"cloudprnt","bar")
+    o=order(c,bid,csrf)
+    assert api(c,"POST",f"/businesses/{bid}/kds/fire",
+               {"order_id":o["id"]},csrf).status_code==201
+    path=f"/print/cloudprnt/{device['id']}"
+    assert api(c,"POST",path,{},auth=basic(device)).json()["jobReady"]
+    assert c.delete("/api"+path+"?code=200%20OK",
+                    headers={"authorization":basic(device)}).status_code==200
+    assert c.delete("/api"+path+"?code=200%20OK",
+                    headers={"authorization":basic(device)}).status_code==200
+    jobs=api(c,"GET",f"/businesses/{bid}/printers/jobs").json()["jobs"]
+    assert len(jobs)==1 and jobs[0]["status"]=="printed"
+
+
+def test_document_preview_and_print_are_tenant_scoped(c):
+    bid,branch,csrf=owner(c,"print-tenant-owner@example.com")
+    device=register(c,bid,branch,csrf,"connector_usb","receipt")
+    oid=order(c,bid,csrf)["id"]
+    path=f"/businesses/{bid}/printers/documents/{oid}"
+    with TestClient(app) as other:
+        second,other_branch,other_csrf=owner(other,"print-tenant-other@example.com")
+        assert api(other,"GET",path+"/preview?kind=prebill").status_code==404
+        payload={"kind":"prebill","device_id":device["id"],
+                 "request_id":"tenant-reject-0001"}
+        assert api(other,"POST",path+"/print",payload,other_csrf).status_code==404
+        foreign=register(other,second,other_branch,other_csrf,"connector_usb","receipt")
+        payload["device_id"]=foreign["id"]
+        assert api(c,"POST",path+"/print",payload,csrf).status_code==404

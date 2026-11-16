@@ -182,7 +182,7 @@ def queue(bid: str, branch_id: str | None = None,
         "poll_after_seconds": 5,
         "transport": "foreground_polling",
         "notifications": "browser_tab_opt_in_only",
-        "printing": "browser_print_only",
+        "printing": "browser_or_ez_print_connector",
     }
 
 
