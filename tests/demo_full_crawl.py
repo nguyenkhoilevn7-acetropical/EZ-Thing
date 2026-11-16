@@ -357,6 +357,71 @@ def pos_sale(page, pay):
         settle(page, 1500)
 
 
+def crawl_preview(page, label):
+    """Owner's interactive workstation sandbox: five employee screens, no saves."""
+    def enter(mode):
+        page.evaluate("m=>{const b=document.createElement('button');b.dataset.ezws='preview';"
+                      "b.dataset.value=m;document.body.append(b);b.click();b.remove()}", mode)
+        settle(page, 1200)
+        if not page.locator(".ezws-preview-bar").count():
+            raise AssertionError("preview toolbar missing for " + mode)
+        if not page.locator("#page-content").inner_text(timeout=5000).strip():
+            raise AssertionError("preview screen empty for " + mode)
+        tabs = page.locator(".ezws-preview-tabs button")
+        for index in range(tabs.count()):
+            box = tabs.nth(index).bounding_box()
+            if box is None or box["x"] < 0 or box["x"] + box["width"] > page.viewport_size["width"] + 1:
+                record("layout", f"preview tab '{tabs.nth(index).inner_text()}' is cut off")
+
+    def order_and_print():
+        enter("order")
+        writes = []
+        page.on("request", lambda r: writes.append(r.method + " " + r.url)
+                if "/api/" in r.url and r.method != "GET" else None)
+        product = page.locator('#ez-register [data-ezreg="product"]:not([disabled])').first
+        product.click()
+        page.wait_for_timeout(400)
+        save = page.locator('[data-ezreg="option-save"]')
+        if save.count() and save.first.is_visible():
+            for group in page.eval_on_selector_all('[data-ezreg="option"]',
+                                                   "e=>[...new Set(e.map(x=>x.dataset.group))]"):
+                page.locator(f'[data-ezreg="option"][data-group="{group}"]').first.click()
+            save.first.click()
+            page.wait_for_timeout(400)
+        toggle = page.locator('[data-ezreg="cart-toggle"]')
+        if toggle.count() and toggle.first.is_visible():
+            toggle.first.click()
+        page.locator('#ez-register [data-ezreg="checkout"]').first.click()
+        settle(page, 500)
+        page.locator('[data-ezpay="quick"]').first.click()
+        box = page.locator("[data-ezpay-confirm]")
+        if box.count() and not box.first.is_checked():
+            box.first.check()
+        page.locator('[data-ezpay="confirm"]').first.click()
+        settle(page, 900)
+        printer = page.locator('[data-ezreg="print"]')
+        if printer.count() and printer.first.is_visible():
+            printer.first.click()
+            settle(page, 800)
+            if not page.locator("#ez-document-print-content").count():
+                record("preview", "print preview did not open for a sandbox order")
+            close_modal(page)
+        if writes:
+            record("preview", f"sandbox sent real writes: {writes[:3]}")
+
+    safe(f"{label} :: preview order + pay + print", order_and_print)
+    for mode in ("kitchen", "bar", "cashier", "host"):
+        safe(f"{label} :: preview {mode}", lambda mode=mode: enter(mode))
+
+    def kitchen_has_work():
+        enter("kitchen")
+        if not page.locator(".kds-ticket, [data-kds=\"status\"]").count():
+            record("preview", "kitchen screen has no ticket in the cafe demo")
+    safe(f"{label} :: preview kitchen has tickets", kitchen_has_work)
+    page.evaluate("()=>document.querySelector('[data-ezws=\"exit-preview\"]')?.click()")
+    settle(page, 800)
+
+
 def crawl_workflows(browser):
     page = browser.new_page(locale="vi-VN", viewport={"width": 1440, "height": 920})
     wire(page)
@@ -445,6 +510,8 @@ def crawl_workflows(browser):
                 if not statuses.get(wanted):
                     record("ledger", f"no {wanted} order was produced by the UI flow: {statuses}")
         safe(f"{label} :: verify orders written by UI", verify_ledger)
+        if business["industry"] == "fnb":
+            crawl_preview(page, label)
         # Re-open every tab after the writes: data changes must still render.
         for tab in tabs:
             safe(f"{label} :: re-render {tab}", lambda tab=tab: open_tab(page, tab, False))
