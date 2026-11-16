@@ -2,7 +2,7 @@
    Admin's interactive preview uses the existing zero-write API sandbox. */
 (() => {
 "use strict";
-window.EZHostWorkstation = function init({api,E,toast,getState,modal,closeModal,previewOnly}) {
+window.EZHostWorkstation = function init({api,E,toast,getState,modal,closeModal,previewOnly,onCreatePhysicalTable}) {
   const state=getState, biz=()=>state().business||{},id=()=>encodeURIComponent(biz().id||"");
   const url=p=>"/businesses/"+id()+p;
   const T=(vi,en)=>window.EZI18N?.language?.()==="en"?en:vi;
@@ -135,7 +135,16 @@ window.EZHostWorkstation = function init({api,E,toast,getState,modal,closeModal,
       'class="ezhost-map-table '+(t.occupied?"busy":"")+'" style="left:'+Number(t.placement.x)+
       '%;top:'+Number(t.placement.y)+'%"><strong>'+esc(t.label)+'</strong>'+
       '<small>'+esc(t.seats)+' '+T("chỗ","seats")+'</small></div>').join("")+
-      '</div><p class="ezhost-room-hint">'+T(
+      '</div>'+
+      (owner()?'<div class="ezhost-room-zone-transfer">'+
+      '<label>'+T("Chọn bàn","Select table")+'<select data-ezhost-floor-table>'+
+      layout.map(t=>'<option value="'+esc(t.id)+'">'+esc(t.label)+'</option>').join("")+
+      '</select></label><label>'+T("Chuyển sang khu vực","Move to zone")+
+      '<select data-ezhost-floor-zone>'+zones.map(z=>'<option value="'+esc(z.id)+'">'+
+      esc(z.name)+'</option>').join("")+'</select></label>'+
+      '<button type="button" data-ezhost-action="assign-zone">'+T("Áp dụng","Apply")+'</button>'+
+      '</div>':"")+
+      '<p class="ezhost-room-hint">'+T(
         "Vị trí bàn là sơ đồ trực quan. Di chuyển bàn trên sơ đồ không chuyển hóa đơn hoặc khách đang dùng bàn.",
         "Layout positions are visual only; moving tiles does not move financial checks or seated guests.")+
       '</p></section>';
@@ -341,8 +350,14 @@ window.EZHostWorkstation = function init({api,E,toast,getState,modal,closeModal,
       if(action==="new-zone"){addZone();return}
       if(action==="save-floor"){await saveFloor();return}
       if(action==="add-physical-table"){
-        toast(T("Tạo bàn vật lý trong Admin → Sơ đồ bàn; màn hình lễ tân dùng chức năng Thêm bàn để ghép bàn phục vụ.",
-          "Create physical tables in Admin → Floorplan. Hosts use Add table to join occupied tables."));return;
+        onCreatePhysicalTable?.(activeBranch());return;
+      }
+      if(action==="assign-zone"){
+        const tid=document.querySelector("[data-ezhost-floor-table]")?.value;
+        const newZone=document.querySelector("[data-ezhost-floor-zone]")?.value;
+        const tab=floorplan?.tables.find(x=>x.id===tid);
+        if(!tab||!floorplan?.zones.some(x=>x.id===newZone))return;
+        tab.placement.zone_id=newZone;zone=newZone;paint();return;
       }
       const t=at().find(x=>x.id===btn.dataset.value);
       if(t)await actionDialog(action,t);
@@ -404,6 +419,6 @@ window.EZHostWorkstation = function init({api,E,toast,getState,modal,closeModal,
     if(event.target.closest("#ezhost-workspace [data-ezhost-placement]"))
       dragStart(event);
   },true);
-  return {render,mount,invalidate,load};
+  return {render,mount,invalidate,load,branch:activeBranch};
 };
 })();
