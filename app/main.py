@@ -859,3 +859,7 @@ from .printing import merchant as print_router, device_api as print_device_route
 Base.metadata.create_all(bind=engine)  # Pilot only; production applies 20261116_08 migration.
 app.include_router(print_router)
 app.include_router(print_device_router)
+
+# Cashier daily reconciliation reads the existing SaleOrder ledger only.
+from .cashier import router as cashier_router  # noqa: E402
+app.include_router(cashier_router)
