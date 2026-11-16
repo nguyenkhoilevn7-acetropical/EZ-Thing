@@ -190,7 +190,11 @@ try:
   page.locator('[data-ezreg="option-save"]').click()
   assert page.locator(".ezreg-cart-line").count()==2, "Different modifier variants collapsed"
   assert page.locator(".ezreg-cart-line .ezreg-line-side strong").first.inner_text()==first_price
+  # At 412px the cart is intentionally a closed bottom sheet until opened.
+  page.locator('[data-ezreg="cart-toggle"]').click()
+  assert page.locator("#ezreg-cart.mobile-open").is_visible()
   page.locator('.ezreg-cart-line').first.locator('[data-ezreg="increase"]').click()
+  page.locator('[data-ezreg="cart-close"]').first.click()
   assert page.locator(".ezreg-cart-line").first.locator(".ezreg-line-actions b").inner_text()=="2"
   assert page.locator(".ezreg-subtotal strong").inner_text().strip()
   print("PASS register: required Size validation, 2 variants, quantity, backend price preview",flush=True)
