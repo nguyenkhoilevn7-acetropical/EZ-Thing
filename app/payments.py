@@ -280,13 +280,6 @@ async def sepay_incoming(bid: str, request: Request, db: Session = Depends(db_se
             POSPaymentIntent.id != intent.id,
             POSPaymentIntent.status == "pending",
         ).values(status="superseded"))
-        audit(db, bid, None, "payments.sepay_settled", {
-            "order_id": order.id, "intent_id": intent.id, "event_id": event_id,
-            "amount_vnd": amount})
-    else:
-        audit(db, bid, None, "payments.sepay_needs_review", {
-            "event_id": event_id, "intent_id": intent.id if intent else None,
-            "amount_vnd": amount})
     try:
         db.commit()
     except IntegrityError:
