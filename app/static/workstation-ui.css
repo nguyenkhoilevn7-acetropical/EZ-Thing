@@ -492,3 +492,13 @@ body[data-ez-workstation="kitchen"] .kds-toolbar>label:first-child{display:none}
  .ezhost-stat-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
  .ezhost-stat-grid>.ezhost-stat:last-child{grid-column:1/-1}
 }
+
+
+/* #page-content is also .content; the high-specificity #page-content:has(>.ezreg)
+   zero-padding rule must NOT hide the POS header under the fixed toolbar. */
+body[data-ez-workstation-active="true"]:not([data-ez-workstation-preview="true"]) #page-content:has(>.ezreg){
+ padding-top:65px!important;
+}
+body[data-ez-workstation-preview="true"] #page-content:has(>.ezreg){
+ padding-top:calc(var(--ezws-preview-header-h,64px) + 16px)!important;
+}
