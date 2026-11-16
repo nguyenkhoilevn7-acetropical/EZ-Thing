@@ -37,7 +37,7 @@ function I(name,size=''){return `<svg class="ic ${size}" viewBox="0 0 24 24" ari
 const E=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const V=x=>new Intl.NumberFormat(window.EZI18N?.locale()||'vi-VN').format(Number(x)||0)+'đ';
 const D=x=>x?new Date(x).toLocaleString(window.EZI18N?.locale()||'vi-VN',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'—';
-const s={user:null,csrf:null,demo:false,businesses:[],business:null,tab:'overview',authMode:'login',setupStep:1,answers:{name:'',industry:'fnb',need_tables:true,need_inventory:true,need_insights:true,need_branches:false,description:'',selected_plan:'PLUS'},recommendation:null,trialEnabled:false,cache:{},orderFilter:'all',orderDateFrom:'',orderDateTo:'',orderTableFilter:'all',orderBranchFilter:'all',orderSearch:''};
+const s={user:null,csrf:null,demo:false,businesses:[],business:null,tab:'overview',hostFilter:'all',hostSearch:'',authMode:'login',setupStep:1,answers:{name:'',industry:'fnb',need_tables:true,need_inventory:true,need_insights:true,need_branches:false,description:'',selected_plan:'PLUS'},recommendation:null,trialEnabled:false,cache:{},orderFilter:'all',orderDateFrom:'',orderDateTo:'',orderTableFilter:'all',orderBranchFilter:'all',orderSearch:''};
 const restaurantSuite=window.EZRestaurantSuite?.({api,E,V,D,toast,modal,closeModal,newOrder,newTable,getState:()=>s,navigate:tab=>{s.tab=tab;history.pushState(null,'','/app?tab='+encodeURIComponent(tab));appFrame();window.scrollTo(0,0)}});
 const operationsV5=window.EZOperationsV5?.({api,E,V,toast,getState:()=>s});
 const printerUI=window.EZPrintUI?.({api,E,toast,getState:()=>s});
@@ -177,7 +177,7 @@ const mobileNav=()=>{
 const has=name=>Boolean(s.business?.active_modules?.includes(name));
 function appFrame(){const b=s.business;if(workstationUI?.focused())s.tab=workstationUI.home();workstationUI?.applyDocument();window.EZMerchantTheme?.setBusiness(b.id);kdsUI?.invalidate();const nav=orderedNav();const storefront={fnb:'/menu/cafe',retail:'/store/mart',online:'/store/online',services:'/booking/wellness'}[b.industry];const brand=s.cache.storefront?.branding;root.innerHTML=`<div class="app" style="--merchant-brand-accent:${E(brand?.accent_color||'#147D64')}"><aside class="sidebar"><a class="merchant-home-link" href="/" title="EZ Thing trang chủ" aria-label="EZ Thing trang chủ">${logo(brand)}<img class="sidebar-ez-icon sidebar-ez-icon-light" src="/assets/icons/ez-mark-light.svg?v=minimal-01" alt="" aria-hidden="true" decoding="async"><img class="sidebar-ez-icon sidebar-ez-icon-dark" src="/assets/icons/ez-mark-dark.svg?v=minimal-01" alt="" aria-hidden="true" decoding="async"></a><div class="side-caption">MERCHANT BACK-OFFICE</div><nav class="side-nav">${nav.map(([id,ico,name])=>`<button class="side-link ${s.tab===id?'active':''}" data-action="tab" data-value="${id}" title="${E(name)}" aria-label="${E(name)}">${I(ico)} <span class="side-label">${E(name)}</span></button>`).join('')}</nav><div class="sidebar-bottom">${s.demo?`<a class="merchant-customer-link" href="${storefront}" target="_self" aria-label="Xem frontend khách hàng" title="Xem frontend khách hàng">${I('globe','sm')} Xem frontend khách hàng ↗</a>`:''}<div class="help">${I('sparkle')}<strong>Thiết lập thông minh</strong><small>Cấu hình dựa trên ngành nghề và gói dịch vụ.</small></div><button class="business-switch" data-action="switch-business" style="width:calc(100% - 10px);background:var(--merchant-panel,var(--paper,#fff));color:var(--merchant-ink,var(--ink));text-align:left"><span class="b-avatar">${E((b.name||'E')[0].toUpperCase())}</span><span class="b-meta" style="flex:1"><strong>${E(b.name)}</strong><span>${E(b.plan)} • ${E(b.subscription_status||'Pilot')}</span></span>${I('chevron','sm')}</button></div></aside>
  <main class="main">${s.demo?`<div class="demo-ribbon">🧪 Chế độ DEMO • Toàn bộ dữ liệu chỉ để thử nghiệm</div>`:''}${b.subscription_status==='trialing'?`<div class="billing-trial-banner"><span>🎁 ${E(b.trial_days_remaining)} ngày trải nghiệm miễn phí còn lại</span><button class="btn sm secondary" data-action="tab" data-value="billing">Xem gói</button></div>`:''}<div id="offline-banner" class="offline-banner hide">Mất kết nối. Chỉ xem được giao diện đã lưu, không thể tạo đơn khi offline.</div><header class="topbar"><div class="topbar-left"><a class="merchant-mobile-brand" href="/" aria-label="EZ Thing trang chủ"><img class="ez-full-logo ez-full-logo-light" src="/assets/icons/ez-thing-wordmark-light.svg?v=minimal-01" alt="EZ Thing" width="1124" height="286" decoding="async"><img class="ez-full-logo ez-full-logo-dark" src="/assets/icons/ez-thing-wordmark-dark.svg?v=minimal-01" alt="" width="1124" height="286" decoding="async"></a><div class="eyebrow"><span class="merchant-brand-dot" aria-hidden="true"></span>${E(b.name)} <span style="padding:0 5px">/</span> ${E(b.plan)}</div><h1 id="page-title">${E(navItems.find(x=>x[0]===s.tab)?.[2]||'Tổng quan')}</h1></div><div class="topbar-right">${b.industry==="fnb"&&workstationUI?.owner()?`<button class="iconbtn ezws-device-settings" title="Phân công máy POS / Bếp" aria-label="Phân công thiết bị" data-ezws="settings">${I("settings")}</button><button type="button" class="ezws-preview-topbar" data-ezws="preview-picker">👁 Xem màn hình</button>`:""}${window.EZMerchantTheme?.pickerMarkup()||''}<span class="pill green">${I('check','sm')} ${s.demo?'DEMO BACK-OFFICE':'BACK-OFFICE'}</span>${s.demo?`<a class="merchant-preview-link" href="${storefront}">Xem trang khách ↗</a>`:''}<button class="iconbtn" title="Chuyển doanh nghiệp" data-action="switch-business">${I('store')}</button><button class="avatar" data-action="profile" title="Tài khoản">${E(s.user?.name?.[0]?.toUpperCase()||'E')}</button></div></header><section class="content" id="page-content"><div class="app-skeleton"></div></section></main>
- <nav class="mobile-nav" aria-label="Điều hướng chính">${mobileNav().map(([id,ico,label])=>`<button type="button" data-action="tab" data-value="${E(id)}" class="${s.tab===id?'active':''}" aria-label="${E(label)}" ${s.tab===id?'aria-current="page"':''}>${I(ico)}<span>${E(label)}</span></button>`).join('')}</nav>${workstationUI?.drawer(nav)||""}${workstationUI?.previewNav()||""}</div>`;setOnline();renderTab()}
+ <nav class="mobile-nav" aria-label="Điều hướng chính">${mobileNav().map(([id,ico,label])=>`<button type="button" data-action="tab" data-value="${E(id)}" class="${s.tab===id?'active':''}" aria-label="${E(label)}" ${s.tab===id?'aria-current="page"':''}>${I(ico)}<span>${E(label)}</span></button>`).join('')}</nav>${workstationUI?.drawer(nav)||""}${workstationUI?.previewNav()||""}</div>`;setOnline();renderTab();requestAnimationFrame(()=>workstationUI?.syncPreviewLayout?.())}
 function setOnline(){const el=document.getElementById('offline-banner');if(el)el.classList.toggle('hide',navigator.onLine)}
 function cardEmpty(icon,title,sub,action='',text=''){return `<div class="empty"><div class="empty-icon">${I(icon,'xl')}</div><h3>${E(title)}</h3><p>${E(sub)}</p>${action?`<button class="btn sm" data-action="${action}">${I('plus','sm')} ${E(text)}</button>`:''}</div>`}
 async function loadData(){const bid=s.business.id;const tasks={overview:`/businesses/${bid}/overview`,orders:`/businesses/${bid}/orders`,products:`/businesses/${bid}/products`,customers:`/businesses/${bid}/customers`,branches:`/businesses/${bid}/branches`,storefront:`/businesses/${bid}/storefront`};if(s.business.role==='owner'){
@@ -238,16 +238,43 @@ function cashierTaskTab(){
  <h3>Đã thu gần đây</h3><div class="ezrole-paid-list">${paid.slice(0,8).map(x=>`<div><span>#${E(x.id.slice(0,8).toUpperCase())}</span><strong>${V(x.total_vnd)}</strong><small>✓ Đã nhận tiền</small></div>`).join('')||'<p class="subtle">Chưa có đơn.</p>'}</div></div></section>`;
 }
 function hostTaskTab(){
- const tables=s.cache.tables||[],occupied=tables.filter(x=>x.occupied).length;
- return `<section class="ezrole-task"><header class="ezrole-task-head"><div><span>EZ THING · HOST</span>
- <h2>🪑 Lễ tân & xếp bàn</h2><p>Xem trạng thái bàn theo chi nhánh được phân công.</p></div>
- <div class="ezrole-task-stats"><strong>${tables.length-occupied} / ${tables.length}</strong><small>Bàn trống</small></div></header>
- <div class="ezrole-task-content"><h3>Sơ đồ bàn hiện tại</h3><div class="ezrole-table-grid">
- ${tables.map(t=>`<article class="ezrole-table ${t.occupied?'is-occupied':''}">
- <span aria-hidden="true">🪑</span><strong>${E(t.label)}</strong>
- <small>${t.seats} chỗ · ${t.occupied?'Đang sử dụng':'Sẵn sàng'}</small></article>`).join('')||
- '<p class="ezrole-empty">Chưa có bàn tại chi nhánh này.</p>'}
- </div><p class="ezrole-host-note">Đặt bàn, thay đổi sơ đồ và chuyển bàn cần cấp quyền trên hệ thống quản lý bàn trước khi thao tác.</p></div></section>`;
+ const all=s.cache.tables||[],occupied=all.filter(t=>t.occupied),available=all.filter(t=>!t.occupied);
+ const filter=s.hostFilter||"all",search=s.hostSearch||"";
+ const base=all.filter(t=>(filter==="all"||(filter==="available"?!t.occupied:t.occupied)));
+ const visible=base.filter(t=>t.label.toLocaleLowerCase("vi").includes(search.toLocaleLowerCase("vi")));
+ const filters=[["all","Tất cả",all.length],["available","Bàn trống",available.length],["occupied","Có khách",occupied.length]];
+ return '<section class="ezrole-task ezrole-host" id="ezhost" aria-label="Màn hình lễ tân">'+
+ '<header class="ezrole-task-head ezhost-head"><div><span>EZ THING · FRONT DESK</span>'+
+ '<h2>'+I("tables","lg")+' Lễ tân & xếp bàn</h2>'+
+ '<p>Điều phối bàn · Theo dõi trực tiếp chi nhánh được phân công</p></div>'+
+ '<div class="ezhost-head-actions">'+
+ '<button type="button" class="ezhost-refresh" data-action="host-refresh">'+I("refresh","sm")+' Cập nhật bàn</button>'+
+ '<button type="button" class="ezhost-fullscreen" data-ezws="fullscreen" aria-label="Toàn màn hình">⛶</button>'+
+ '</div></header>'+
+ '<div class="ezhost-stat-grid">'+
+ '<div class="ezhost-stat ezhost-stat-free"><span>Bàn sẵn sàng</span><strong>'+available.length+'</strong><small>● Có thể đón khách</small></div>'+
+ '<div class="ezhost-stat ezhost-stat-busy"><span>Đang có khách</span><strong>'+occupied.length+'</strong><small>● Đã nhận bàn</small></div>'+
+ '<div class="ezhost-stat"><span>Tổng số bàn</span><strong>'+all.length+'</strong><small>Cấu hình trong chi nhánh</small></div></div>'+
+ '<div class="ezrole-task-content ezhost-board"><div class="ezhost-toolbar">'+
+ '<div><h3>Trạng thái bàn</h3><p>Trạng thái được tổng hợp từ đơn hàng đang mở.</p></div>'+
+ '<label class="ezhost-search">'+I("search","sm")+'<input type="search" data-host-search aria-label="Tìm bàn"'+
+ ' placeholder="Tìm tên bàn..." value="'+E(search)+'"></label></div>'+
+ '<div class="ezhost-filters" role="group" aria-label="Lọc tình trạng bàn">'+
+ filters.map(([id,label,count])=>'<button type="button" class="'+(filter===id?'active':'')+
+ '" data-action="host-filter" data-value="'+id+'" aria-pressed="'+(filter===id)+'">'+label+
+ '<b>'+count+'</b></button>').join('')+'</div>'+
+ '<div class="ezhost-results"><strong id="ezhost-count">Hiển thị '+visible.length+
+ ' bàn</strong><span><i class="ezhost-key-free"></i>Trống <i class="ezhost-key-busy"></i>Có khách</span></div>'+
+ '<div class="ezrole-table-grid" id="ezhost-grid">'+
+ (base.map(t=>'<article class="ezrole-table '+(t.occupied?'is-occupied':'')+
+ '" data-host-name="'+E(t.label.toLocaleLowerCase('vi'))+'"'+
+ (t.label.toLocaleLowerCase("vi").includes(search.toLocaleLowerCase("vi"))?"":" hidden")+'>'+
+ '<div class="ezrole-table-top"><span class="ezrole-table-icon">'+I("tables","sm")+'</span>'+
+ '<span class="ezrole-table-status">● '+(t.occupied?'Đang dùng':'Trống')+'</span></div>'+
+ '<strong>'+E(t.label)+'</strong><small>'+Number(t.seats||0)+' chỗ ngồi</small></article>').join('')||
+ '<p class="ezrole-empty">Không có bàn phù hợp với bộ lọc.</p>')+'</div>'+
+ '<p class="ezrole-host-note">Theo dõi trạng thái tại đây; đặt bàn, chuyển bàn và chỉnh sơ đồ vẫn thuộc quyền quản trị.</p>'+
+ '</div></section>';
 }
 function ordersTab(){const result=s.cache.orderDashboard;const list=(result?.orders||s.cache.orders||[]).filter(x=>!s.orderSearch||[x.id,...x.items.map(i=>i.name)].join(' ').toLocaleLowerCase('vi').includes(s.orderSearch.toLocaleLowerCase('vi')));const ordersCount=result?.total_count??list.length;const opened=result?.open_count??list.filter(x=>x.status==='open').length;const paid=result?.paid_count??list.filter(x=>x.status==='paid').length;const cancelled=result?.cancelled_count??list.filter(x=>x.status==='cancelled').length;const revenue=s.business.role==='staff'?null:(result?.paid_vnd??list.filter(x=>x.status==='paid').reduce((sum,x)=>sum+x.total_vnd,0));return `${section('Quản lý đơn hàng','Đơn được tính giá từ dữ liệu sản phẩm trên server.',`<button class="btn" data-action="new-order">${I('plus','sm')} Tạo đơn · POS</button>`)}<div class="suite-summary order-kpis"><div><strong>${ordersCount}</strong><span>Tổng đơn trong kỳ</span></div><div><strong>${opened}</strong><span>Chưa thanh toán</span></div><div><strong>${paid}</strong><span>Đã nhận tiền</span></div><div><strong>${revenue==null?'—':V(revenue)}</strong><span>Doanh thu từ đơn tạo trong kỳ</span></div></div>
  <details class="ez-orders-advanced"><summary>⚙ Bộ lọc nâng cao · Ngày / Chi nhánh / Bàn</summary><div class="order-range-bar">
@@ -381,6 +408,18 @@ async function handleAction(act,val,button){try{
  else if(act==='choose-plan'){s.answers.selected_plan=val;setup()}
  else if(act==='setup-back'){if(s.setupStep===1){await api('/auth/logout',{method:'POST'});s.user=null;s.csrf=null;auth()}else{s.setupStep--;setup()}}
  else if(act==='setup-next'){if(s.setupStep===1){let name=document.getElementById('biz-name')?.value?.trim()||'';if(name.length<2){toast('Vui lòng nhập tên doanh nghiệp',true);return}s.answers.name=name;}if(s.setupStep===2){s.recommendation=await api('/onboarding/recommend',{method:'POST',body:JSON.stringify(s.answers)});s.answers.selected_plan=s.recommendation.recommended_plan}if(s.setupStep<3){s.setupStep++;setup();return}const b=await api('/businesses',{method:'POST',body:JSON.stringify(s.answers)});s.businesses.push(b);s.business=b;s.tab=b.billing_required?(b.role==='owner'?'billing':'account_lock'):'overview';if(b.billing_required){s.cache={};if(b.role==='owner')s.cache.billing=await api('/businesses/'+encodeURIComponent(b.id)+'/billing');appFrame()}else{await workstationUI?.load();await refresh();appFrame()}toast('Đã tạo không gian làm việc')}
+ else if(act==='host-filter'){
+  if(!["all","available","occupied"].includes(val))return;
+  s.hostFilter=val;renderTab();
+ }
+ else if(act==='host-refresh'){
+  if(s.tab!=="operations"||s.business?.industry!=="fnb")return;
+  const bid=s.business.id;
+  const result=await api('/businesses/'+encodeURIComponent(bid)+'/tables');
+  if(s.business?.id!==bid||s.tab!=="operations")return;
+  s.cache.tables=result;
+  renderTab();toast('Đã cập nhật trạng thái '+result.length+' bàn');
+ }
  else if(act==='tab'){
  if(workstationUI&&!workstationUI.allowNavigation(val))return;
  if(s.business?.billing_required&&val!==(s.business.role==='owner'?'billing':'account_lock'))return;
@@ -660,6 +699,17 @@ const posV7=window.EZPOSV7?.init({
 document.addEventListener('click',e=>{const b=e.target.closest('[data-action]');if(b){e.preventDefault();handleAction(b.dataset.action,b.dataset.value||'',b)}else if(e.target.matches('[data-overlay]'))closeModal()});
 document.addEventListener('submit',e=>{if(e.target.matches('form')){e.preventDefault();handleSubmit(e.target)}});
 document.addEventListener('input',e=>{
+ if(e.target.matches('[data-host-search]')){
+  s.hostSearch=e.target.value;
+  const q=s.hostSearch.toLocaleLowerCase('vi');
+  let shown=0;
+  document.querySelectorAll('#ezhost-grid .ezrole-table').forEach(card=>{
+    const visible=(card.dataset.hostName||'').includes(q);
+    card.hidden=!visible;if(visible)shown++;
+  });
+  const counter=document.getElementById('ezhost-count');
+  if(counter)counter.textContent='Hiển thị '+shown+' bàn';
+ }
  if(e.target.matches('[data-order-search]')){
   s.orderSearch=e.target.value;
   document.querySelectorAll('#order-rows [data-match]').forEach(row=>row.classList.toggle('hide',!row.dataset.match.includes(s.orderSearch.toLocaleLowerCase('vi'))));

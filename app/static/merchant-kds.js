@@ -21,7 +21,7 @@ function init({api,getState,E,V,toast,modal,closeModal,refresh}){
  const url=path=>"/businesses/"+encodeURIComponent(bid())+"/kds"+path;
  const tx=(vn,en)=>window.EZI18N?.language?.()==="en"?en:vn;
  const esc=x=>E(x??"");
- const manager=()=>["owner","manager"].includes(st().business?.role);
+ const manager=()=>!st().workstation?.preview_only&&["owner","manager"].includes(st().business?.role);
  const since=t=>Math.max(0,Math.floor((Date.now()-new Date(t.created_at).getTime())/60000));
  const age=t=>since(t)>=7?"late":since(t)>=3?"warning":"normal";
  const stage=x=>stations[x]||x;
@@ -95,7 +95,13 @@ function init({api,getState,E,V,toast,modal,closeModal,refresh}){
      ["hot","cold","kitchen"].includes(device.station)?device.station:"kitchen";
    branch=device.branch_id||"all";
   }
-  return '<div class="kds" id="ez-kds"><header class="kds-head"><div><small>KDS · EZ THING</small><h2>'+tx("Bếp & pha chế","Kitchen & Bar")+'</h2><p>'+tx("Xem theo trạm • Xử lý từng món • Ra món chính xác","Prep stations • Item status • Expediter")+'</p></div><div class="kds-head-actions"><button class="btn sm secondary" data-kds="sound" aria-pressed="'+sound+'">'+tx("🔕 Bật âm báo","🔕 Enable sound")+'</button><button class="btn sm secondary" data-kds="fullscreen">'+tx("⛶ Toàn màn hình","⛶ Fullscreen")+'</button></div></header>'+
+  const title=device?(device.mode==="bar"?tx("Quầy pha chế","Bar station"):
+     tx("Màn hình bếp","Kitchen station")):tx("Bếp & pha chế","Kitchen & Bar");
+  const subtitle=device?tx("Chỉ nhận món thuộc trạm được phân công · Cập nhật từng món",
+     "Assigned station only · Update each item"):
+     tx("Xem theo trạm • Xử lý từng món • Ra món chính xác","Prep stations • Item status • Expediter");
+  return '<div class="kds" id="ez-kds"><header class="kds-head"><div><small>EZ THING · KDS</small><h2>'+
+    title+'</h2><p>'+subtitle+'</p></div><div class="kds-head-actions"><button class="btn sm secondary" data-kds="sound" aria-pressed="'+sound+'">'+tx("🔕 Bật âm báo","🔕 Enable sound")+'</button><button class="btn sm secondary" data-kds="fullscreen">'+tx("⛶ Toàn màn hình","⛶ Fullscreen")+'</button></div></header>'+
    '<div class="kds-toolbar"><label>'+tx("Chi nhánh","Branch")+'<select data-kds-filter="branch"><option value="all">'+tx("Tất cả","All")+'</option>'+(st().cache?.branches||[]).map(b=>'<option value="'+esc(b.id)+'" '+(branch===b.id?"selected":"")+'>'+esc(b.name)+'</option>').join("")+'</select></label>'+
    '<label>'+tx("Hiển thị","View")+'<select data-kds-filter="view"><option value="order" '+(view==="order"?"selected":"")+'>'+tx("Theo đơn","By ticket")+'</option><option value="item" '+(view==="item"?"selected":"")+'>'+tx("Theo món","By item")+'</option></select></label><label class="kds-check"><input type="checkbox" data-kds-filter="done" '+(showDone?"checked":"")+'>'+tx("Món đã giao","Served items")+'</label></div>'+
    '<div class="kds-stations" role="group" aria-label="Trạm xử lý">'+Object.entries(stations).filter(([id])=>stationKeys().includes(id)).map(([id,name])=>'<button class="kds-station '+(station===id?"active":"")+'" data-kds="station" data-value="'+id+'">'+esc(name)+' <span data-count="'+id+'">0</span></button>').join("")+'</div>'+

@@ -388,6 +388,41 @@ try:
   assert page.locator("#ez-register").is_visible()
   assert page.evaluate("document.body.dataset.ezWorkstationPreview")== "true"
   assert page.locator('.ezreg-product').first.evaluate("(el)=>getComputedStyle(el).pointerEvents")=="none"
+  assert page.locator('#ez-register [data-ezreg="checkout"]').count()==0, "Order-only preview cannot show cashier action"
+  assert page.locator('#ez-register [data-ezreg="orders"]').count()==0, "Order terminal has no Orders navigation"
+  for width in (412,820,1000,1280):
+   page.set_viewport_size({"width":width,"height":860})
+   # Changing viewport size can preserve the old document scroll offset.
+   # Test initial workstation view from the top, not an intentionally scrolled queue.
+   page.evaluate("""() => {
+     window.scrollTo(0,0);
+     document.scrollingElement.scrollTop=0;
+     for(const n of document.querySelectorAll('.app>.main,.app .content'))n.scrollTop=0;
+   }""")
+   page.wait_for_function("""() => {
+     const bar=document.querySelector('.ezws-preview-bar');
+     return bar && Math.abs(parseFloat(getComputedStyle(document.body)
+       .getPropertyValue('--ezws-preview-header-h'))-bar.getBoundingClientRect().height)<3
+   }""",timeout=8000)
+   layout=page.evaluate("""() => {
+     const r=s=>document.querySelector(s)?.getBoundingClientRect();
+     const bar=r('.ezws-preview-bar'),header=r('.ezreg-header'),cat=r('.ezreg-catalog');
+     const content=r('.app .content'),cart=document.querySelector('.ezreg-cart');
+     return {view:innerWidth,barBottom:bar.bottom,headTop:header.top,
+       scrollY:scrollY,contentTop:content.top,contentPad:getComputedStyle(document.querySelector('.app .content')).paddingTop,
+       catWidth:cat.width,contentWidth:content.width,
+       cartDisplay:getComputedStyle(cart).display,
+       documentWidth:document.documentElement.scrollWidth};
+   }""")
+   assert layout["documentWidth"]<=width+2,(width,layout)
+   assert layout["headTop"]>=layout["barBottom"]-3,(width,layout)
+   if width<=1080:
+    assert layout["catWidth"]>=layout["contentWidth"]*.88,(width,layout)
+    assert layout["cartDisplay"]=="none",(width,layout)
+   else:
+    assert layout["cartDisplay"]=="flex",(width,layout)
+  page.set_viewport_size({"width":1280,"height":850})
+  print("PASS POS workstation: full-width catalog at 412/820/1000, desktop cart at 1280, header not clipped",flush=True)
   for task,selector in (
     ("kitchen","#ez-kds"),("bar","#ez-kds"),
     ("cashier",".ezrole-task"),("host",".ezrole-table-grid"),
@@ -397,6 +432,17 @@ try:
    page.locator(selector).wait_for(timeout=15000)
    assert page.locator('.ezws-preview-tabs [data-value="'+task+'"]').get_attribute("aria-pressed")=="true"
    assert page.evaluate("document.body.dataset.ezWorkstationPreview")=="true"
+   if task in ("bar","kitchen"):
+    assert page.locator('.kds-act-recall').count()==0,"Staff KDS preview must hide manager-only actions"
+    page.wait_for_function("""() => {
+      const t=document.querySelector('.ezws-preview-bar')?.getBoundingClientRect();
+      const h=document.querySelector('.kds-head')?.getBoundingClientRect();
+      return t && h && h.top>=t.bottom-3
+    }""",timeout=8000)
+   if task=="host":
+    assert page.locator('.ezhost-stat').count()==3
+    assert page.locator('.ezhost-filters button').count()==3
+    assert page.locator('.ezrole-table').count()>=3
   page.set_viewport_size({"width":412,"height":850})
   assert page.locator(".ezws-preview-exit").is_visible()
   assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth + 2")
