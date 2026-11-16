@@ -911,3 +911,8 @@ app.include_router(pos_payments_router)
 # Cashier daily reconciliation reads the existing SaleOrder ledger only.
 from .cashier import router as cashier_router  # noqa: E402
 app.include_router(cashier_router)
+
+# F&B station-focused operating profiles; role authorization remains account-based.
+from .workstations import router as workstations_router  # noqa: E402
+Base.metadata.create_all(bind=engine)  # Pilot; apply migration 20261116_11 on Postgres.
+app.include_router(workstations_router)

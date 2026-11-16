@@ -1,0 +1,107 @@
+/* Focused POS workstation: only assigned task occupies the viewport.
+   Non-F&B merchants and management workspaces keep their existing navigation. */
+.ezws-open-menu{
+  position:fixed;top:11px;left:15px;z-index:59;display:flex;align-items:center;
+  gap:10px;max-width:min(300px,calc(100vw - 30px));height:44px;
+  border:1px solid var(--merchant-border,var(--line,#dce5eb));
+  border-radius:13px;padding:0 15px;color:var(--merchant-ink,var(--ink,#152238));
+  background:var(--merchant-panel,var(--paper,#fff));
+  font-size:13px;font-weight:800;box-shadow:0 4px 18px #1828410e;
+}
+.ezws-open-menu>span:first-child{font-size:20px;font-weight:600;line-height:1}
+body:not([data-ez-workstation-active="true"]) .ezws-open-menu{display:none!important}
+.ezws-drawer-shade{position:fixed;inset:0;z-index:98;background:#0b182b93;backdrop-filter:blur(3px)}
+.ezws-drawer{position:fixed;top:0;left:0;bottom:0;z-index:99;width:min(350px,90vw);
+  overflow-y:auto;overscroll-behavior:contain;box-shadow:24px 0 60px #0003;
+  background:var(--merchant-panel,var(--paper,#fff));color:var(--merchant-ink,var(--ink,#152238));
+  padding:21px 19px;display:flex;flex-direction:column;gap:15px}
+.ezws-drawer[hidden],.ezws-drawer-shade[hidden]{display:none!important}
+.ezws-drawer header{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.ezws-drawer header strong{font-size:15px}
+.ezws-drawer header button{border:1px solid var(--merchant-border,#dee6ed);color:inherit;
+  background:var(--merchant-panel-alt,#f1f5f8);border-radius:10px;min-width:40px;min-height:40px}
+.ezws-current{padding:16px;border-radius:14px;background:var(--merchant-panel-alt,#f2f6fa);display:grid;gap:5px}
+.ezws-current small,.ezws-current span{font-size:11px;color:var(--merchant-muted,#778597)}
+.ezws-current b{font-size:17px}
+.ezws-links{display:grid;gap:6px;overflow-y:auto}
+.ezws-links button,.ezws-admin button{
+  border:1px solid transparent;background:transparent;color:inherit;min-height:44px;
+  padding:11px 14px;text-align:left;border-radius:11px;font-weight:740;font-size:13px;
+}
+.ezws-links button:hover,.ezws-admin button:hover{background:var(--merchant-panel-alt,#edf4f9)}
+.ezws-admin{display:grid;gap:5px;border-top:1px solid var(--merchant-border,#e5eaf0);padding-top:13px}
+.ezws-admin button{color:var(--merchant-accent,#0066cc);background:color-mix(in srgb,var(--merchant-accent,#0066cc) 8%,transparent)}
+.ezws-caption{margin-top:auto;color:var(--merchant-muted,#6e7a88);font-size:11px;line-height:1.6}
+.ezws-settings>p{font-size:13px;line-height:1.6;color:var(--merchant-muted,#64748b);margin:0 0 18px}
+.ezws-settings>small{display:block;margin-top:15px;font-size:11px;line-height:1.5;color:var(--merchant-muted,#64748b)}
+.ezws-device-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:12px;
+  max-height:min(65dvh,650px);overflow-y:auto;overscroll-behavior:contain}
+.ezws-device-card{padding:15px;border:1px solid var(--merchant-border,#dce3ec);
+  border-radius:15px;background:var(--merchant-panel-alt,#f5f8fb);display:grid;gap:12px}
+.ezws-device-title{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.ezws-device-title b{font-size:14px}.ezws-device-title small{color:var(--merchant-muted,#697586);font-size:10px}
+.ezws-field{min-width:0}
+.ezws-field label{display:block;font-size:11px;font-weight:800;margin-bottom:4px;color:var(--merchant-muted,#677386)}
+.ezws-field :is(select,input){min-width:0;width:100%;min-height:43px;border:1px solid var(--merchant-border,#d5e0e9);
+ background:var(--merchant-panel,var(--paper,#fff));color:var(--merchant-ink,var(--ink,#152238));border-radius:10px;padding:9px;font-size:13px}
+body[data-ez-workstation-active="true"]{overflow-x:hidden}
+body[data-ez-workstation-active="true"] .app>.sidebar,
+body[data-ez-workstation-active="true"] .app>.mobile-nav,
+body[data-ez-workstation-active="true"] .app .topbar,
+body[data-ez-workstation-active="true"] .app .demo-ribbon,
+body[data-ez-workstation-active="true"] .app .billing-trial-banner{display:none!important}
+body[data-ez-workstation-active="true"] .app{width:100%;min-height:100dvh}
+body[data-ez-workstation-active="true"] .app>.main{
+  margin:0!important;width:100%!important;min-width:0;max-width:none;min-height:100dvh;
+}
+body[data-ez-workstation-active="true"] .app .content{
+  padding:70px clamp(12px,2vw,30px) 24px!important;max-width:none!important;
+  min-height:100dvh;width:100%;overflow-x:hidden
+}
+body[data-ez-workstation-active="true"] #page-content:has(>.ezreg){padding-top:0!important}
+body[data-ez-workstation-active="true"] .ezreg{max-width:none;width:100%}
+body[data-ez-workstation-active="true"] .ezreg-header{
+  margin:0 0 13px;padding:0 0 12px;border-bottom:1px solid var(--merchant-border,#e0e7ef)
+}
+body[data-ez-workstation-active="true"] .ezreg-header h2{font-size:24px;margin:3px 0}
+body[data-ez-workstation-active="true"] .ezreg-header p{font-size:12px}
+body[data-ez-workstation-active="true"] .ezreg-layout{grid-template-columns:minmax(0,1fr) minmax(345px,30%);gap:14px}
+body[data-ez-workstation-active="true"] .ezreg-catalog{min-height:calc(100dvh - 235px);padding:18px}
+body[data-ez-workstation-active="true"] .ezreg-products{grid-template-columns:repeat(auto-fill,minmax(min(170px,100%),1fr));gap:11px}
+body[data-ez-workstation-active="true"] .ezreg-product{min-height:166px}
+body[data-ez-workstation-active="true"] .ezreg-visual{height:68px;width:68px}
+body[data-ez-workstation-active="true"] .ezreg-cart{top:10px;max-height:calc(100dvh - 80px);min-height:500px}
+body[data-ez-workstation-active="true"] .ezreg-last{
+  margin:0 0 12px;padding:10px 14px;border-radius:12px;align-items:center
+}
+body[data-ez-workstation-active="true"] .ezreg-last p{margin:2px 0}
+body[data-ez-workstation-active="true"] .kds{max-width:none;margin:0 auto}
+body[data-ez-workstation-active="true"] .kds-head{margin-bottom:12px}
+body[data-ez-workstation-active="true"] .kds-grid{grid-template-columns:repeat(auto-fill,minmax(min(100%,330px),1fr))}
+body[data-ez-workstation-active="true"] .kds-fire,
+body[data-ez-workstation-active="true"] #ez-kds-routing,
+body[data-ez-workstation-active="true"] .kds-disclaimer{display:none}
+body[data-ez-workstation="kitchen"] .kds-config,
+body[data-ez-workstation="bar"] .kds-config{display:none!important}
+body[data-ez-workstation-active="true"] .kds-ticket{box-shadow:0 8px 25px #10263c0b}
+body[data-ez-workstation-active="true"] .kds-dish-head strong{font-size:18px}
+body[data-ez-workstation-active="true"] .kds-act{min-height:47px;font-size:13px}
+@media(max-width:950px){
+  body[data-ez-workstation-active="true"] .ezreg-layout{grid-template-columns:minmax(0,1fr) minmax(285px,34%)}
+  body[data-ez-workstation-active="true"] .ezreg-catalog{min-height:0}
+  body[data-ez-workstation-active="true"] .ezreg-products{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:650px){
+  .ezws-open-menu{top:max(9px,env(safe-area-inset-top));left:10px;height:43px;font-size:12px}
+  body[data-ez-workstation-active="true"] .app .content{padding:63px 10px 15px!important}
+  body[data-ez-workstation-active="true"] #page-content:has(>.ezreg){padding-top:0!important}
+  body[data-ez-workstation-active="true"] .ezreg-layout{display:block}
+  body[data-ez-workstation-active="true"] .ezreg-catalog{padding:14px;min-height:calc(100dvh - 230px)}
+  body[data-ez-workstation-active="true"] .ezreg-products{grid-template-columns:repeat(2,minmax(0,1fr))}
+  body[data-ez-workstation-active="true"] .ezreg-product{min-height:158px;padding:11px}
+  body[data-ez-workstation-active="true"] .ezreg-visual{height:50px;width:50px}
+  body[data-ez-workstation-active="true"] .ezreg-header h2{font-size:21px}
+  body[data-ez-workstation-active="true"] .ezreg-header p{display:none}
+  body[data-ez-workstation-active="true"] .kds-toolbar{gap:8px}
+  body[data-ez-workstation-active="true"] .kds-ticket{border-radius:13px}
+}

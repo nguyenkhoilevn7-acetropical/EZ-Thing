@@ -35,8 +35,9 @@ def test_alembic_adds_team_and_site_schema_without_touching_business_rows(tmp_pa
         assert inspector.has_table("print_jobs")
         assert inspector.has_table("product_media")
         assert inspector.has_table("manual_tender_receipts")
+        assert inspector.has_table("workstations")
         version=conn.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
-        assert version=="20261116_10"
+        assert version=="20261116_11"
         assert inspector.has_table("pos_check_meta")
         assert inspector.has_table("pos_check_mutations")
         assert inspector.has_table("product_modifier_sets")
