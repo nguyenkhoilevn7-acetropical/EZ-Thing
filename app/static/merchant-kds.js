@@ -1,7 +1,7 @@
 /* EZ Thing KDS — foreground-only station queue. Browser audio is opt-in. */
 (() => {
 "use strict";
-const stations={all:"Tất cả",bar:"Pha chế",hot:"Bếp nóng",cold:"Bếp lạnh",expo:"Ra món"};
+const stations={all:"Tất cả",kitchen:"Bếp",bar:"Pha chế",hot:"Bếp nóng",cold:"Bếp lạnh",expo:"Ra món"};
 const states={pending:"Mới vào",preparing:"Đang làm",held:"Tạm giữ",ready:"Sẵn sàng",served:"Đã giao"};
 const next={pending:["preparing","held"],preparing:["ready","held"],held:["preparing"],ready:["served"],served:[]};
 const labels={preparing:"Nhận làm",ready:"Xong món",held:"Tạm giữ",served:"Đã giao"};
@@ -9,6 +9,14 @@ function init({api,getState,E,V,toast,modal,closeModal,refresh}){
  let data=null,station="all",branch="all",view="order",showDone=false;
  let active=false,poll=null,generation=0,sound=false,first=true,busy=false,known=new Set();
  const st=()=>getState(),bid=()=>st().business?.id;
+ const assigned=()=>{
+  const w=st().workstation;
+  return w&&["kitchen","bar"].includes(w.mode)?w:null;
+ };
+ const includesStation=(item,key)=>key==="all"||item.station===key||
+  (key==="kitchen"&&["hot","cold"].includes(item.station))||
+  (key==="expo"&&item.status==="ready");
+ const stationKeys=()=>assigned()?[station]:Object.keys(stations);
  const routingUI=window.EZKDSRouting?.({api,E,toast,getState});
  const url=path=>"/businesses/"+encodeURIComponent(bid())+"/kds"+path;
  const tx=(vn,en)=>window.EZI18N?.language?.()==="en"?en:vn;
@@ -49,7 +57,7 @@ function init({api,getState,E,V,toast,modal,closeModal,refresh}){
      '<div class="kds-dish-foot"><span class="kds-chip kds-chip-'+esc(item.status)+'">'+esc(states[item.status]||item.status)+'</span><div class="kds-dish-actions">'+actions(item,t)+'</div></div></article>';
  }
  function filterRows(){
-  return (data?.tickets||[]).map(t=>({...t,lines:t.lines.filter(x=>(station==="all"||x.station===station||(station==="expo"&&x.status==="ready"))&&(showDone||x.status!=="served"))})).filter(t=>t.lines.length);
+  return (data?.tickets||[]).map(t=>({...t,lines:t.lines.filter(x=>includesStation(x,station)&&(showDone||x.status!=="served"))})).filter(t=>t.lines.length);
  }
  function markup(){
   const rows=filterRows();
@@ -84,7 +92,7 @@ function init({api,getState,E,V,toast,modal,closeModal,refresh}){
   return '<div class="kds" id="ez-kds"><header class="kds-head"><div><small>KDS · EZ THING</small><h2>'+tx("Bếp & pha chế","Kitchen & Bar")+'</h2><p>'+tx("Xem theo trạm • Xử lý từng món • Ra món chính xác","Prep stations • Item status • Expediter")+'</p></div><div class="kds-head-actions"><button class="btn sm secondary" data-kds="sound" aria-pressed="'+sound+'">'+tx("🔕 Bật âm báo","🔕 Enable sound")+'</button><button class="btn sm secondary" data-kds="fullscreen">'+tx("⛶ Toàn màn hình","⛶ Fullscreen")+'</button></div></header>'+
    '<div class="kds-toolbar"><label>'+tx("Chi nhánh","Branch")+'<select data-kds-filter="branch"><option value="all">'+tx("Tất cả","All")+'</option>'+(st().cache?.branches||[]).map(b=>'<option value="'+esc(b.id)+'" '+(branch===b.id?"selected":"")+'>'+esc(b.name)+'</option>').join("")+'</select></label>'+
    '<label>'+tx("Hiển thị","View")+'<select data-kds-filter="view"><option value="order" '+(view==="order"?"selected":"")+'>'+tx("Theo đơn","By ticket")+'</option><option value="item" '+(view==="item"?"selected":"")+'>'+tx("Theo món","By item")+'</option></select></label><label class="kds-check"><input type="checkbox" data-kds-filter="done" '+(showDone?"checked":"")+'>'+tx("Món đã giao","Served items")+'</label></div>'+
-   '<div class="kds-stations" role="group" aria-label="Trạm xử lý">'+Object.entries(stations).map(([id,name])=>'<button class="kds-station '+(station===id?"active":"")+'" data-kds="station" data-value="'+id+'">'+esc(name)+' <span data-count="'+id+'">0</span></button>').join("")+'</div>'+
+   '<div class="kds-stations" role="group" aria-label="Trạm xử lý">'+Object.entries(stations).filter(([id])=>stationKeys().includes(id)).map(([id,name])=>'<button class="kds-station '+(station===id?"active":"")+'" data-kds="station" data-value="'+id+'">'+esc(name)+' <span data-count="'+id+'">0</span></button>').join("")+'</div>'+
    '<div class="kds-metrics"><div><strong id="kds-ticket-count">0</strong><span>'+tx("Phiếu đang xử lý","Active tickets")+'</span></div><div><strong id="kds-item-count">0</strong><span>'+tx("Món chưa giao","Unserved units")+'</span></div><div><strong id="kds-late-count">0</strong><span>'+tx("Phiếu trên 7 phút","Late tickets")+'</span></div><small id="kds-live" role="status">'+tx("Đang kết nối...","Connecting...")+'</small></div>'+
    '<div class="kds-fire"><div><strong>'+tx("Gửi phiếu thủ công · Chỉ dùng khi cần","Manual dispatch · Exceptions only")+'</strong><p>'+tx("Đơn mới đã tự phân trạm; chỉ gửi thủ công khi đã tắt tự động hoặc xử lý ngoại lệ.","New checks auto-route. Manual dispatch is for disabled auto mode or exceptions.")+'</p></div><div id="kds-fire-slot">'+fireControl()+'</div></div>'+
    '<div id="ez-kds-routing">'+(routingUI?.render()||"")+'</div><div id="kds-content"><div class="kds-empty">'+tx("Đang tải phiếu bếp...","Loading tickets...")+'</div></div><p class="kds-disclaimer">'+tx("Đồng bộ 5 giây khi đang mở màn hình. Âm báo cần bật thủ công; có thể in qua trình duyệt hoặc máy in EZ Print đã cấu hình. Không có push khi tắt màn hình.","Foreground sync every 5s; opt-in sound; browser print or configured EZ Print hardware. No background push.")+'</p></div>';
@@ -98,7 +106,7 @@ function init({api,getState,E,V,toast,modal,closeModal,refresh}){
   root.querySelector("#kds-item-count").textContent=items.reduce((s,x)=>s+Number(x.quantity),0);
   root.querySelector("#kds-late-count").textContent=activeTickets.filter(x=>age(x)==="late").length;
   for(const key of Object.keys(stations)){
-    const count=items.filter(x=>key==="all"||x.station===key||(key==="expo"&&x.status==="ready")).reduce((s,x)=>s+Number(x.quantity),0);
+    const count=items.filter(x=>includesStation(x,key)).reduce((s,x)=>s+Number(x.quantity),0);
     const badge=root.querySelector('[data-count="'+key+'"]');if(badge)badge.textContent=count;
   }
   root.querySelector("#kds-content").innerHTML=markup();
@@ -126,6 +134,12 @@ function init({api,getState,E,V,toast,modal,closeModal,refresh}){
  }
  async function mount(){
   if(st().business?.industry!=="fnb")return;
+  const device=assigned();
+  if(device){
+   station=device.mode==="bar"?"bar":
+     ["hot","cold","kitchen"].includes(device.station)?device.station:"kitchen";
+   branch=device.branch_id||"all";
+  }
   active=true;generation++;data=null;first=true;known=new Set();
   if(poll)clearInterval(poll);
   routingUI?.mount();
@@ -184,6 +198,7 @@ function init({api,getState,E,V,toast,modal,closeModal,refresh}){
   e.preventDefault();e.stopImmediatePropagation();
   const action=button.dataset.kds;
   if(action==="station"){
+    if(assigned()&&button.dataset.value!==station)return;
     station=button.dataset.value;
     document.querySelectorAll(".kds-station").forEach(b=>b.classList.toggle("active",b.dataset.value===station));
     paint();
@@ -220,7 +235,7 @@ function init({api,getState,E,V,toast,modal,closeModal,refresh}){
  },true);
  document.addEventListener("change",e=>{
    const field=e.target.closest("[data-kds-filter]");if(!field||!active)return;
-   if(field.dataset.kdsFilter==="branch"){branch=field.value;known=new Set();first=true;load(true).catch(err=>toast(err.message,true))}
+   if(field.dataset.kdsFilter==="branch"){if(assigned()?.branch_id)return;branch=field.value;known=new Set();first=true;load(true).catch(err=>toast(err.message,true))}
    else if(field.dataset.kdsFilter==="view"){view=field.value;paint()}
    else if(field.dataset.kdsFilter==="done"){showDone=field.checked;paint()}
  },true);
