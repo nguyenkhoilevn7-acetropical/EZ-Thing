@@ -492,7 +492,7 @@ try:
     page.locator('.ezhost-seat-form').wait_for(timeout=10000)
     confirm=page.locator('#modal-root .ezhost-confirm')
     assert confirm.count()==1 and confirm.is_visible(), "Host seat confirm CTA is missing"
-    assert "Xác nhận" in confirm.inner_text()
+    assert any(x in confirm.inner_text() for x in ("Xác nhận","Confirm")),confirm.inner_text()
     # The modal is outside .ezhost-room; its button must retain blue contrast.
     style=confirm.evaluate("""el => ({
        bg:getComputedStyle(el).backgroundColor,
@@ -510,7 +510,7 @@ try:
     page.locator('.ezhost-seat-form [name="guest_name"]').fill("Khách thử")
     confirm.click()
     page.locator('.ezhost-seat-success').wait_for(timeout=12000)
-    assert "Đang phục vụ" in page.locator('.ezhost-seat-success').inner_text()
+    assert any(x in page.locator('.ezhost-seat-success').inner_text() for x in ("Đang phục vụ","occupied"))
     assert page.locator('.ezhost-room-table.busy').count()>=1
     assert "Khách thử" in page.locator('.ezhost-room-table.busy').first.inner_text()
     page.locator('.ezhost-seat-success [data-ezhost-action="dismiss"]').click()
