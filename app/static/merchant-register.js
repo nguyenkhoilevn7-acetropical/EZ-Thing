@@ -3,7 +3,7 @@
    No automatic payment inference, offline writes, or client-side stock mutation. */
 (() => {
   "use strict";
-  window.EZRegisterUI = function init({api,E,V,toast,getState,navigate,onCreated,onPaid}) {
+  window.EZRegisterUI = function init({api,E,V,toast,getState,navigate,onCreated,onPaid,onPrint}) {
     const uid=()=>globalThis.crypto?.randomUUID?.()||
       "pos-"+Date.now().toString(36)+"-"+Math.random().toString(36).slice(2);
     const t=(vi,en)=>window.EZI18N?.language?.()==="en"?en:vi;
@@ -197,6 +197,8 @@
         ' #'+E(o.id.slice(0,8).toUpperCase())+'</strong>'+
         '<p>'+fmt(o.total_vnd)+' · '+(o.paid?t("Đã ghi nhận tiền","Payment confirmed"):
           t("Chưa xác nhận nhận tiền","Payment not yet confirmed"))+
+        (o.paid&&o.payment?.method==="cash"?' · '+t("Tiền thừa ","Change ")+fmt(o.payment.change_vnd):"")+
+        (o.paid&&o.payment?.method==="bank_transfer"?' · '+t("Chuyển khoản thủ công","Manual transfer"):"")+
         '</p><div class="ezreg-last-actions">'+
         (business().industry==="fnb"&&!o.kitchenSent?
           '<button type="button" data-ezreg="send-kitchen">'+
@@ -204,7 +206,8 @@
         (business().industry==="fnb"&&o.kitchenSent?'<span>'+
           t("Đã gửi bếp","Sent to kitchen")+'</span>':"")+
         (!o.paid?'<button type="button" data-ezreg="paid">'+
-          t("Thanh toán đơn này","Take payment")+'</button>':"")+
+          t("Thanh toán đơn này","Take payment")+'</button>':
+          '<button type="button" data-ezreg="print">'+t("🖨 In phiếu thanh toán","🖨 Print receipt")+'</button>')+
         '<button type="button" data-ezreg="orders">'+t("Danh sách đơn","Order list")+
         '</button></div></div></section>';
     }
@@ -490,6 +493,7 @@
       else if(action==="orders")navigate("orders");
       else if(action==="send-kitchen")sendKitchen();
       else if(action==="paid")markPaid();
+      else if(action==="print"&&s.last?.paid)onPrint?.(s.last.id);
     },true);
     document.addEventListener("input",event=>{
       if(!document.getElementById("ez-register"))return;
