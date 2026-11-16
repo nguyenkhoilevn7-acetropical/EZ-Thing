@@ -61,7 +61,7 @@ TOAST_OBSERVER = """
       for (const n of nodes) if (n.nodeType === 1 && bad(n) && n.textContent.trim())
         window.__errorToasts.push(n.textContent.trim());
     }
-  }).observe(document.documentElement, {subtree: true, childList: true, attributes: true,
+  }).observe(document, {subtree: true, childList: true, attributes: true,
                                          attributeFilter: ['class']});
 })();
 """
@@ -320,7 +320,7 @@ def click_action(page, action, value=None):
 def pos_sale(page, pay):
     """Ring up products in the POS and either pay by cash or leave the check open."""
     open_tab(page, "pos", False)
-    products = page.locator('#ez-register [data-ezreg="product"]')
+    products = page.locator('#ez-register [data-ezreg="product"]:not([disabled])')
     if not products.count():
         raise AssertionError("POS shows no products")
     for index in range(min(2, products.count())):
@@ -475,6 +475,10 @@ def crawl_customer_flows(browser):
 
     def reserve():
         page.goto(BASE + "/reserve/cafe", wait_until="domcontentloaded")
+        # Book tomorrow: today's demo slots (08:00-20:30) may already be past.
+        page.locator("#booking-day").evaluate(
+            "el => { const d=new Date(Date.now()+86400000);"
+            " el.value=d.toISOString().slice(0,10); el.dispatchEvent(new Event('change',{bubbles:true})); }")
         page.locator("#booking-slots .slot-button").first.wait_for(timeout=30000)
         page.locator("#booking-slots .slot-button").first.click()
         form = page.locator("#guest-reservation-form")
