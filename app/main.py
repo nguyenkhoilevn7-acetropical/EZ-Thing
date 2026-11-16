@@ -599,7 +599,20 @@ def order_create(bid: str, body: CreateOrder, user=Depends(current_user), db: Se
     if old:
         if old.request_fingerprint != fingerprint:
             fail(409, "Mã yêu cầu đã dùng cho giỏ hàng khác")
-        return order_out(db, old)
+        result = order_out(db, old)
+        if b.industry == "fnb" and "kitchen" in (b.active_modules or []):
+            from .kds import dispatch_settings
+            from .workflows import IndustryWorkItem
+            existing = db.scalar(select(IndustryWorkItem.id).where(
+                IndustryWorkItem.business_id == bid, IndustryWorkItem.kind == "kitchen",
+                IndustryWorkItem.reference_id == old.id))
+            result["kds_dispatch"] = {
+                "status": "sent" if existing else
+                          ("manual" if not dispatch_settings(db, bid)["auto_dispatch"]
+                           else "no_prep"),
+                "ticket_id": existing,
+            }
+        return result
     branch = branch_for(db, bid, body.branch_id)
     if body.customer_id and not db.scalar(select(Customer).where(Customer.id == body.customer_id,
                                                                  Customer.business_id == bid)):
@@ -644,16 +657,39 @@ def order_create(bid: str, body: CreateOrder, user=Depends(current_user), db: Se
                                  product_name=p.name, quantity=qty, unit_price_vnd=unit,
                                  total_vnd=qty * unit))
             write_item_selection(db, bid, line_id, selections)
-        audit(db, bid, user[0].id, "order.created", {"order_id": o.id, "total_vnd": total})
+        dispatch = None
+        if b.industry == "fnb" and "kitchen" in (b.active_modules or []):
+            from .kds import auto_dispatch_order
+            dispatch = auto_dispatch_order(db, bid, o, source="pos_order")
+        audit(db, bid, user[0].id, "order.created", {
+            "order_id": o.id, "total_vnd": total,
+            "kds_dispatch": dispatch["status"] if dispatch else None,
+        })
         db.commit()
     except IntegrityError:
         db.rollback()
         old = db.scalar(select(SaleOrder).where(SaleOrder.business_id == bid,
                                                 SaleOrder.idempotency_key == body.idempotency_key))
         if old and old.request_fingerprint == fingerprint:
-            return order_out(db, old)
+            result = order_out(db, old)
+            if b.industry == "fnb" and "kitchen" in (b.active_modules or []):
+                from .kds import dispatch_settings
+                from .workflows import IndustryWorkItem
+                existing = db.scalar(select(IndustryWorkItem.id).where(
+                    IndustryWorkItem.business_id == bid, IndustryWorkItem.kind == "kitchen",
+                    IndustryWorkItem.reference_id == old.id))
+                result["kds_dispatch"] = {
+                    "status": "sent" if existing else
+                              ("manual" if not dispatch_settings(db, bid)["auto_dispatch"]
+                               else "no_prep"),
+                    "ticket_id": existing,
+                }
+            return result
         fail(409, "Đơn bị trùng hoặc xung đột dữ liệu")
-    return order_out(db, o)
+    result = order_out(db, o)
+    if dispatch is not None:
+        result["kds_dispatch"] = dispatch
+    return result
 
 
 @app.post("/api/businesses/{bid}/orders/{oid}/paid")
