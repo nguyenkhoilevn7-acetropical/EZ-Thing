@@ -73,7 +73,8 @@ const workstationUI=window.EZWorkstations?.create({
 const hostWorkstation=window.EZHostWorkstation?.({
  api,E,toast,getState:()=>s,modal:(title,html)=>modal(title,html,true),
  closeModal:()=>closeModal(),
- previewOnly:()=>Boolean(workstationUI?.previewOnly())
+ previewOnly:()=>Boolean(workstationUI?.previewOnly()),
+ onCreatePhysicalTable:branch=>newTable(branch)
 });
 async function api(path,opt={}){
  // Interactive owner previews never invoke a mutation on the real tenant API.
@@ -630,7 +631,7 @@ async function handleSubmit(form){const bid=s.business?.id;const data=Object.fro
   }finally{clearTimeout(timer)}
  }
  else if(form.id==='product-form'){await api(`/businesses/${bid}/products`,{method:'POST',body:JSON.stringify({name:data.name,sku:data.sku,category:data.category,price_vnd:Number(data.price_vnd),cost_vnd:Number(data.cost_vnd||0),stock:Number(data.stock||0),track_stock:form.querySelector('[name=track_stock]').checked})});toast('Đã thêm sản phẩm')}
- else if(form.id==='table-form'){await api(`/businesses/${bid}/tables`,{method:'POST',body:JSON.stringify({label:data.label,seats:Number(data.seats),branch_id:data.branch_id||null})});restaurantSuite?.invalidate();operationsV5?.invalidate();toast('Đã thêm bàn')}
+ else if(form.id==='table-form'){await api(`/businesses/${bid}/tables`,{method:'POST',body:JSON.stringify({label:data.label,seats:Number(data.seats),branch_id:data.branch_id||null})});restaurantSuite?.invalidate();operationsV5?.invalidate();hostWorkstation?.invalidate();toast('Đã thêm bàn')}
  else if(form.id==='customer-form'){await api(`/businesses/${bid}/customers`,{method:'POST',body:JSON.stringify(data)});toast('Đã thêm khách hàng')}
  else if(form.id==='branch-form'){await api(`/businesses/${bid}/branches`,{method:'POST',body:JSON.stringify(data)});toast('Đã thêm chi nhánh')}
  else if(form.id==='stock-form'){await api(`/businesses/${bid}/products/${form.dataset.id}/stock`,{method:'POST',body:JSON.stringify({delta:Number(data.delta),reason:data.reason,branch_id:data.branch_id||null})});toast('Đã cập nhật tồn kho')}
