@@ -392,6 +392,13 @@ try:
   assert page.locator('#ez-register [data-ezreg="orders"]').count()==0, "Order terminal has no Orders navigation"
   for width in (412,820,1000,1280):
    page.set_viewport_size({"width":width,"height":860})
+   # Changing viewport size can preserve the old document scroll offset.
+   # Test initial workstation view from the top, not an intentionally scrolled queue.
+   page.evaluate("""() => {
+     window.scrollTo(0,0);
+     document.scrollingElement.scrollTop=0;
+     for(const n of document.querySelectorAll('.app>.main,.app .content'))n.scrollTop=0;
+   }""")
    page.wait_for_function("""() => {
      const bar=document.querySelector('.ezws-preview-bar');
      return bar && Math.abs(parseFloat(getComputedStyle(document.body)
@@ -402,6 +409,7 @@ try:
      const bar=r('.ezws-preview-bar'),header=r('.ezreg-header'),cat=r('.ezreg-catalog');
      const content=r('.app .content'),cart=document.querySelector('.ezreg-cart');
      return {view:innerWidth,barBottom:bar.bottom,headTop:header.top,
+       scrollY:scrollY,contentTop:content.top,contentPad:getComputedStyle(document.querySelector('.app .content')).paddingTop,
        catWidth:cat.width,contentWidth:content.width,
        cartDisplay:getComputedStyle(cart).display,
        documentWidth:document.documentElement.scrollWidth};
