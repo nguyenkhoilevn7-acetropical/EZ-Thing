@@ -16,7 +16,7 @@ function init({api,getState,E,V,toast,modal,closeModal,refresh}){
  const includesStation=(item,key)=>key==="all"||item.station===key||
   (key==="kitchen"&&["hot","cold"].includes(item.station))||
   (key==="expo"&&item.status==="ready");
- const stationKeys=()=>assigned()?[station]:Object.keys(stations);
+ const stationKeys=()=>assigned()?[station]:Object.keys(stations).filter(x=>x!=="kitchen");
  const routingUI=window.EZKDSRouting?.({api,E,toast,getState});
  const url=path=>"/businesses/"+encodeURIComponent(bid())+"/kds"+path;
  const tx=(vn,en)=>window.EZI18N?.language?.()==="en"?en:vn;
