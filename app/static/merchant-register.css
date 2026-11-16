@@ -378,3 +378,13 @@
 }
 
 .ezreg-visual img{display:block;width:100%;height:100%;border-radius:inherit;object-fit:cover;object-position:center}
+
+/* Actual product media management (no generated mock product photos). */
+.product-visual{overflow:hidden}
+.product-visual img{display:block;width:100%;height:100%;object-fit:cover;object-position:center;border-radius:inherit}
+.ez-product-photo-preview{border:1px dashed var(--merchant-line,#d6e0e8);
+ border-radius:16px;display:grid;place-items:center;min-height:220px;max-height:300px;
+ background:var(--merchant-panel-alt,#f5f7fb);overflow:hidden;margin:15px 0;
+ color:var(--merchant-muted,#72829a);font-size:13px}
+.ez-product-photo-preview img{width:100%;height:100%;max-height:300px;object-fit:contain;display:block}
+.product-card [data-action="upload-product-photo"]{margin:10px 6px 0 0}
