@@ -140,8 +140,9 @@
         '<button type="button" data-ezreg="remove" data-value="'+E(line.id)+
         '" aria-label="'+t("Xóa món","Remove item")+'">✕</button></div></article>';
     }
-    const orderOnly=()=>getState().workstation?.mode==="order"&&
-      (business().role==="staff"||getState().workstation?.preview_only);
+    // Staff Order Takers cannot settle payments; owner preview can try
+    // the complete checkout because the sandbox intercepts every write.
+    const orderOnly=()=>getState().workstation?.mode==="order"&&business().role==="staff";
     function cartInnerHtml(){
       const activeTables=tables().filter(x=>x.branch_id===s.branch);
       const hasTables=business().active_modules?.includes("tables");
