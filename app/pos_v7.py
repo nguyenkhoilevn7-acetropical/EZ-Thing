@@ -180,8 +180,11 @@ def pos_check(bid: str, oid: str, user=Depends(current_user),
               db: Session = Depends(db_session)):
     b = tenant(bid, user, db)
     feature(b, "orders")
-    allow(db, bid, user, ROLES)
-    return show(db, get_check(db, bid, oid))
+    from .team import require_duty, require_branch
+    duty = require_duty(db, bid, user, {"order", "cashier"})
+    order = get_check(db, bid, oid)
+    require_branch(duty, order.branch_id)
+    return show(db, order)
 
 
 @router.put("/orders/{oid}")
@@ -190,11 +193,15 @@ def replace_check(bid: str, oid: str, body: ReplaceOpenCheck,
     b = tenant(bid, user, db)
     feature(b, "orders")
     role = allow(db, bid, user, ROLES)
+    from .team import require_duty
+    require_duty(db, bid, user, {"order"})
     fp = fingerprint(body)
     done = previous_mutation(db, bid, oid, body.request_id, "replace", fp)
     if done is not None:
         return done
     order = get_check(db, bid, oid, locked=True)
+    from .team import require_branch, duty_for
+    require_branch(duty_for(db, bid, user[0].id) if role == "staff" else None, order.branch_id)
     # A concurrent identical retry may have committed while this call waited
     # on the order lock. Check again before testing the revision.
     done = previous_mutation(db, bid, oid, body.request_id, "replace", fp)
