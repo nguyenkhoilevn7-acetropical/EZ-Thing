@@ -30,6 +30,7 @@ jobs:
           node --check app/static/merchant-print.js
           node --check app/static/merchant-print-documents.js
           node --check app/static/merchant-register.js
+          node --check app/static/merchant-checkout.js
           node --check app/static/sw.js
       - name: Check print connector Python syntax
         run: python3 -m py_compile app/printing.py scripts/ez_print_connector.py
