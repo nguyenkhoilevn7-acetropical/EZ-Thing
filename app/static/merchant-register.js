@@ -74,7 +74,10 @@
     function iconBlock(p){
       // No uploaded product media exists in the current Product model.
       // These category glyphs are labeled placeholders, not claimed photos.
-      return '<span class="ezreg-visual" aria-hidden="true">'+glyph(p)+'</span>';
+      const url=p.image_url||'';
+      const trusted=url.startsWith('/api/businesses/'+encodeURIComponent(s.bid)+'/products/');
+      return '<span class="ezreg-visual" aria-hidden="true">'+
+        (trusted?'<img src="'+E(url)+'" alt="" loading="lazy" decoding="async">':glyph(p))+'</span>';
     }
     function categoriesHtml(){
       return categoryList().map(cat=>{
@@ -179,7 +182,8 @@
       return '<section class="ezreg-last" aria-live="polite"><span class="ezreg-last-icon">✓</span>'+
         '<div><strong>'+t("Đơn đã lưu thành công","Order saved")+
         ' #'+E(o.id.slice(0,8).toUpperCase())+'</strong>'+
-        '<p>'+fmt(o.total_vnd)+' · '+t("Chưa xác nhận nhận tiền","Payment not yet confirmed")+
+        '<p>'+fmt(o.total_vnd)+' · '+(o.paid?t("Đã ghi nhận tiền","Payment confirmed"):
+          t("Chưa xác nhận nhận tiền","Payment not yet confirmed"))+
         '</p><div class="ezreg-last-actions">'+
         (business().industry==="fnb"&&!o.kitchenSent?
           '<button type="button" data-ezreg="send-kitchen">'+
