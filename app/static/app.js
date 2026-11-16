@@ -240,8 +240,8 @@ function cashierTaskTab(){
 function hostTaskTab(){
  const all=s.cache.tables||[],occupied=all.filter(t=>t.occupied),available=all.filter(t=>!t.occupied);
  const filter=s.hostFilter||"all",search=s.hostSearch||"";
- const visible=all.filter(t=>(filter==="all"||(filter==="available"?!t.occupied:t.occupied))&&
-   t.label.toLocaleLowerCase("vi").includes(search.toLocaleLowerCase("vi")));
+ const base=all.filter(t=>(filter==="all"||(filter==="available"?!t.occupied:t.occupied)));
+ const visible=base.filter(t=>t.label.toLocaleLowerCase("vi").includes(search.toLocaleLowerCase("vi")));
  const filters=[["all","Tất cả",all.length],["available","Bàn trống",available.length],["occupied","Có khách",occupied.length]];
  return '<section class="ezrole-task ezrole-host" id="ezhost" aria-label="Màn hình lễ tân">'+
  '<header class="ezrole-task-head ezhost-head"><div><span>EZ THING · FRONT DESK</span>'+
@@ -266,8 +266,9 @@ function hostTaskTab(){
  '<div class="ezhost-results"><strong id="ezhost-count">Hiển thị '+visible.length+
  ' bàn</strong><span><i class="ezhost-key-free"></i>Trống <i class="ezhost-key-busy"></i>Có khách</span></div>'+
  '<div class="ezrole-table-grid" id="ezhost-grid">'+
- (visible.map(t=>'<article class="ezrole-table '+(t.occupied?'is-occupied':'')+
- '" data-host-name="'+E(t.label.toLocaleLowerCase('vi'))+'">'+
+ (base.map(t=>'<article class="ezrole-table '+(t.occupied?'is-occupied':'')+
+ '" data-host-name="'+E(t.label.toLocaleLowerCase('vi'))+'"'+
+ (t.label.toLocaleLowerCase("vi").includes(search.toLocaleLowerCase("vi"))?"":" hidden")+'>'+
  '<div class="ezrole-table-top"><span class="ezrole-table-icon">'+I("tables","sm")+'</span>'+
  '<span class="ezrole-table-status">● '+(t.occupied?'Đang dùng':'Trống')+'</span></div>'+
  '<strong>'+E(t.label)+'</strong><small>'+Number(t.seats||0)+' chỗ ngồi</small></article>').join('')||
