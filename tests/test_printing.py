@@ -125,10 +125,10 @@ def test_cloudprnt_and_connector_print_once_with_manual_payment(c):
     assert c.delete("/api" + cloud_path + "?code=OK&token=" + token,
                     headers={"authorization": basic(cloud)}).status_code == 200
 
-    paid = api(c, "POST", f"/businesses/{bid}/orders/{o['id']}/paid", {}, csrf)
+    paid = api(c, "POST", f"/businesses/{bid}/orders/{o['id']}/paid", {"confirmed": True}, csrf)
     assert paid.status_code == 200, paid.text
     assert api(c, "POST", f"/businesses/{bid}/orders/{o['id']}/paid",
-               {}, csrf).status_code == 200
+               {"confirmed": True}, csrf).status_code == 200
     path = f"/print/connector/{local['id']}"
     missing = api(c, "GET", path + "/next")
     assert missing.status_code == 401
