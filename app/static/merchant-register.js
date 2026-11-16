@@ -62,7 +62,7 @@
       s=defaultState();
       checkout?.reset();
       s.bid=business().id;
-      s.branch=branches()[0]?.id||"";
+      s.branch=getState().workstation?.branch_id||branches()[0]?.id||"";
     }
     function total(){return s.cart.reduce((sum,line)=>{
       const p=byId(line.productId);
