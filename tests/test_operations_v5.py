@@ -317,3 +317,42 @@ def test_recipe_sold_on_secondary_branch_updates_ingredient_location(cli):
         "confirmed":True,"reason":"Refund before kitchen"},csrf).status_code==200
     balances=cli.get("/api"+op(bid,"inventory")).json()["balances"]
     assert next(x for x in balances if x["branch_id"]==second)["quantity"]==8
+
+
+def test_finance_report_uses_vietnam_business_day_not_utc(cli):
+    """A sale paid at 01:30 Vietnam time belongs to that local day.
+
+    In UTC it is 18:30 of the previous day; a UTC-midnight window would
+    move it into the wrong day and disagree with the cashier close preview.
+    """
+    from app.database import SessionLocal
+    from app.models import SaleOrder
+    csrf=signup(cli,"finance-tz@example.com")
+    bid=make_business(cli,csrf,industry="retail")
+    pid=create_product(cli,bid,csrf,"Coffee bag","TZ-1",stock=5,price=70000,cost=20000)
+    order=post(cli,f"/businesses/{bid}/orders",{
+        "idempotency_key":"finance-timezone-0001",
+        "lines":[{"product_id":pid,"quantity":1}]},csrf)
+    assert order.status_code==201,order.text
+    oid=order.json()["id"]
+    assert post(cli,f"/businesses/{bid}/orders/{oid}/paid",{"confirmed":True},csrf).status_code==200
+    local=ZoneInfo("Asia/Ho_Chi_Minh")
+    paid_local=datetime(2026,3,10,1,30,tzinfo=local)
+    with SessionLocal() as db:
+        row=db.get(SaleOrder,oid)
+        row.paid_at=paid_local.astimezone(ZoneInfo("UTC"))
+        db.commit()
+    same_day=cli.get("/api"+op(bid,"finance")+"?start=2026-03-10&end=2026-03-10")
+    assert same_day.status_code==200,same_day.text
+    assert same_day.json()["paid_order_count"]==1
+    assert same_day.json()["revenue_vnd"]==70000
+    assert same_day.json()["estimated_cogs_vnd"]==20000
+    assert same_day.json()["period"]=={"start":"2026-03-10","end":"2026-03-10",
+                                      "timezone":"Asia/Ho_Chi_Minh"}
+    previous_day=cli.get("/api"+op(bid,"finance")+"?start=2026-03-09&end=2026-03-09")
+    assert previous_day.status_code==200,previous_day.text
+    assert previous_day.json()["paid_order_count"]==0
+    assert previous_day.json()["revenue_vnd"]==0
+    assert previous_day.json()["estimated_cogs_vnd"]==0
+    too_long=cli.get("/api"+op(bid,"finance")+"?start=2025-01-01&end=2026-03-10")
+    assert too_long.status_code==422
