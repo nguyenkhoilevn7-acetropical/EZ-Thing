@@ -103,6 +103,23 @@ def test_host_seat_update_transfer_join_release_and_audit():
                 AuditEvent.action.like("host.table_%"))).all()
             assert len(audits)>=7
 
+def test_joined_table_release_cleans_all_tables_and_preserves_audit():
+    with TestClient(app) as owner:
+        csrf,bid,branch=shop(owner,"join-release")
+        first,second=[x["id"] for x in table_ids(owner,bid)][:2]
+        seated=host_action(owner,csrf,bid,first,"seat",guest_count=3)
+        assert seated.status_code==200,seated.text
+        joined=host_action(owner,csrf,bid,first,"join",revision=1,target_table_id=second)
+        assert joined.status_code==200,joined.text
+        released=host_action(owner,csrf,bid,first,"release",revision=2)
+        assert released.status_code==200,released.text
+        states={x["id"]:x for x in released.json()["tables"]}
+        assert states[first]["status"]=="cleaning"
+        assert states[second]["status"]=="cleaning"
+        assert not states[first]["group_id"] and not states[second]["group_id"]
+        assert states[second]["revision"]==2
+
+
 def test_host_branch_employee_and_cross_tenant_rejections():
     with TestClient(app) as owner,TestClient(app) as employee,TestClient(app) as foreign:
         csrf,bid,branch=shop(owner,"tenant-owner")
@@ -165,6 +182,7 @@ def test_future_reservation_edit_cancel_and_overlapping_booking():
         result=req(worker,"POST",f"/businesses/{bid}/reservations/{rid}/edit",edit,staff_csrf)
         assert result.status_code==200,result.text
         assert result.json()["party_size"]==3
+        assert result.json()["branch_id"]==branch
         duplicate=req(owner,"POST",f"/businesses/{bid}/reservations",
                       {**payload,"request_id":"other-"+uuid.uuid4().hex},csrf)
         assert duplicate.status_code==409,duplicate.text
