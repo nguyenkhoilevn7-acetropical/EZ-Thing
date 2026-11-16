@@ -56,7 +56,7 @@ const cashRegister=window.EZRegisterUI?.({
  onPaid:async()=>{
    s.cache.orderDashboard=null;restaurantSuite?.invalidate();operationsV5?.invalidate();
    await loadData();
-   if(s.tab==='pos')renderTab();
+   if(s.tab==='pos'||s.tab==='orders')renderTab();
  }
 });
 const workstationUI=window.EZWorkstations?.create({
