@@ -21,7 +21,7 @@ function init({api,getState,E,V,toast,modal,closeModal,refresh}){
  const url=path=>"/businesses/"+encodeURIComponent(bid())+"/kds"+path;
  const tx=(vn,en)=>window.EZI18N?.language?.()==="en"?en:vn;
  const esc=x=>E(x??"");
- const manager=()=>["owner","manager"].includes(st().business?.role);
+ const manager=()=>!st().workstation?.preview_only&&["owner","manager"].includes(st().business?.role);
  const since=t=>Math.max(0,Math.floor((Date.now()-new Date(t.created_at).getTime())/60000));
  const age=t=>since(t)>=7?"late":since(t)>=3?"warning":"normal";
  const stage=x=>stations[x]||x;
