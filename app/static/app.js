@@ -70,6 +70,11 @@ const workstationUI=window.EZWorkstations?.create({
   if(options.reload)loadData().then(()=>renderTab()).catch(err=>toast(err.message,true));
  }
 });
+const hostWorkstation=window.EZHostWorkstation?.({
+ api,E,toast,getState:()=>s,modal:(title,html)=>modal(title,html,true),
+ closeModal:()=>closeModal(),
+ previewOnly:()=>Boolean(workstationUI?.previewOnly())
+});
 async function api(path,opt={}){
  // Interactive owner previews never invoke a mutation on the real tenant API.
  // The sandbox returns virtual responses for supported actions and rejects
@@ -217,9 +222,10 @@ async function loadData(){const bid=s.business.id;const tasks={overview:`/busine
 const section=(title,sub,right='')=>`<div class="section-header"><div><h2>${title}</h2><p>${sub}</p></div>${right}</div>`;
 const kpi=(title,value,sub,icon,tint='')=>`<article class="surface kpi"><div class="kpi-top"><span>${title}</span><div class="kpi-icon ${tint}">${I(icon)}</div></div><h3>${value}</h3><p>${sub}</p></article>`;
 function renderTab(){const el=document.getElementById('page-content');if(!el)return;const label=navLabel(s.tab);document.getElementById('page-title').textContent=label;
- el.innerHTML=({overview:overviewTab,pos:()=>cashRegister?.render()||cardEmpty('orders','POS','Không tải được màn hình bán hàng.'),orders:()=>workstationUI?.focused()&&workstationUI?.mode()==='cashier'?cashierTaskTab():ordersTab(),products:productsTab,tables:()=>restaurantSuite?.renderFloorplan()||tablesTab(),reservations:()=>restaurantSuite?.renderReservations()||cardEmpty("calendar","Đặt bàn","Không tải được giao diện đặt bàn."),operations:()=>workstationUI?.focused()&&workstationUI?.mode()==='host'?hostTaskTab():operationsV5?.render()||cardEmpty('warehouse','Lễ tân & xếp bàn','Không tải được giao diện.'),customers:customersTab,kitchen:()=>kdsUI?.render()||industryTab(),inventory:industryTab,delivery:industryTab,appointments:industryTab,insights:insightsTab,settings:settingsTab,billing:billingTab,team:teamTab,account_lock:lockedAccountTab}[s.tab]||overviewTab)();
+ el.innerHTML=({overview:overviewTab,pos:()=>cashRegister?.render()||cardEmpty('orders','POS','Không tải được màn hình bán hàng.'),orders:()=>workstationUI?.focused()&&workstationUI?.mode()==='cashier'?cashierTaskTab():ordersTab(),products:productsTab,tables:()=>restaurantSuite?.renderFloorplan()||tablesTab(),reservations:()=>restaurantSuite?.renderReservations()||cardEmpty("calendar","Đặt bàn","Không tải được giao diện đặt bàn."),operations:()=>workstationUI?.focused()&&workstationUI?.mode()==='host'?hostWorkstation?.render()||hostTaskTab():operationsV5?.render()||cardEmpty('warehouse','Lễ tân & xếp bàn','Không tải được giao diện.'),customers:customersTab,kitchen:()=>kdsUI?.render()||industryTab(),inventory:industryTab,delivery:industryTab,appointments:industryTab,insights:insightsTab,settings:settingsTab,billing:billingTab,team:teamTab,account_lock:lockedAccountTab}[s.tab]||overviewTab)();
  if(["tables","reservations"].includes(s.tab))restaurantSuite?.mount();
- if(s.tab==='operations'&&!(workstationUI?.focused()&&workstationUI?.mode()==='host'))operationsV5?.mount();
+ if(s.tab==='operations'&&workstationUI?.focused()&&workstationUI?.mode()==='host')hostWorkstation?.mount();
+ else if(s.tab==='operations')operationsV5?.mount();
  if(s.tab==='kitchen')kdsUI?.mount();
  if(s.tab==='settings')printerUI?.mount();
  if(s.tab==='pos')cashRegister?.mount();
@@ -550,6 +556,7 @@ async function handleAction(act,val,button){try{
  s.business=b;s.tab=b.billing_required?(b.role==='owner'?'billing':'account_lock'):'overview';
  restaurantSuite?.invalidate();operationsV5?.invalidate();closeModal();s.cache={};
  history.replaceState(null,'','/app?tab='+s.tab);
+ hostWorkstation?.invalidate();
  if(b.billing_required){if(b.role==='owner')s.cache.billing=await api('/businesses/'+encodeURIComponent(b.id)+'/billing');appFrame()}
  else{await refresh();await workstationUI?.load();appFrame()}
  if(b.billing_required){await workstationUI?.load()}
