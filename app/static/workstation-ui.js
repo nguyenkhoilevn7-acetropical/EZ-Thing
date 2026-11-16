@@ -38,7 +38,7 @@
         if(!MODES[current.mode])current.mode="manager";
         state().workstation=previewMode?virtualProfile(previewMode):current;
         if(state().business?.id===biz&&!temporary&&current.mode!=="manager"&&!previewMode)state().tab=home();
-        document.body.dataset.ezWorkstation=focused()?current.mode:"manager";
+        document.body.dataset.ezWorkstation=focused()?mode():"manager";
         document.body.dataset.ezWorkstationActive=focused()?"true":"false";
       }
       async function load(){
@@ -199,7 +199,9 @@
             '<div class="ezws-settings"><p>'+choose(
                "Mỗi thiết bị xuất hiện sau khi nhân viên mở EZ Thing tại máy đó. Quản lý gán chức năng tại đây; thiết bị cập nhật sau khi tải lại.",
                "Devices appear when staff first open EZ Thing. Assign a mode here; refresh the terminal to load changes.")+
-            '</p><div class="ezws-device-grid">'+
+            '</p><div class="ezws-preview-link"><button type="button" class="btn" data-ezws="preview-picker">👁 '+
+            choose("Xem thử 5 màn hình nhân viên","Preview 5 employee screens")+'</button></div>'+
+            '<div class="ezws-device-grid">'+
             (data.workstations.length?data.workstations.map(deviceFields).join(""):
              '<p>'+choose("Chưa có thiết bị nào","No terminals registered")+'</p>')+
             '</div><small>'+choose(
@@ -232,6 +234,17 @@
       async function showSettingsSoon(){
         // Full refresh on next user opening avoids destroying focused form controls.
       }
+      // Preview is display-only: block all app/KDS/POS mutations before handlers.
+      document.addEventListener("click",event=>{
+        if(!previewMode)return;
+        if(event.target.closest("[data-ezws]"))return;
+        if(event.target.closest("#page-content")||event.target.closest("#modal-root")){
+          event.preventDefault();event.stopImmediatePropagation();
+        }
+      },true);
+      document.addEventListener("submit",event=>{
+        if(previewMode){event.preventDefault();event.stopImmediatePropagation()}
+      },true);
       document.addEventListener("click",event=>{
         const button=event.target.closest("[data-ezws]");
         if(!button)return;
@@ -240,6 +253,10 @@
         if(action==="toggle")switchDrawer(!drawerOpen);
         else if(action==="close")switchDrawer(false);
         else if(action==="settings")showSettings();
+        else if(action==="preview-picker")openPreviewPicker();
+        else if(action==="preview")preview(button.dataset.value);
+        else if(action==="exit-preview")exitPreview();
+        else if(action==="fullscreen")fullscreen();
         else if(action==="manager"&&owner()){
           temporary=true;drawerOpen=false;onChanged("overview");
         }else if(action==="return"&&owner()){
@@ -259,12 +276,14 @@
       document.addEventListener("keydown",event=>{
         if(event.key==="Escape"&&drawerOpen){switchDrawer(false)}
       });
-      return {load,mode,focused,home,drawer,modeLabel,isTemporary:()=>temporary,
+      return {load,mode,focused,home,drawer,previewNav,openPreviewPicker,
+              previewOnly,exitPreview,fullscreen,modeLabel,isTemporary:()=>temporary,
               current:()=>current,owner,showSettings,
               allowNavigation:tab=>!focused()||tab===home(),
               applyDocument:()=>{
                 document.body.dataset.ezWorkstation=focused()?mode():"manager";
                 document.body.dataset.ezWorkstationActive=focused()?"true":"false";
+                document.body.dataset.ezWorkstationPreview=previewOnly()?"true":"false";
               }};
     }
   };
