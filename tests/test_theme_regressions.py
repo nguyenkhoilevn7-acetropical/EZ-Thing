@@ -82,3 +82,23 @@ def test_public_homepage_versioned_and_no_store():
         worker = client.get("/sw.js")
         assert "ezthing-shell-" + STATIC_ASSETS.shell_hash in worker.text
         assert "no-store" in worker.headers["Cache-Control"]
+
+
+def test_markup_has_no_inline_event_handlers_blocked_by_csp():
+    """CSP is script-src 'self': onclick="..." attributes never execute.
+
+    Such buttons silently do nothing (for example the booking "Thử lại" retry
+    and the merchant booking dialog that closed on every click inside it).
+    """
+    import re
+    from pathlib import Path
+    static = Path(__file__).resolve().parents[1] / "app" / "static"
+    pattern = re.compile(r"""\son[a-z]+\s*=\s*["']""", re.IGNORECASE)
+    offenders = []
+    for path in sorted(static.glob("*")):
+        if path.suffix not in (".js", ".html"):
+            continue
+        for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+            if pattern.search(line):
+                offenders.append(f"{path.name}:{number}")
+    assert offenders == []

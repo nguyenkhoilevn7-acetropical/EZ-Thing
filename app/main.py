@@ -3,6 +3,7 @@
 No Minh Satori production integration; no automated AI, billing or tax issuance.
 """
 import hashlib
+import hmac
 import json
 import os
 from collections import deque
@@ -17,7 +18,7 @@ from fastapi import Depends, FastAPI, HTTPException, Request, Response
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from fastapi.staticfiles import StaticFiles
-from sqlalchemy import case, func, select, update, text
+from sqlalchemy import case, delete, func, select, update, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -93,7 +94,8 @@ def current_user(request: Request, db: Session = Depends(db_session)):
     if expires <= datetime.now(timezone.utc):
         fail(401, "Phiên đăng nhập đã hết hạn")
     if request.method not in ("GET", "HEAD", "OPTIONS"):
-        if request.headers.get("x-csrf-token") != session.csrf_token:
+        supplied = request.headers.get("x-csrf-token") or ""
+        if not hmac.compare_digest(supplied.encode(), session.csrf_token.encode()):
             fail(403, "Thiếu mã xác thực thao tác")
     user = db.get(User, session.user_id)
     if not user:
@@ -132,6 +134,11 @@ def audit(db, bid, uid, action, payload=None):
 
 def issue_session(db: Session, response: Response, user: User):
     token, digest, csrf, expires = session_pair()
+    # Expired sessions are never valid again; purge this user's stale rows so
+    # the session table does not grow forever with every login.
+    db.execute(delete(SessionToken).where(SessionToken.user_id == user.id,
+                                          SessionToken.expires_at <= datetime.now(timezone.utc))
+               .execution_options(synchronize_session=False))
     db.add(SessionToken(token_hash=digest, user_id=user.id, csrf_token=csrf, expires_at=expires))
     db.commit()
     response.set_cookie("ez_session", token, httponly=True, samesite="strict",

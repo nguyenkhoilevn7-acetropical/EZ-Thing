@@ -38,12 +38,17 @@
   }
   function unitPrice(p,ids){return p.price_vnd+selectedOptions(p,ids).reduce((total,o)=>total+o.price_vnd,0);}
   function cartKey(id,ids){return id+"|"+[...ids].sort().join(",");}
+  // Server limit: at most 15 units of one product per request, summed across
+  // every size/topping variant of that product (not 15 per cart line).
+  const MAX_PER_PRODUCT=15;
+  function productUnits(id){return [...state.cart.values()].filter(x=>x.product_id===id).reduce((sum,x)=>sum+x.quantity,0);}
   function addProduct(id,ids){
     const p=productById(id);
     if(!p||!p.available)return;
     const key=cartKey(id,ids),found=state.cart.get(key);
     if(!found&&state.cart.size>=15)return;
-    state.cart.set(key,{product_id:id,selected_options:[...ids],quantity:Math.min(15,(found?.quantity||0)+1)});
+    if(productUnits(id)>=MAX_PER_PRODUCT){openCart();return;}
+    state.cart.set(key,{product_id:id,selected_options:[...ids],quantity:(found?.quantity||0)+1});
     state.orderRequestId=null;
     render();openCart();
   }
@@ -345,9 +350,11 @@
       if(action==="cart-inc"||action==="cart-dec"){
         const key=button.dataset.value,entry=state.cart.get(key);
         if(entry){
-          const quantity=entry.quantity+(action==="cart-inc"?1:-1);
+          const increase=action==="cart-inc";
+          if(increase&&productUnits(entry.product_id)>=MAX_PER_PRODUCT)return;
+          const quantity=entry.quantity+(increase?1:-1);
           if(quantity<1)state.cart.delete(key);
-          else state.cart.set(key,{...entry,quantity:Math.min(15,quantity)});
+          else state.cart.set(key,{...entry,quantity});
           state.orderRequestId=null;render();openCart();
         }
       }

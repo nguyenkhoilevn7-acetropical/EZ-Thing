@@ -11,6 +11,7 @@ import json
 from collections import defaultdict
 from datetime import date, datetime, timedelta, timezone
 from typing import Literal
+from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field, field_validator
@@ -25,6 +26,7 @@ from .workflows import IndustryWorkItem
 
 router = APIRouter(prefix="/api/businesses/{bid}/operations", tags=["EZ Thing operations v5"])
 UTC = timezone.utc
+LOCAL_TZ = ZoneInfo("Asia/Ho_Chi_Minh")
 
 
 class BranchBalance(Base):
@@ -642,31 +644,42 @@ def add_expense(bid:str,body:ExpenseAdd,user=Depends(current_user),db:Session=De
 def financial_report(bid:str,start:date|None=None,end:date|None=None,
                      user=Depends(current_user),db:Session=Depends(db_session)):
     scope(db,bid,user,permission="insights",manage=True)
-    begin=datetime.combine(start or (now().date()-timedelta(days=30)), datetime.min.time(), tzinfo=UTC)
-    finish=datetime.combine((end or now().date())+timedelta(days=1),datetime.min.time(),tzinfo=UTC)
-    if finish<=begin or finish-begin>timedelta(days=366):
+    # Business days follow the merchant's local calendar (same as the dashboard,
+    # cashier close preview and order history), never UTC midnight. Otherwise
+    # sales paid between 00:00 and 07:00 Vietnam time land on the previous day.
+    today=datetime.now(LOCAL_TZ).date()
+    first_day=start or (today-timedelta(days=30))
+    last_day=end or today
+    if last_day<first_day or (last_day-first_day).days>=366:
         fail(422,"Khoảng báo cáo không hợp lệ (tối đa 366 ngày)")
-    orders=db.scalars(select(SaleOrder).where(
-        SaleOrder.business_id==bid,SaleOrder.status=="paid",
-        SaleOrder.paid_at>=begin,SaleOrder.paid_at<finish)).all()
-    ids=[x.id for x in orders]
-    total_revenue=sum(x.total_vnd for x in orders)
+    begin=datetime.combine(first_day,datetime.min.time(),tzinfo=LOCAL_TZ).astimezone(UTC)
+    finish=datetime.combine(last_day+timedelta(days=1),datetime.min.time(),tzinfo=LOCAL_TZ).astimezone(UTC)
+    paid_in_period=(SaleOrder.business_id==bid,SaleOrder.status=="paid",
+                    SaleOrder.paid_at>=begin,SaleOrder.paid_at<finish)
+    # Aggregate in SQL: a 366-day report must not load every order into memory
+    # or send thousands of order IDs back in an IN (...) clause.
+    order_count,total_revenue=db.execute(select(
+        func.count(SaleOrder.id),func.coalesce(func.sum(SaleOrder.total_vnd),0)
+    ).where(*paid_in_period)).one()
     # Current-cost estimate from exact sale stock movements, including recipe
     # ingredients. Historic unit cost is not snapshotted by the pilot ledger.
-    estimated_cogs=0
-    if ids:
-        for movement,product in db.execute(select(StockMovement,Product).join(
-            Product,(Product.id==StockMovement.product_id)&(Product.business_id==bid))
-            .where(StockMovement.business_id==bid,
-                   StockMovement.reason.in_(("sale","pos_adjust")),
-                   StockMovement.ref.in_(ids))):
-            estimated_cogs+=(-movement.delta)*product.cost_vnd
+    estimated_cogs=db.scalar(select(
+        func.coalesce(func.sum(-StockMovement.delta*Product.cost_vnd),0))
+        .select_from(StockMovement)
+        .join(Product,(Product.id==StockMovement.product_id)&(Product.business_id==bid))
+        .join(SaleOrder,(SaleOrder.id==StockMovement.ref)&(SaleOrder.business_id==bid))
+        .where(StockMovement.business_id==bid,
+               StockMovement.reason.in_(("sale","pos_adjust")),
+               *paid_in_period)) or 0
     expenses=[x for x in db.scalars(select(IndustryWorkItem).where(
         IndustryWorkItem.business_id==bid,IndustryWorkItem.kind=="expense",
         IndustryWorkItem.created_at>=begin,IndustryWorkItem.created_at<finish)).all()]
     expense_total=sum(int(x.details.get("amount_vnd",0)) for x in expenses)
-    return {"period":{"start":begin.date().isoformat(),"end":(finish-timedelta(days=1)).date().isoformat()},
-            "paid_order_count":len(orders),"revenue_vnd":total_revenue,
+    total_revenue=int(total_revenue or 0)
+    estimated_cogs=int(estimated_cogs)
+    return {"period":{"start":first_day.isoformat(),"end":last_day.isoformat(),
+                      "timezone":"Asia/Ho_Chi_Minh"},
+            "paid_order_count":int(order_count or 0),"revenue_vnd":total_revenue,
             "estimated_cogs_vnd":estimated_cogs,"operating_expenses_vnd":expense_total,
             "estimated_profit_vnd":total_revenue-estimated_cogs-expense_total,
             "expenses":[item_out(x) for x in expenses],

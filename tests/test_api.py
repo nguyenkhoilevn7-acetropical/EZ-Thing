@@ -519,3 +519,33 @@ def test_super_admin_server_side_allowlist_and_demo_exclusion(cli, monkeypatch):
         demo_client(another,monkeypatch)
         assert another.get('/api/admin/summary').status_code == 403
     finally:another.close()
+
+
+def test_login_purges_only_expired_sessions_of_same_user(cli):
+    from datetime import datetime, timedelta, timezone
+    from sqlalchemy import select
+    from app.database import SessionLocal
+    from app.models import SessionToken, User
+    signup(cli,'purge')
+    with SessionLocal() as db:
+        uid=db.scalar(select(User.id).where(User.email=='purge@example.com'))
+        db.add(SessionToken(token_hash='e'*64,user_id=uid,csrf_token='x',
+                            expires_at=datetime.now(timezone.utc)-timedelta(days=1)))
+        db.commit()
+        live=db.scalars(select(SessionToken.token_hash).where(
+            SessionToken.user_id==uid,SessionToken.token_hash!='e'*64)).all()
+        assert len(live)==1
+    res=post(cli,'/auth/login',{'email':'purge@example.com','password':'SafePassword!123'})
+    assert res.status_code==200,res.text
+    with SessionLocal() as db:
+        hashes=set(db.scalars(select(SessionToken.token_hash).where(SessionToken.user_id==uid)).all())
+    assert 'e'*64 not in hashes
+    assert live[0] in hashes and len(hashes)==2
+
+
+def test_wrong_csrf_token_is_rejected(cli):
+    signup(cli,'csrfcheck')
+    body={'name':'CSRF Shop','industry':'fnb'}
+    assert post(cli,'/businesses',body,'wrong-token').status_code==403
+    assert post(cli,'/businesses',body).status_code==403
+    assert cli.get('/api/businesses').json()==[]

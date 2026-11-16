@@ -12,28 +12,13 @@ jobs:
           python-version: '3.13'
       - run: pip install -r requirements-dev.txt
       - run: pytest -q
-      - name: Check frontend JS syntax
+      - name: Lint Python for syntax errors and undefined names
+        run: ruff check app scripts migrations tests --select E9,F63,F7,F82
+      - name: Check frontend JS syntax (every file, so new scripts are never skipped)
         run: |
-          node --check app/static/app.js
-          node --check app/static/billing-ui.js
-          node --check app/static/team-ui.js
-          node --check app/static/site-publishing-ui.js
-          node --check app/static/public-shop.js
-          node --check app/static/customer.js
-          node --check app/static/admin.js
-          node --check app/static/reservations.js
-          node --check app/static/merchant-restaurant-suite.js
-          node --check app/static/operations-v5.js
-          node --check app/static/merchant-modifiers.js
-          node --check app/static/pos-v7.js
-          node --check app/static/merchant-kds.js
-          node --check app/static/workstation-ui.js
-          node --check app/static/merchant-print.js
-          node --check app/static/merchant-print-documents.js
-          node --check app/static/merchant-register.js
-          node --check app/static/merchant-checkout.js
-          node --check app/static/merchant-kds-routing.js
-          node --check app/static/sw.js
+          for file in app/static/*.js; do
+            node --check "$file"
+          done
       - name: Verify POS cart behavior
         run: node tests/node_pos_cart_feedback.cjs
       - name: Check print connector Python syntax
