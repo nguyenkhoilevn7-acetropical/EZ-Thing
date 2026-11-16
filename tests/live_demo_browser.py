@@ -224,6 +224,55 @@ try:
   assert page.locator(".ezreg-last-actions [data-ezreg='paid']").count()==1
   print("PASS /app POS: responsive checkout, persisted order, no browser errors",flush=True)
 
+  # Existing saved checks now enter the full payment flow, never one-click paid.
+  page.locator('.ezreg-last-actions [data-ezreg="paid"]').click()
+  page.locator("#ezpay-title").wait_for(timeout=8000)
+  assert page.locator('[data-ezpay="method"][data-value="cash"]').count()==1
+  assert not page.locator('.ezpay-methods button[disabled]').is_enabled()
+  assert not page.locator("#ezpay-submit").is_enabled()
+  assert page.locator('[data-ezpay-cash]').input_value()
+  page.locator('[data-ezpay-cash]').fill("500000")
+  assert page.locator("#ezpay-change-amount").inner_text().strip()
+  page.locator('[data-ezpay-confirm]').check()
+  assert page.locator("#ezpay-submit").is_enabled()
+  page.locator("#ezpay-submit").click()
+  page.locator(".ezpay-modal").wait_for(state="detached",timeout=25000)
+  assert page.locator(".ezreg-last").inner_text().strip()
+  assert page.locator(".ezreg-last-actions [data-ezreg='paid']").count()==0
+  print("PASS POS cash: saved check, tendered amount, change and manual confirmation",flush=True)
+
+  # A new order can be created and manually confirmed as bank transfer
+  # from the same register, without claiming banking gateway verification.
+  page.locator('.ezreg-product').nth(1).click()
+  page.locator('.ezreg-cart-line').first.wait_for(timeout=8000)
+  page.locator('[data-ezreg="checkout"]').click()
+  page.locator("#ezpay-title").wait_for(timeout=8000)
+  page.locator('[data-ezpay="method"][data-value="bank_transfer"]').click()
+  assert not page.locator("#ezpay-submit").is_enabled()
+  assert "bank" in page.locator('.ezpay-bank').inner_text().lower() or "ngân hàng" in page.locator('.ezpay-bank').inner_text().lower()
+  page.locator('[data-ezpay-reference]').fill("BANK-REVIEW-123")
+  page.locator('[data-ezpay-confirm]').check()
+  page.locator("#ezpay-submit").click()
+  page.locator(".ezpay-modal").wait_for(state="detached",timeout=25000)
+  assert page.locator('.ezreg-cart-line').count()==0
+  print("PASS POS bank: new order then explicit manually recorded transfer, no gateway",flush=True)
+
+  # Phone: payment drawer remains readable and never forces page horizontal scroll.
+  page.set_viewport_size({"width":412,"height":915})
+  page.locator('.ezreg-product').nth(1).click()
+  page.locator('[data-ezreg="cart-toggle"]').click()
+  page.locator('[data-ezreg="checkout"]').click()
+  assert page.locator('.ezpay-modal').is_visible()
+  page.locator('[data-ezpay="close"]').last.click()
+  assert page.locator('.ezpay-modal').count()==0
+  size=page.evaluate("""() => ({document:document.documentElement.scrollWidth,
+                              viewport:window.innerWidth})""")
+  assert size["document"]<=size["viewport"]+2,size
+  print("PASS POS mobile cashier checkout and no horizontal overflow",flush=True)
+
+  page.set_viewport_size({"width":1280,"height":800})
+
+
   page.goto(BASE+"/app?tab=orders",wait_until="domcontentloaded",timeout=15000)
   page.locator(".order-card").first.wait_for(timeout=25000)
 
