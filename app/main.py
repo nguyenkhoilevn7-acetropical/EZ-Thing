@@ -32,6 +32,7 @@ from .schemas import (BranchCreate, ConfirmPayment, CreateBusiness, CreateOrder,
                       StockAdjust, TableCreate)
 from .security import check_password, digest_password, session_pair, token_hash
 
+from . import payment_models  # Register payment metadata before pilot create_all.
 Base.metadata.create_all(bind=engine)  # Pilot only; production must use versioned migrations.
 app = FastAPI(title="EZ Thing Business MVP", version="0.5.0", docs_url="/api/docs")
 ASSETS = Path(__file__).parent / "static"
@@ -664,6 +665,15 @@ def order_paid(bid: str, oid: str, body: ConfirmPayment, user=Depends(current_us
     if o.status not in ("open", "paid"):
         fail(409, "Đơn đã hủy, không thể xác nhận thanh toán")
     if o.status == "open":
+        # Prevent manual settlement while QR/card collection is unresolved.
+        from .payment_models import POSPaymentIntent
+        pending = db.scalar(select(POSPaymentIntent.id).where(
+            POSPaymentIntent.business_id == bid,
+            POSPaymentIntent.order_id == oid,
+            POSPaymentIntent.status == "pending").limit(1))
+        if pending:
+            fail(409, "Đang chờ QR/thẻ: không thể xác nhận thủ công; hãy đối soát trước")
+    if o.status == "open":
         o.status = "paid"; o.paid_at = now()
         from .operations_v5 import loyalty_earn_on_paid
         loyalty_earn_on_paid(db, bid, o)
@@ -859,3 +869,8 @@ from .printing import merchant as print_router, device_api as print_device_route
 Base.metadata.create_all(bind=engine)  # Pilot only; production applies 20261116_08 migration.
 app.include_router(print_router)
 app.include_router(print_device_router)
+
+# V8 additive POS payment routes (card capture disabled until acquiring SDK).
+from .payments import merchant as payments_router, provider as payment_provider_router  # noqa: E402
+app.include_router(payments_router)
+app.include_router(payment_provider_router)
