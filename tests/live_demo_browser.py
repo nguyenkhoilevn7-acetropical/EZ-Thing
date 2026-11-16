@@ -504,9 +504,10 @@ try:
     assert style["width"]>150,style
     page.set_viewport_size({"width":412,"height":850})
     assert confirm.is_visible(), "Mobile modal confirm CTA must be visible"
+    capacity=int(page.locator('.ezhost-seat-form [name="guest_count"]').get_attribute("max"))
     page.locator('[data-ezhost-step="1"]').click()
-    assert page.locator('.ezhost-seat-form [name="guest_count"]').input_value()=="2"
-    page.locator('.ezhost-seat-form [name="guest_count"]').fill("3")
+    assert page.locator('.ezhost-seat-form [name="guest_count"]').input_value()==str(min(2,capacity))
+    page.locator('.ezhost-seat-form [name="guest_count"]').fill(str(min(3,capacity)))
     page.locator('.ezhost-seat-form [name="guest_name"]').fill("Khách thử")
     confirm.click()
     page.locator('.ezhost-seat-success').wait_for(timeout=12000)
