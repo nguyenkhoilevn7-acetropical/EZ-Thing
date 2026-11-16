@@ -62,14 +62,20 @@ const cashRegister=window.EZRegisterUI?.({
 const workstationUI=window.EZWorkstations?.create({
  api,E,toast,getState:()=>s,modal:(title,html)=>modal(title,html,true),
  closeModal:()=>closeModal(),
- onChanged:tab=>{
+ onChanged:(tab,options={})=>{
   if(tab)s.tab=tab;
   else if(workstationUI?.focused())s.tab=workstationUI.home();
   history.replaceState(null,'','/app?tab='+encodeURIComponent(s.tab));
   appFrame();window.scrollTo(0,0);
+  if(options.reload)loadData().then(()=>renderTab()).catch(err=>toast(err.message,true));
  }
 });
 async function api(path,opt={}){
+ // Interactive owner previews never invoke a mutation on the real tenant API.
+ // The sandbox returns virtual responses for supported actions and rejects
+ // every other non-GET request before a network connection is opened.
+ const sandbox=workstationUI?.previewResponse?.(path,opt);
+ if(sandbox?.handled)return sandbox.data;
  const controller=new AbortController();
  const timeoutMs=path==='/auth/demo'?45000:(opt.method&&opt.method!=='GET'?30000:20000);
  const timer=setTimeout(()=>controller.abort(),timeoutMs);
@@ -90,7 +96,7 @@ async function api(path,opt={}){
      const error=new Error(typeof data.detail==='string'?data.detail:'Thao tác không thành công');
      error.status=response.status;throw error;
    }
-   return data;
+   return workstationUI?.previewRead?.(path,data)??data;
  }catch(error){
    if(error.name==='AbortError')throw new Error('Kết nối quá thời gian. Kiểm tra mạng và thử lại.');
    throw error;
