@@ -47,7 +47,7 @@ def png_data():
 def test_tenant_private_image_uploaded_once_and_shown_by_public_catalog():
     with TestClient(app) as owner,TestClient(app) as other,TestClient(app) as guest:
         csrf,bid,pid=register(owner,"one")
-        _,other_bid,other_pid=register(other,"two")
+        other_csrf,other_bid,other_pid=register(other,"two")
         path=f"/api/businesses/{bid}/products/{pid}/photo"
         assert owner.get(path).status_code==404
         assert owner.put(path,files={"file":("malware.txt",b"fake","text/plain")},
@@ -65,7 +65,7 @@ def test_tenant_private_image_uploaded_once_and_shown_by_public_catalog():
         items=owner.get(f"/api/businesses/{bid}/products").json()
         assert next(p for p in items if p["id"]==pid)["image_url"]==photo_path
         assert other.get(path).status_code==404
-        assert other.delete(path).status_code==404
+        assert other.delete(path,headers={"x-csrf-token":other_csrf}).status_code==404
         assert guest.get(path).status_code==401
 
         public_slug="travai-photo-pos"
