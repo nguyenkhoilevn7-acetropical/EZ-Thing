@@ -367,11 +367,16 @@ def crawl_preview(page, label):
             raise AssertionError("preview toolbar missing for " + mode)
         if not page.locator("#page-content").inner_text(timeout=5000).strip():
             raise AssertionError("preview screen empty for " + mode)
+        switcher = page.locator(".ezws-preview-switcher > summary")
+        if switcher.count():
+            switcher.first.click()
         tabs = page.locator(".ezws-preview-tabs button")
         for index in range(tabs.count()):
             box = tabs.nth(index).bounding_box()
             if box is None or box["x"] < 0 or box["x"] + box["width"] > page.viewport_size["width"] + 1:
                 record("layout", f"preview tab '{tabs.nth(index).inner_text()}' is cut off")
+        if switcher.count():
+            switcher.first.click()
 
     def order_and_print():
         enter("order")
