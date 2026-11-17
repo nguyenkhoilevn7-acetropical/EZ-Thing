@@ -22,7 +22,7 @@
     const displayName=p=>lookup(demoNames,p?.name);
     const displayBranch=name=>String(name||"").trim().toLocaleLowerCase("vi")==="chi nhánh chính"?"Main branch":String(name||"");
     const defaultState=()=>({
-      bid:"",category:"all",search:"",branch:"",table:"",customer:"",note:"",
+      bid:"",category:"all",search:"",searchOpen:false,branch:"",table:"",customer:"",note:"",noteOpen:false,
       ticketSide:(()=>{try{return localStorage.getItem("ez_pos_ticket_side")==="left"?"left":"right"}catch{return "right"}})(),
       cart:[],mobileCart:false,optionProduct:"",optionId:"",optionQty:1,
       optionIds:[],busy:false,requestId:uid(),last:null
@@ -183,24 +183,12 @@
     // Staff Order Takers cannot settle payments; owner preview can try
     // the complete checkout because the sandbox intercepts every write.
     const orderOnly=()=>getState().workstation?.mode==="order"&&business().role==="staff";
-    function cartInnerHtml(){
+    function contextHtml(){
       const activeTables=tables().filter(x=>x.branch_id===s.branch);
       const hasTables=business().active_modules?.includes("tables");
       const selectableBranches=branches().filter(b=>!getState().workstation?.branch_id||
         getState().workstation.branch_id===b.id);
-      const baseTotal=s.cart.reduce((sum,line)=>sum+price(byId(line.productId))*line.quantity,0);
-      const extrasTotal=s.cart.reduce((sum,line)=>sum+
-        modifierPrice(byId(line.productId),line.optionIds)*line.quantity,0);
-      const count=totalQty();
-      const disabled=!s.cart.length||s.busy||!navigator.onLine;
-      return '<div class="ezreg-cart-head"><div><span class="ezreg-kicker">'+
-        t("PHIẾU BÁN HÀNG","TICKET")+'</span><h3>'+
-        t("Đơn đang tạo","Order")+' <span class="ezreg-count">'+count+'</span></h3>'+
-        '<small class="ezreg-check-caption">'+s.cart.length+' '+
-        t("dòng món","lines")+' · '+count+' '+t("phần","units")+'</small></div>'+
-        '<button type="button" class="ezreg-cart-close" data-ezreg="cart-close" aria-label="'+
-        t("Đóng giỏ hàng","Close cart")+'">✕</button></div>'+
-        '<div class="ezreg-cart-context" role="group" aria-label="'+
+      return         '<div class="ezreg-cart-context" role="group" aria-label="'+
         t("Thông tin đơn","Order details")+'">'+
         (hasTables?'<label class="ezreg-context-chip">'+
           '<span class="ezreg-visually-hidden">'+t("Hình thức / bàn","Table")+'</span>'+
@@ -231,7 +219,22 @@
             '<option value="'+E(b.id)+'"'+(b.id===s.branch?" selected":"")+">"+
             E(displayBranch(b.name))+'</option>').join("")+
           '</select></label></details>':"")+
-        '</div><div class="ezreg-cart-scroll">'+
+        '</div>';
+    }
+    function cartInnerHtml(){
+      const baseTotal=s.cart.reduce((sum,line)=>sum+price(byId(line.productId))*line.quantity,0);
+      const extrasTotal=s.cart.reduce((sum,line)=>sum+
+        modifierPrice(byId(line.productId),line.optionIds)*line.quantity,0);
+      const count=totalQty();
+      const disabled=!s.cart.length||s.busy||!navigator.onLine;
+      return '<div class="ezreg-cart-head"><div class="ezreg-ticket-inline">'+
+        '<span class="ezreg-ticket-label">Ticket</span>'+
+        '<strong class="ezreg-ticket-name">Order</strong>'+
+        '<span class="ezreg-count">'+count+'</span>'+
+        '<small class="ezreg-check-caption">'+s.cart.length+' lines · '+count+' units</small></div>'+
+        '<button type="button" class="ezreg-cart-close" data-ezreg="cart-close" aria-label="Close cart">✕</button></div>'+
+        '<div class="ezreg-cart-scroll">'+
+
         '<div class="ezreg-cart-list-heading"><strong>'+t("Chi tiết món","Items")+
         '</strong><span>'+count+' '+t("phần","units")+'</span></div>'+
         '<div class="ezreg-cart-items">'+(s.cart.length?s.cart.map(cartLineHtml).join(""):
@@ -240,11 +243,14 @@
           t("Chạm dấu + trên món để thêm. Số lượng sẽ hiển thị ngay trên món và giỏ.",
             "Tap + to add an item. Its quantity appears immediately on the item and cart.")+
           '</p></div>')+'</div>'+
-        '<label class="ezreg-note-label">'+t("Ghi chú cho đơn","Note")+
-        '<textarea data-ezreg-note maxlength="300" rows="2" '+(s.busy?"disabled":"")+
-        ' placeholder="'+t("Ví dụ: Ít đá, giao trước 15:00...",
-          "For example: Less ice, pickup at 3 PM...")+'">'+
-        E(s.note)+'</textarea></label></div>'+
+        '<div class="ezreg-note-wrap">'+
+        '<button type="button" class="ezreg-note-toggle" data-ezreg="note-toggle" aria-expanded="'+s.noteOpen+'">'+
+        (s.note?"✎ Edit Note":"＋ Add Note")+(s.note&&!s.noteOpen?' <span class="ezreg-note-dot" aria-label="Note saved">●</span>':"")+
+        '</button>'+
+        (s.noteOpen?'<label class="ezreg-note-label"><span class="ezreg-visually-hidden">Note</span>'+
+          '<textarea data-ezreg-note maxlength="300" rows="2" '+(s.busy?"disabled":"")+
+          ' placeholder="For example: Less ice, pickup at 3 PM...">'+E(s.note)+'</textarea></label>':"")+
+        '</div></div>'+
         '<div class="ezreg-cart-footer">'+
         '<div class="ezreg-summary-row"><span>'+t("Tiền món","Items")+
         '</span><strong>'+fmt(baseTotal)+'</strong></div>'+
@@ -256,14 +262,6 @@
         t("Đơn chưa lưu · Chưa thu tiền. Không tự cộng giảm giá, thuế hoặc phụ phí. Máy chủ xác nhận tổng tiền khi lưu.",
           "Unpaid · Total verified on save.")+
         '</div>'+
-        (orderOnly()?"":'<div class="ezreg-pay-methods" role="group" aria-label="'+
-        t("Phương thức thanh toán nhanh","Quick payment method")+'">'+
-        '<button type="button" data-ezreg="tender" data-method="cash" '+(disabled?"disabled":"")+
-        '>💵 <span>'+t("Tiền mặt","Cash")+'</span></button>'+
-        '<button type="button" data-ezreg="tender" data-method="bank_transfer" '+(disabled?"disabled":"")+
-        '>▦ <span>'+t("Chuyển khoản","Bank")+'</span></button>'+
-        '<button type="button" disabled title="'+t("Chưa kết nối cổng thanh toán","Payment gateway not connected")+
-        '">💳 <span>'+t("Thẻ","Card")+'</span></button></div>')+
         (orderOnly()?"":'<button type="button" class="ezreg-create ezreg-pay-primary" data-ezreg="checkout" '+
         (disabled?"disabled":"")+'>'+
         (s.busy?t("Đang xử lý...","Processing..."):
@@ -318,12 +316,14 @@
         (orderOnly()?"":'<button type="button" data-ezreg="orders">'+
           t("Đơn hàng →","Orders →")+'</button>')+'</div></div>'+lastHtml()+
         '<div class="ezreg-layout"><section class="ezreg-catalog">'+
-        '<div class="ezreg-catalog-head"><div><h3>'+t("Thực đơn & sản phẩm","Products")+
-        '</h3><span>'+stock.length+' '+t("mặt hàng","products")+'</span></div>'+
-        '<label class="ezreg-search"><span>⌕</span><input type="search" data-ezreg-search '+
-        'placeholder="'+t("Tìm tên món, mã SKU...","Search items or SKU...")+
-        '" value="'+E(s.search)+'" aria-label="'+t("Tìm sản phẩm","Search products")+
-        '"></label></div>'+
+        '<div class="ezreg-catalog-head"><div class="ezreg-catalog-heading"><h3>Products</h3>'+
+        '<span>'+stock.length+' products</span></div>'+
+        '<div class="ezreg-catalog-controls">'+contextHtml()+
+        '<div class="ezreg-search '+(s.searchOpen?"is-open":"")+'">'+
+        '<button type="button" data-ezreg="search-toggle" class="ezreg-search-toggle" aria-label="Search products" aria-expanded="'+s.searchOpen+'" title="Search">⌕</button>'+
+        (s.searchOpen?'<input type="search" data-ezreg-search placeholder="Search items or SKU..." value="'+E(s.search)+'" aria-label="Search items or SKU">'+
+          '<button type="button" class="ezreg-search-close" data-ezreg="search-close" aria-label="Close search">✕</button>':"")+
+        '</div></div></div>'+
         '<div class="ezreg-categories" id="ezreg-categories">'+categoriesHtml()+'</div>'+
         '<div class="ezreg-products" id="ezreg-products">'+catalogHtml()+'</div>'+
         '</section><aside class="ezreg-cart '+(s.mobileCart?"mobile-open":"")+
@@ -640,6 +640,17 @@
         try{localStorage.setItem("ez_pos_ticket_side",s.ticketSide)}catch{}
         paint();
       }
+      else if(action==="search-toggle"){
+        s.searchOpen=!s.searchOpen;
+        if(!s.searchOpen)s.search="";
+        paint();
+        if(s.searchOpen)document.querySelector("[data-ezreg-search]")?.focus();
+      }
+      else if(action==="search-close"){s.search="";s.searchOpen=false;paint()}
+      else if(action==="note-toggle"){
+        s.noteOpen=!s.noteOpen;syncCart();
+        if(s.noteOpen)document.querySelector("[data-ezreg-note]")?.focus();
+      }
       else if(action==="product"){
         const now=Date.now();
         // Variant choices open a dialog: allow immediate repeat so staff can add different sizes.
@@ -661,8 +672,8 @@
       else if(action==="cart-close"){s.mobileCart=false;syncCart()}
       else if(action==="clear")closeDraft();
       else if(action==="create")create();
-      else if(action==="checkout"||action==="tender"){
-        try{ensureValid();checkout?.begin(null,button.dataset.method||"cash")}catch(err){toast(err.message,true)}
+      else if(action==="checkout"){
+        try{ensureValid();checkout?.begin(null)}catch(err){toast(err.message,true)}
       }
       else if(action==="orders")navigate("orders");
       else if(action==="send-kitchen")sendKitchen();
@@ -683,7 +694,7 @@
       if(field==="branch"){
         s.branch=el.value;
         if(!tables().some(x=>x.id===s.table&&x.branch_id===s.branch))s.table="";
-        syncCart();
+        paint();
       }else if(field==="table")s.table=el.value;
       else if(field==="customer")s.customer=el.value;
     },true);
@@ -692,9 +703,12 @@
       if(event.key==="Escape"){
         if(s.optionProduct){s.optionProduct="";s.optionId="";paintOptions()}
         else if(s.mobileCart){s.mobileCart=false;syncCart()}
+        else if(s.searchOpen){s.searchOpen=false;s.search="";paint()}
+        else if(s.noteOpen){s.noteOpen=false;syncCart()}
       }
       if((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==="k"){
-        event.preventDefault();document.querySelector("[data-ezreg-search]")?.focus()
+        event.preventDefault();s.searchOpen=true;paint();
+        document.querySelector("[data-ezreg-search]")?.focus()
       }
     });
     function openPayment(order){
