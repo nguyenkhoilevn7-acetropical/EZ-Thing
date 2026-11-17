@@ -43,7 +43,7 @@ const operationsV5=window.EZOperationsV5?.({api,E,V,toast,getState:()=>s});
 const printerUI=window.EZPrintUI?.({api,E,toast,getState:()=>s});
 const printDocuments=window.EZPrintDocuments?.({api,E,toast,modal,closeModal,getState:()=>s});
 const cashRegister=window.EZRegisterUI?.({
- api,E,V,toast,getState:()=>s,onPrint:async id=>printDocuments?.open(id,'receipt'),
+ api,E,V,toast,getState:()=>s,getPreviewControls:()=>workstationUI?.previewInline?.(),onPrint:async id=>printDocuments?.open(id,'receipt'),
  navigate:tab=>{
    s.tab=tab;history.pushState(null,'','/app?tab='+encodeURIComponent(tab));
    appFrame();window.scrollTo(0,0);
