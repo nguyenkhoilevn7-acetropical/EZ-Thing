@@ -404,7 +404,7 @@
       const notice=document.getElementById("ezreg-added-live");
       if(!notice)return;
       if(addedNoticeTimer)clearTimeout(addedNoticeTimer);
-      notice.textContent="✓ "+t("Đã thêm ","Added ")+product.name+
+      notice.textContent="✓ "+t("Đã thêm ","Added ")+displayName(product)+
         " · "+totalQty()+" "+t("phần trong giỏ","units in cart");
       notice.classList.add("visible");
       addedNoticeTimer=setTimeout(()=>notice.classList.remove("visible"),1700);
