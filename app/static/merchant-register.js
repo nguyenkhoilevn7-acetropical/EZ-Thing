@@ -3,7 +3,7 @@
    No automatic payment inference, offline writes, or client-side stock mutation. */
 (() => {
   "use strict";
-  window.EZRegisterUI = function init({api,E,V,toast,getState,navigate,onCreated,onPaid,onPrint}) {
+  window.EZRegisterUI = function init({api,E,V,toast,getState,navigate,onCreated,onPaid,onPrint,getPreviewControls}) {
     const uid=()=>globalThis.crypto?.randomUUID?.()||
       "pos-"+Date.now().toString(36)+"-"+Math.random().toString(36).slice(2);
     const t=(_vi,en)=>en;
@@ -314,7 +314,8 @@
         '<button type="button" data-ezws="fullscreen" aria-label="'+t("Bật toàn màn hình","Fullscreen")+
         '" title="'+t("Toàn màn hình","Fullscreen")+'">⛶</button>'+
         (orderOnly()?"":'<button type="button" data-ezreg="orders">'+
-          t("Đơn hàng →","Orders →")+'</button>')+'</div></div>'+lastHtml()+
+          t("Đơn hàng →","Orders →")+'</button>')+
+        (getPreviewControls?.()||"")+'</div></div>'+lastHtml()+
         '<div class="ezreg-layout"><section class="ezreg-catalog">'+
         '<div class="ezreg-catalog-head"><div class="ezreg-catalog-heading"><h3>Products</h3>'+
         '<span>'+stock.length+' products</span></div>'+
