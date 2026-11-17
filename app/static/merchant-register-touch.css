@@ -630,3 +630,14 @@ body[data-ez-workstation-active="true"] .ezreg .ezreg-product{
   display:flex!important
  }
 }
+
+/* Outside a dedicated POS workstation, mid-sized merchant view uses
+   the normal closed cart drawer. Prevent it blocking the floating Cart button. */
+@media(min-width:700px) and (max-width:860px){
+ body:not([data-ez-workstation-active="true"]) .ezreg .ezreg-cart{
+  display:none!important;
+ }
+ body:not([data-ez-workstation-active="true"]) .ezreg .ezreg-cart.mobile-open{
+  display:flex!important;
+ }
+}
