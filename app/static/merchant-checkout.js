@@ -5,7 +5,7 @@
 (() => {
   "use strict";
   window.EZCashierCheckout = function init({api,E,V,toast,getBusiness,getTotal,createOrder,onPaid}) {
-    const T=(vi,en)=>window.EZI18N?.language?.()==="en"?en:vi;
+    const T=(_vi,en)=>en;
     const uid=()=>globalThis.crypto?.randomUUID?.()||
       "tender-"+Date.now().toString(36)+"-"+Math.random().toString(36).slice(2);
     let state={open:false,order:null,method:"cash",cash:"",reference:"",
@@ -42,13 +42,13 @@
       return '<div class="ezpay-backdrop" data-ezpay="close"></div>'+
         '<section class="ezpay-modal" role="dialog" aria-modal="true" aria-labelledby="ezpay-title">'+
         '<header class="ezpay-head"><div><small>EZ THING · CHECKOUT</small>'+
-        '<h3 id="ezpay-title">'+T("Thanh toán","Payment")+'</h3>'+
+        '<h3 id="ezpay-title">'+T("Thanh toán","Pay")+'</h3>'+
         '<span>'+(state.order?"#"+E(state.order.id.slice(0,8).toUpperCase())+" · ":"")+
-        T("Thu ngân tại quầy","Counter checkout")+'</span></div>'+
+        T("Thu ngân tại quầy","Checkout")+'</span></div>'+
         '<button type="button" data-ezpay="close" aria-label="'+T("Đóng","Close")+'">✕</button></header>'+
         '<div class="ezpay-content"><div class="ezpay-total"><span>'+
-        T("Số tiền cần thanh toán","Amount due")+'</span><strong>'+fmt(amount)+'</strong></div>'+
-        '<h4>'+T("Chọn phương thức thanh toán","Payment method")+'</h4>'+
+        T("Số tiền cần thanh toán","Due")+'</span><strong>'+fmt(amount)+'</strong></div>'+
+        '<h4>'+T("Chọn phương thức thanh toán","Method")+'</h4>'+
         '<div class="ezpay-methods">'+methods.map(([value,emoji,label,desc])=>
           '<button type="button" data-ezpay="method" data-value="'+value+'" class="'+
           (state.method===value?"selected":"")+'" aria-pressed="'+(state.method===value)+'">'+
@@ -82,7 +82,7 @@
         '</p></div><footer class="ezpay-actions">'+
         '<button type="button" data-ezpay="close">'+T("Quay lại","Back")+'</button>'+
         '<button type="button" data-ezpay="confirm" id="ezpay-submit" '+(valid()?"":"disabled")+'>'+
-        (state.busy?T("Đang xử lý...","Processing..."):T("Xác nhận đã nhận tiền","Confirm funds received"))+
+        (state.busy?T("Đang xử lý...","Processing..."):T("Xác nhận đã nhận tiền","Confirm Pay"))+
         '<strong>'+fmt(amount)+'</strong></button></footer></section>';
     }
     function paint(){

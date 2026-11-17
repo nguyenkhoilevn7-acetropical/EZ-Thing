@@ -55,6 +55,9 @@ assert.match(register.render(),/data-ezreg="product"/);
 assert.match(register.render(),/data-ezreg="flip-ticket"/,
   "POS must let operators switch the receipt panel left or right");
 assert.match(register.render(),/ezreg-ticket-right/);
+assert.match(register.render(),/POS Order/);
+assert.match(register.render(),/data-ez-lang-ignore/);
+assert.doesNotMatch(register.render(),/Bán hàng nhanh/);
 assert.match(register.render(),/ezreg-category-glyph/,
   "category rail must be touch-first and icon-led");
 function click(action,value,button=productButton){
@@ -62,34 +65,36 @@ function click(action,value,button=productButton){
   listeners.click({target:button,preventDefault(){},stopPropagation(){}});
 }
 click("product","tea");
-assert.match(grid.innerHTML,/Trong giỏ: 1/,"tile must confirm item count");
-assert.match(cart.innerHTML,/Chi tiết món/);
-assert.match(cart.innerHTML,/Đơn giá/);
+assert.match(grid.innerHTML,/In cart: 1/,"tile must confirm item count");
+assert.match(cart.innerHTML,/Items/);
+assert.match(cart.innerHTML,/Unit/);
 assert.match(cart.innerHTML,/TRA-01/);
-assert.match(cart.innerHTML,/Tiền món/);
-assert.match(cart.innerHTML,/Size \/ topping/);
+assert.match(cart.innerHTML,/Items/);
+assert.match(cart.innerHTML,/Add-ons/);
 assert.match(cart.innerHTML,/35\.000đ/);
+assert.match(cart.innerHTML,/\>Pay\</);
+assert.match(cart.innerHTML,/\>Save\</);
 assert.match(cart.innerHTML,/data-method="cash"/,"cash shortcut must be visible");
 assert.match(cart.innerHTML,/data-method="bank_transfer"/,
   "transfer shortcut must be visible");
 assert.match(cart.innerHTML,/Payment gateway not connected|Chưa kết nối cổng thanh toán/,
   "unsupported card gateway must stay disabled");
-assert.match(notice.textContent,/Đã thêm Trà sữa trân châu/);
+assert.match(notice.textContent,/Added Pearl Milk Tea/);
 // A rapid unintended double tap must not produce a duplicate unit.
 click("product","tea");
-assert.match(grid.innerHTML,/Trong giỏ: 1/);
+assert.match(grid.innerHTML,/In cart: 1/);
 const lineId=cart.innerHTML.match(/data-line-id="([^"]+)"/)?.[1];
 assert.ok(lineId,"cart must expose a stable line ID");
 click("increase",lineId);
-assert.match(grid.innerHTML,/Trong giỏ: 2/);
+assert.match(grid.innerHTML,/In cart: 2/);
 assert.match(cart.innerHTML,/70\.000đ/);
 click("decrease",lineId);
-assert.match(grid.innerHTML,/Trong giỏ: 1/);
+assert.match(grid.innerHTML,/In cart: 1/);
 click("remove",lineId);
-assert.doesNotMatch(grid.innerHTML,/Trong giỏ: 1/);
-assert.match(cart.innerHTML,/Chưa có món nào/);
+assert.doesNotMatch(grid.innerHTML,/In cart: 1/);
+assert.match(cart.innerHTML,/No items yet/);
 click("flip-ticket","");
 assert.match(nodes["ez-register"].outerHTML,/ezreg-ticket-left/,
   "layout toggle must put ticket on left without clearing draft");
-assert.match(register.render(),/35\.000đ|Đơn đang tạo/);
+assert.match(register.render(),/35\.000đ|Order/);
 console.log("PASS: POS add-to-cart feedback, rapid tap guard, quantity, remove, and detailed totals");
