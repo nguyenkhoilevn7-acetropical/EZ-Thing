@@ -186,6 +186,8 @@
     function cartInnerHtml(){
       const activeTables=tables().filter(x=>x.branch_id===s.branch);
       const hasTables=business().active_modules?.includes("tables");
+      const selectableBranches=branches().filter(b=>!getState().workstation?.branch_id||
+        getState().workstation.branch_id===b.id);
       const baseTotal=s.cart.reduce((sum,line)=>sum+price(byId(line.productId))*line.quantity,0);
       const extrasTotal=s.cart.reduce((sum,line)=>sum+
         modifierPrice(byId(line.productId),line.optionIds)*line.quantity,0);
@@ -198,27 +200,38 @@
         t("dòng món","lines")+' · '+count+' '+t("phần","units")+'</small></div>'+
         '<button type="button" class="ezreg-cart-close" data-ezreg="cart-close" aria-label="'+
         t("Đóng giỏ hàng","Close cart")+'">✕</button></div>'+
-        '<div class="ezreg-cart-scroll"><div class="ezreg-cart-meta"><label>'+t("Chi nhánh","Branch")+
-        '<select data-ezreg-select="branch" '+(s.busy?"disabled":"")+
-        ' aria-label="'+t("Chọn chi nhánh","Select branch")+'">'+
-        branches().filter(b=>!getState().workstation?.branch_id||
-          getState().workstation.branch_id===b.id).map(b=>
-          '<option value="'+E(b.id)+'"'+(b.id===s.branch?" selected":"")+">"+
-          E(displayBranch(b.name))+'</option>').join("")+'</select></label>'+
-        (hasTables?'<label>'+t("Hình thức / bàn","Table")+
+        '<div class="ezreg-cart-context" role="group" aria-label="'+
+        t("Thông tin đơn","Order details")+'">'+
+        (hasTables?'<label class="ezreg-context-chip">'+
+          '<span class="ezreg-visually-hidden">'+t("Hình thức / bàn","Table")+'</span>'+
           '<select data-ezreg-select="table" '+(s.busy?"disabled":"")+
-          ' aria-label="'+t("Chọn bàn","Select table")+'">'+
-          '<option value="">'+t("Không chọn bàn · mang đi / giao hàng","Takeaway")+'</option>'+
+          ' aria-label="'+t("Chọn bàn hoặc mang đi","Table or takeaway")+'">'+
+          '<option value="">'+t("Mang đi","Takeaway")+'</option>'+
           activeTables.map(tab=>'<option value="'+E(tab.id)+'"'+
-          (s.table===tab.id?" selected":"")+">"+E(tab.label)+
-          (tab.occupied?" · "+t("Đang dùng","Occupied"):"")+"</option>").join("")+
-          '</select></label>':"")+
-        '<label>'+t("Khách hàng","Customer")+'<select data-ezreg-select="customer" '+
-        (s.busy?"disabled":"")+'>'+
-        '<option value="">'+t("Khách lẻ","Walk-in")+'</option>'+
-        customers().map(c=>'<option value="'+E(c.id)+'"'+
-          (s.customer===c.id?" selected":"")+">"+E(c.name)+"</option>").join("")+
-        '</select></label></div>'+
+            (s.table===tab.id?" selected":"")+">"+E(tab.label)+
+            (tab.occupied?" · "+t("Đang dùng","Occupied"):"")+"</option>").join("")+
+          '</select></label>':
+          '<span class="ezreg-context-static">'+t("Mang đi","Takeaway")+'</span>')+
+        '<label class="ezreg-context-chip"><span class="ezreg-visually-hidden">'+
+          t("Khách hàng","Customer")+'</span>'+
+          '<select data-ezreg-select="customer" '+(s.busy?"disabled":"")+
+          ' aria-label="'+t("Chọn khách hàng","Customer")+'">'+
+          '<option value="">'+t("Khách lẻ","Walk-in")+'</option>'+
+          customers().map(c=>'<option value="'+E(c.id)+'"'+
+            (s.customer===c.id?" selected":"")+">"+E(c.name)+"</option>").join("")+
+          '</select></label>'+
+        (selectableBranches.length>1?
+          '<details class="ezreg-branch-picker"><summary aria-label="'+
+          t("Chọn chi nhánh","Branch settings")+'" title="'+
+          t("Chọn chi nhánh","Branch settings")+'">⚙</summary>'+
+          '<label><span>'+t("Chi nhánh","Branch")+'</span>'+
+          '<select data-ezreg-select="branch" '+(s.busy?"disabled":"")+
+          ' aria-label="'+t("Chọn chi nhánh","Select branch")+'">'+
+          selectableBranches.map(b=>
+            '<option value="'+E(b.id)+'"'+(b.id===s.branch?" selected":"")+">"+
+            E(displayBranch(b.name))+'</option>').join("")+
+          '</select></label></details>':"")+
+        '</div><div class="ezreg-cart-scroll">'+
         '<div class="ezreg-cart-list-heading"><strong>'+t("Chi tiết món","Items")+
         '</strong><span>'+count+' '+t("phần","units")+'</span></div>'+
         '<div class="ezreg-cart-items">'+(s.cart.length?s.cart.map(cartLineHtml).join(""):

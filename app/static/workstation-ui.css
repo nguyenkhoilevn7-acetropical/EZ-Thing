@@ -778,3 +778,81 @@ body:has(#ezreg-cart.mobile-open) .ez-language-switch,
 body:has(.ezpay-modal) .ez-language-switch,
 body:has(#ezreg-option-mount .ezreg-option-dialog) .ez-language-switch,
 body:has(#modal-root .overlay) .ez-language-switch{display:none!important}
+
+
+/* POS compact preview menu — 2026-11-17.
+   Task switches remain available on demand but never consume a permanent row.
+   Native details provides touch + keyboard operation, with an overlay menu. */
+.ezws-preview-bar{
+ min-height:52px!important;padding:7px 12px!important;gap:8px!important;
+ flex-wrap:nowrap!important;align-items:center!important;justify-content:flex-end!important;
+}
+.ezws-preview-bar>.ezws-preview-label{
+ flex:1 1 auto!important;min-width:0!important;overflow:hidden;
+ text-overflow:ellipsis;white-space:nowrap;order:0!important;
+ font-size:10px;line-height:1.25;
+}
+.ezws-preview-switcher{position:relative;order:1;flex:0 0 auto;min-width:0}
+.ezws-preview-switcher>summary{
+ display:flex;align-items:center;justify-content:center;gap:8px;
+ padding:7px 11px;min-height:39px;max-width:186px;
+ background:#1d3856;border:1px solid #466786;color:#fff;border-radius:10px;
+ font-size:12px;font-weight:800;list-style:none;cursor:pointer;
+ touch-action:manipulation;user-select:none;
+}
+.ezws-preview-switcher>summary::-webkit-details-marker{display:none}
+.ezws-preview-switcher>summary strong{
+ font-size:12px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.ezws-switch-arrow{font-size:17px;color:#b3d8f6}
+.ezws-preview-switcher[open] .ezws-switch-arrow{transform:rotate(180deg)}
+.ezws-preview-switcher>summary:focus-visible,
+.ezws-preview-switcher .ezws-preview-tabs button:focus-visible{
+ outline:2px solid #91caff;outline-offset:2px;
+}
+.ezws-preview-switcher .ezws-preview-tabs{
+ display:grid!important;grid-template-columns:1fr!important;
+ position:absolute;z-index:111;top:calc(100% + 8px);right:0;
+ width:194px;max-width:calc(100vw - 20px);min-width:0;
+ padding:7px;gap:4px!important;overflow:visible!important;
+ flex:none!important;max-height:min(360px,80dvh);overflow-y:auto!important;
+ background:#10243c;border:1px solid #466786;border-radius:12px;
+ box-shadow:0 16px 35px #07172f66;
+}
+.ezws-preview-switcher:not([open]) .ezws-preview-tabs{display:none!important}
+.ezws-preview-switcher .ezws-preview-tabs button{
+ width:100%;min-height:39px;text-align:left!important;
+ font-size:12px!important;border-radius:8px;padding:9px 11px!important;
+}
+body[data-ez-workstation-preview="true"] .ezws-preview-bar>.ez-language-switch{
+ order:2!important;flex:0 0 auto!important;
+}
+.ezws-preview-bar>.ezws-preview-fullscreen{order:3!important;flex:0 0 39px}
+.ezws-preview-bar>.ezws-preview-exit{order:4!important;flex:0 0 auto}
+body[data-ez-workstation-preview="true"] .app .content{
+ padding-top:calc(var(--ezws-preview-header-h,52px) + 8px)!important;
+}
+body[data-ez-workstation-preview="true"] #page-content:has(>.ezreg){
+ padding-top:calc(var(--ezws-preview-header-h,52px) + 8px)!important;
+}
+@media(max-width:1100px){
+ .ezws-preview-bar{flex-wrap:nowrap!important}
+ .ezws-preview-bar .ezws-preview-switcher{order:1!important}
+ .ezws-preview-switcher .ezws-preview-tabs{
+  order:initial!important;flex:none!important;
+ }
+}
+@media(max-width:600px){
+ .ezws-preview-bar{padding:6px 9px!important;gap:5px!important}
+ .ezws-preview-switcher>summary{padding:7px 8px;gap:5px;font-size:11px}
+ .ezws-preview-switcher>summary strong{font-size:11px;max-width:66px}
+ .ezws-preview-switcher .ezws-preview-tabs{left:0!important;right:auto!important}
+ .ezws-preview-bar>.ezws-preview-fullscreen{flex-basis:36px;width:36px;min-width:36px}
+ .ezws-preview-bar>.ezws-preview-exit{padding:7px 8px}
+}
+@media(max-width:460px){
+ .ezws-preview-bar>.ezws-preview-label{font-size:0!important}
+ .ezws-preview-bar>.ezws-preview-label::after{
+  content:"DEMO";font-size:10px;font-weight:850;color:#8de6bd;
+ }
+}

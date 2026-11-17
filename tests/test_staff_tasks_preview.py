@@ -182,6 +182,9 @@ def test_preview_uses_ephemeral_api_sandbox_and_allows_realistic_controls():
     assert "cashierTaskTab()" in app_js
     assert "hostTaskTab()" in app_js
     assert "data-ez-workstation-preview" in css
+    assert "ezws-preview-switcher" in js
+    assert "ezws-preview-switcher:not([open])" in css
+    assert "ezws-preview-bar" in css
     assert "INTERACTIVE SANDBOX" in js
     assert "previewResponse" in js and "previewRead" in js
     assert "throw Error(choose(" in js  # deny-by-default for every unmatched write

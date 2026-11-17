@@ -57,6 +57,25 @@ assert.match(register.render(),/data-ezreg="flip-ticket"/,
 assert.match(register.render(),/ezreg-ticket-right/);
 assert.match(register.render(),/POS Order/);
 assert.match(register.render(),/data-ez-lang-ignore/);
+const compact=register.render();
+assert.match(compact,/ezreg-cart-context/,"service and customer belong in one compact row");
+assert.match(compact,/data-ezreg-select="table"/,"table selection must remain functional");
+assert.match(compact,/data-ezreg-select="customer"/,"customer selection must remain functional");
+assert.match(compact,/Takeaway/);
+assert.match(compact,/Walk-in/);
+assert.doesNotMatch(compact,/ezreg-cart-meta/,"old three-row metadata must be removed");
+assert.doesNotMatch(compact,/Main branch/,"single location must not consume ticket space");
+assert.doesNotMatch(compact,/data-ezreg-select="branch"/,
+  "single location must keep its implicit branch without a visible picker");
+state.cache.branches.push({id:"branch-2",name:"Second branch"});
+const multiBranch=register.render();
+assert.match(multiBranch,/ezreg-branch-picker/,"multi-branch owner can still switch");
+assert.match(multiBranch,/data-ezreg-select="branch"/);
+state.cache.branches.pop();
+listeners.change({target:{dataset:{ezregSelect:"table"},value:"table-1"}});
+listeners.change({target:{dataset:{ezregSelect:"customer"},value:""}});
+assert.match(register.render(),/<option value="table-1" selected>/,
+  "selecting a table must survive render");
 assert.doesNotMatch(register.render(),/Bán hàng nhanh/);
 assert.match(register.render(),/ezreg-category-glyph/,
   "category rail must be touch-first and icon-led");

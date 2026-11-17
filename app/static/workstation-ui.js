@@ -355,13 +355,20 @@
         if(!previewMode||!owner())return "";
         const posEnglish=previewMode==="order";
         const roles={order:"Order",kitchen:"Kitchen",bar:"Bar",cashier:"Cashier",host:"Host"};
+        const modeName=id=>safe(posEnglish?roles[id]:modeLabel(id));
         return '<div class="ezws-preview-bar" role="toolbar" aria-label="Workstation preview">'+
-          '<span class="ezws-preview-label">👁 '+safe(posEnglish?"INTERACTIVE DEMO · NOT SAVED":
-            choose("DÙNG THỬ TƯƠNG TÁC · KHÔNG LƯU","INTERACTIVE SANDBOX · NO SAVES"))+'</span>'+
-          '<div class="ezws-preview-tabs">'+Object.keys(MODES).filter(id=>id!=="manager").map(id=>
+          '<span class="ezws-preview-label">👁 '+safe(posEnglish?"DEMO · NOT SAVED":
+            choose("BẢN THỬ · KHÔNG LƯU","INTERACTIVE SANDBOX · NO SAVES"))+'</span>'+
+          '<details class="ezws-preview-switcher">'+
+          '<summary aria-label="'+safe(posEnglish?"Switch workstation":choose("Chọn tác vụ","Switch workstation"))+
+          '" title="'+safe(posEnglish?"Switch workstation":choose("Chọn tác vụ","Switch workstation"))+'">'+
+          '<span aria-hidden="true">☰</span><strong>'+modeName(previewMode)+
+          '</strong><span aria-hidden="true" class="ezws-switch-arrow">⌄</span></summary>'+
+          '<div class="ezws-preview-tabs" role="group" aria-label="Workstation modes">'+
+          Object.keys(MODES).filter(id=>id!=="manager").map(id=>
             '<button type="button" data-ezws="preview" data-value="'+id+'" class="'+
             (previewMode===id?"active":"")+'" aria-pressed="'+(previewMode===id)+'">'+
-            safe(posEnglish?roles[id]:modeLabel(id))+'</button>').join("")+'</div>'+
+            modeName(id)+'</button>').join("")+'</div></details>'+
           '<button type="button" class="ezws-preview-fullscreen" data-ezws="fullscreen" title="'+
           safe(posEnglish?"Fullscreen":choose("Toàn màn hình","Fullscreen"))+'">⛶</button>'+
           '<button type="button" class="ezws-preview-exit" data-ezws="exit-preview">'+
@@ -557,6 +564,18 @@
       async function showSettingsSoon(){
         // Full refresh on next user opening avoids destroying focused form controls.
       }
+      // The task picker overlays the preview instead of expanding its toolbar.
+      // Native <details> keeps keyboard activation and closes on outside tap/Escape.
+      document.addEventListener("pointerdown",event=>{
+        const menu=document.querySelector(".ezws-preview-switcher[open]");
+        if(menu&&!menu.contains(event.target))menu.open=false;
+      },true);
+      document.addEventListener("keydown",event=>{
+        if(event.key==="Escape"){
+          const menu=document.querySelector(".ezws-preview-switcher[open]");
+          if(menu)menu.open=false;
+        }
+      });
       // Interactive demo: allow ordinary controls and intercept all API writes.
       // Prevent physical printing while showing the exact employee interface.
       document.addEventListener("click",event=>{
