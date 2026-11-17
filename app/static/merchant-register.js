@@ -3,7 +3,7 @@
    No automatic payment inference, offline writes, or client-side stock mutation. */
 (() => {
   "use strict";
-  window.EZRegisterUI = function init({api,E,V,toast,getState,navigate,onCreated,onPaid,onPrint}) {
+  window.EZRegisterUI = function init({api,E,V,toast,getState,navigate,onCreated,onPaid,onPrint,getPreviewControls}) {
     const uid=()=>globalThis.crypto?.randomUUID?.()||
       "pos-"+Date.now().toString(36)+"-"+Math.random().toString(36).slice(2);
     const t=(_vi,en)=>en;
@@ -302,9 +302,11 @@
     function render(){
       initTenant();
       const stock=validProducts();
+      const previewControls=getPreviewControls?.()||"";
       return '<section class="ezreg '+(s.ticketSide==="left"?"ezreg-ticket-left":"ezreg-ticket-right")+'" data-ez-lang-ignore id="ez-register" aria-label="'+
         t("Màn hình bán hàng POS","POS register")+'">'+
-        '<div class="ezreg-header"><div><span class="ezreg-kicker">EZ THING · POINT OF SALE</span>'+
+        '<div class="ezreg-header"><div><span class="ezreg-kicker">EZ THING · POINT OF SALE'+
+        (previewControls?' <span class="ezreg-demo-hint">· DEMO · NOT SAVED</span>':"")+'</span>'+
         '<h2>'+t("Bán hàng nhanh","POS Order")+'</h2><p>'+
         t("Chọn món, tùy chỉnh, tạo đơn trong một màn hình.",
           "Select items and send the order.")+'</p></div>'+
@@ -314,7 +316,8 @@
         '<button type="button" data-ezws="fullscreen" aria-label="'+t("Bật toàn màn hình","Fullscreen")+
         '" title="'+t("Toàn màn hình","Fullscreen")+'">⛶</button>'+
         (orderOnly()?"":'<button type="button" data-ezreg="orders">'+
-          t("Đơn hàng →","Orders →")+'</button>')+'</div></div>'+lastHtml()+
+          t("Đơn hàng →","Orders →")+'</button>')+
+        previewControls+'</div></div>'+lastHtml()+
         '<div class="ezreg-layout"><section class="ezreg-catalog">'+
         '<div class="ezreg-catalog-head"><div class="ezreg-catalog-heading"><h3>Products</h3>'+
         '<span>'+stock.length+' products</span></div>'+

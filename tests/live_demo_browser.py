@@ -384,7 +384,7 @@ try:
   page.locator('[data-ezws="preview-picker"]').first.wait_for(timeout=15000)
   page.locator('[data-ezws="preview-picker"]').first.click()
   page.locator('.ezws-preview-choice[data-value="order"]').click()
-  page.locator('.ezws-preview-bar').wait_for(timeout=15000)
+  page.locator('#ez-register .ezws-preview-switcher').wait_for(timeout=15000)
   assert page.locator("#ez-register").is_visible()
   assert page.evaluate("document.body.dataset.ezWorkstationPreview")== "true"
   assert page.locator('.ezreg-product:not([disabled])').first.evaluate("(el)=>getComputedStyle(el).pointerEvents")=="auto"
@@ -398,22 +398,30 @@ try:
      document.scrollingElement.scrollTop=0;
      for(const n of document.querySelectorAll('.app>.main,.app .content'))n.scrollTop=0;
    }""")
-   page.wait_for_function("""() => {
-     const bar=document.querySelector('.ezws-preview-bar');
-     return bar && Math.abs(parseFloat(getComputedStyle(document.body)
-       .getPropertyValue('--ezws-preview-header-h'))-bar.getBoundingClientRect().height)<3
-   }""",timeout=8000)
+   assert page.locator('.ezws-preview-bar').count()==0, "No second toolbar in POS preview"
+   assert page.locator('.ezreg-header-actions [data-ezws="fullscreen"]').count()==1
    layout=page.evaluate("""() => {
      const r=s=>document.querySelector(s)?.getBoundingClientRect();
      const bar=r('.ezws-preview-bar'),header=r('.ezreg-header'),cat=r('.ezreg-catalog');
      const content=r('.app .content'),cart=document.querySelector('.ezreg-cart');
-     return {view:innerWidth,barBottom:bar.bottom,headTop:header.top,
+     return {view:innerWidth,barBottom:bar?.bottom||0,headTop:header.top,
        scrollY:scrollY,contentTop:content.top,contentPad:getComputedStyle(document.querySelector('.app .content')).paddingTop,
        catWidth:cat.width,contentWidth:content.width,
        cartDisplay:getComputedStyle(cart).display,
        documentWidth:document.documentElement.scrollWidth};
    }""")
    assert layout["documentWidth"]<=width+2,(width,layout)
+   if width==412:
+    mobile_scroll=page.evaluate("""() => ({
+      height:document.documentElement.scrollHeight,
+      viewport:innerHeight,
+      productOverflow:getComputedStyle(document.querySelector('.ezreg-products')).overflowY
+    })""")
+    assert mobile_scroll["productOverflow"]=="visible",mobile_scroll
+    assert mobile_scroll["height"]>mobile_scroll["viewport"],mobile_scroll
+    page.evaluate("window.scrollTo(0,180)")
+    assert page.evaluate("window.scrollY")>0, "Phone POS must scroll vertically"
+    page.evaluate("window.scrollTo(0,0)")
    assert layout["headTop"]>=layout["barBottom"]-3,(width,layout)
    # Product title must not be vertically squeezed or painted under the category.
    tile=page.locator('.ezreg-product:not([disabled])').first.evaluate("""el => {
@@ -431,11 +439,11 @@ try:
    assert tile["priceTop"]<tile["tileBottom"],(width,tile)
    if width<700:
     page.wait_for_function("""() =>
-      document.querySelector('.ezws-preview-bar > .ez-language-switch') !== null""",
+      document.querySelector('.ezreg-header-actions > .ez-language-switch') !== null""",
       timeout=8000)
     overlaps=page.evaluate("""() => {
       const b=document.querySelector('.ezreg-mobile-cartbar').getBoundingClientRect();
-      const l=document.querySelector('.ez-language-switch').getBoundingClientRect();
+      const l=document.querySelector('.ezreg-header-actions > .ez-language-switch').getBoundingClientRect();
       const visibleButton=document.querySelector('.ezreg-mobile-cartbar').textContent;
       return {cartBottom:b.bottom,cartTop:b.top,langBottom:l.bottom,
         langTop:l.top,langLeft:l.left,langRight:l.right,
@@ -466,7 +474,8 @@ try:
     assert page.locator(".ezreg-header h2").inner_text().strip()=="POS Order"
     assert page.locator(".ezreg-cart-footer .ezreg-create").inner_text().strip().startswith("Pay")
     assert page.locator(".ezreg-cart-footer .ezreg-save-check").inner_text().strip()=="Save"
-    assert any(x in page.locator(".ezws-preview-label").inner_text() for x in ("INTERACTIVE DEMO","DEMO · NOT SAVED"))
+    assert "Order" in page.locator(".ezreg-header-actions .ezws-preview-switcher > summary").inner_text()
+    assert page.locator(".ezreg-header-actions .ezws-preview-exit").is_visible()
     scrollers=page.evaluate("""() => {
       const ticket=document.querySelector('.ezreg-cart-scroll'),
         products=document.querySelector('.ezreg-products');
@@ -545,6 +554,13 @@ try:
    assert layout["buttonVisible"],layout
    assert layout["footerBottom"]<=901,layout
    if width<700:
+    # Header controls must never intercept the mobile cart close button.
+    close_hit=page.locator('#ezreg-cart [data-ezreg="cart-close"]').evaluate("""el => {
+      const r=el.getBoundingClientRect();
+      const top=document.elementFromPoint(r.left+r.width/2,r.top+r.height/2);
+      return top===el || el.contains(top);
+    }""")
+    assert close_hit, "POS header overlaps mobile cart close button"
     page.locator('#ezreg-cart [data-ezreg="cart-close"]').click()
   page.set_viewport_size({"width":1280,"height":850})
   print("PASS POS cart: phone popup at 412px, persistent ticket at 820px, checkout footer visible",flush=True)
@@ -635,7 +651,7 @@ try:
   assert page.locator(".ezws-preview-exit").is_visible()
   assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth + 2")
   page.locator('.ezws-preview-exit').click()
-  page.locator('.ezws-preview-bar').wait_for(state="detached",timeout=12000)
+  page.wait_for_function("() => document.body.dataset.ezWorkstationPreview === 'false'",timeout=12000)
   assert page.evaluate("document.body.dataset.ezWorkstationPreview")=="false"
   print("PASS workstation owner preview: Order/Kitchen/Bar/Cashier/Host, mobile and read-only",flush=True)
 
