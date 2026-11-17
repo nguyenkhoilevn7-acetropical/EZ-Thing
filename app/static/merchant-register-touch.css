@@ -431,3 +431,70 @@ body[data-ez-workstation-active="true"] .ezreg .ezreg-cart{
     left/right affordance when there are not two visible panels. */
  .ezreg .ezreg-layout-switch{display:none!important}
 }
+
+/* POS UI audit 2026-11-17: full product labels and unobstructed mobile actions.
+   Fix shrink-to-fit clamping on touch product buttons without altering menu data. */
+.ezreg .ezreg-product{
+ height:auto!important;min-height:184px!important;
+ overflow:visible!important;justify-content:flex-start!important;
+}
+.ezreg .ezreg-product-top{
+ flex:0 0 auto!important;min-height:56px!important;
+}
+.ezreg .ezreg-product-name{
+ display:block!important;min-height:35px!important;max-height:none!important;
+ flex:0 0 auto!important;overflow:visible!important;
+ -webkit-line-clamp:unset!important;-webkit-box-orient:initial!important;
+ font-size:13px!important;line-height:1.38!important;
+ white-space:normal!important;overflow-wrap:anywhere!important;
+}
+.ezreg .ezreg-product-sub{flex:0 0 auto!important;margin-top:3px!important}
+.ezreg .ezreg-product-bottom{flex:0 0 auto!important;margin-top:auto!important}
+body[data-ez-workstation-active="true"] .ezreg .ezreg-product{
+ min-height:184px!important;
+}
+@media(min-width:700px) and (max-width:1080px){
+ body[data-ez-workstation-active="true"] .ezreg .ezreg-product{
+  min-height:190px!important;
+ }
+}
+@media(max-width:699px){
+ .ezreg .ezreg-product,
+ body[data-ez-workstation-active="true"] .ezreg .ezreg-product{
+  min-height:187px!important;
+ }
+ /* Keep the order/cart affordance near the usable bottom and reserve an
+    actual scroll clearance so the final row can always be selected. */
+ body[data-ez-workstation-active="true"] .ezreg .ezreg-mobile-cartbar,
+ body[data-ez-workstation-preview="true"] .ezreg .ezreg-mobile-cartbar{
+  display:flex!important;position:fixed!important;
+  left:12px!important;right:12px!important;
+  width:auto!important;max-width:none!important;
+  bottom:calc(12px + env(safe-area-inset-bottom))!important;
+  transform:none!important;z-index:70!important;
+  justify-content:space-between!important;
+  box-shadow:0 8px 22px rgba(7,61,133,.2)!important;
+ }
+ body[data-ez-workstation-active="true"] #page-content:has(>.ezreg),
+ body[data-ez-workstation-preview="true"] #page-content:has(>.ezreg){
+  padding-bottom:calc(105px + env(safe-area-inset-bottom))!important;
+ }
+ body[data-ez-workstation-active="true"] #ezreg-cart.mobile-open{
+  z-index:78!important;
+ }
+ body[data-ez-workstation-active="true"] .ezreg-cart-backdrop.visible{
+  z-index:77!important;
+ }
+}
+/* The language selector is mounted inside the preview toolbar on small
+   screens, not as a floating overlay over the cart's call-to-action. */
+body[data-ez-workstation-preview="true"] .ezws-preview-bar > .ez-language-switch{
+ position:relative!important;top:auto!important;right:auto!important;
+ bottom:auto!important;z-index:1!important;flex:0 0 auto;
+ box-shadow:none!important;
+}
+@media(max-width:700px){
+ body[data-ez-workstation-preview="true"] .ezws-preview-bar > .ez-language-switch{
+  order:1!important;
+ }
+}
