@@ -68,6 +68,15 @@ assert.ok(compact.indexOf('ezreg-cart-context')<compact.indexOf('id="ezreg-cart"
 assert.match(compact,/ezreg-ticket-inline/,"ticket heading should use a single row");
 assert.match(compact,/data-ezreg="search-toggle"/,
   "search starts as a compact icon button");
+const toolbarStyles=fs.readFileSync("app/static/merchant-register-touch.css","utf8");
+const singleRow=toolbarStyles.split("/* POS single-row product toolbar — 2026-11-17.")[1];
+assert.ok(singleRow,"single-row toolbar override must be loaded last");
+assert.match(singleRow,/grid-template-columns:max-content minmax\(0,1fr\)!important/,
+  "Products and action selectors must share one horizontal grid row");
+assert.match(singleRow,/flex-wrap:nowrap!important/,
+  "context controls must not wrap to the next row");
+assert.match(singleRow,/\.ezreg-search\.is-open\{[\s\S]*?position:absolute!important/,
+  "expanded Search must not push selectors onto another row");
 assert.doesNotMatch(compact,/data-ezreg-search/,
   "search input must remain collapsed initially");
 assert.doesNotMatch(compact,/ezreg-cart-meta/,"old three-row metadata must be removed");

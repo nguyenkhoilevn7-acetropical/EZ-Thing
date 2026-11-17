@@ -863,3 +863,164 @@ body[data-ez-workstation-active="true"] .ezreg .ezreg-product{
     min-height:150px!important;
   }
 }
+
+
+/* POS single-row product toolbar — 2026-11-17.
+   A split-screen catalogue is narrower than the browser viewport.
+   Keep Products | Takeaway | Walk-in | Search in one row at every width.
+   Expanded search is a small anchored popover, never a second toolbar row. */
+.ezreg .ezreg-catalog-head,
+body[data-ez-workstation-active="true"] .ezreg .ezreg-catalog-head{
+  position:relative;
+  display:grid!important;
+  grid-template-columns:max-content minmax(0,1fr)!important;
+  align-items:center!important;
+  flex-direction:row!important;
+  flex-wrap:nowrap!important;
+  column-gap:7px!important;
+  row-gap:0!important;
+  width:100%;
+  min-width:0;
+  margin-bottom:7px!important;
+}
+.ezreg .ezreg-catalog-heading{
+  display:flex!important;
+  flex-direction:column!important;
+  align-items:flex-start;
+  flex:0 0 auto!important;
+  min-width:0!important;
+  max-width:100%;
+  gap:1px!important;
+}
+.ezreg .ezreg-catalog-heading h3{
+  white-space:nowrap!important;
+  margin:0!important;
+  font-size:15px!important;
+  line-height:1.2!important;
+}
+.ezreg .ezreg-catalog-heading>span{
+  white-space:nowrap;
+  font-size:9px!important;
+  line-height:1.15!important;
+}
+.ezreg .ezreg-catalog-controls{
+  display:flex!important;
+  flex-direction:row!important;
+  flex-wrap:nowrap!important;
+  align-items:center!important;
+  justify-content:flex-end!important;
+  flex:1 1 0!important;
+  width:100%!important;
+  min-width:0!important;
+  max-width:100%!important;
+  gap:5px!important;
+  margin:0!important;
+}
+.ezreg .ezreg-catalog-controls .ezreg-cart-context{
+  display:flex!important;
+  flex:1 1 0!important;
+  flex-wrap:nowrap!important;
+  min-width:0!important;
+  max-width:none!important;
+  width:auto!important;
+  gap:5px!important;
+  padding:0!important;
+  margin:0!important;
+  min-height:36px!important;
+  border:0!important;
+}
+.ezreg .ezreg-catalog-controls .ezreg-context-chip{
+  flex:1 1 0!important;
+  min-width:0!important;
+  max-width:none!important;
+  overflow:hidden;
+}
+.ezreg .ezreg-catalog-controls .ezreg-context-chip select{
+  width:100%!important;
+  min-width:0!important;
+  max-width:100%!important;
+  height:36px!important;
+  min-height:36px!important;
+  padding:6px 21px 6px 7px!important;
+  font-size:11px!important;
+  line-height:1.2!important;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.ezreg .ezreg-catalog-controls .ezreg-context-static{
+  flex:1 1 0!important;
+  min-width:0!important;
+  max-width:none!important;
+  width:auto!important;
+  min-height:36px!important;
+  height:36px!important;
+  padding:6px 7px!important;
+  font-size:11px!important;
+  overflow:hidden;
+  white-space:nowrap;
+  text-overflow:ellipsis;
+}
+.ezreg .ezreg-catalog-controls .ezreg-branch-picker{
+  flex:0 0 32px!important;
+  min-width:32px!important;
+}
+.ezreg .ezreg-catalog-controls .ezreg-branch-picker>summary{
+  height:36px!important;
+  width:32px!important;
+}
+.ezreg .ezreg-catalog-controls .ezreg-search,
+body[data-ez-workstation-active="true"] .ezreg .ezreg-catalog-controls .ezreg-search{
+  flex:0 0 36px!important;
+  width:36px!important;
+  min-width:36px!important;
+  max-width:36px!important;
+  min-height:36px!important;
+  height:36px!important;
+  padding:0 1px!important;
+  margin:0!important;
+}
+.ezreg .ezreg-catalog-controls .ezreg-search-toggle{
+  width:34px!important;
+  height:34px!important;
+  min-height:34px!important;
+  font-size:21px!important;
+}
+.ezreg .ezreg-catalog-controls .ezreg-search.is-open,
+body[data-ez-workstation-active="true"] .ezreg .ezreg-catalog-controls .ezreg-search.is-open{
+  position:absolute!important;
+  top:calc(100% + 7px)!important;
+  right:0!important;
+  z-index:25!important;
+  width:min(310px,100%)!important;
+  min-width:0!important;
+  max-width:100%!important;
+  height:40px!important;
+  min-height:40px!important;
+  padding:0 4px!important;
+  border:1px solid var(--pos-line)!important;
+  background:var(--pos-surface)!important;
+  box-shadow:0 9px 24px rgba(12,34,63,.14);
+}
+.ezreg .ezreg-catalog-controls .ezreg-search.is-open input{
+  height:36px!important;
+  min-width:0!important;
+}
+@media(max-width:420px){
+  .ezreg .ezreg-catalog-head,
+  body[data-ez-workstation-active="true"] .ezreg .ezreg-catalog-head{
+    column-gap:4px!important;
+  }
+  .ezreg .ezreg-catalog-heading h3{font-size:13px!important}
+  .ezreg .ezreg-catalog-controls,
+  .ezreg .ezreg-catalog-controls .ezreg-cart-context{gap:3px!important}
+  .ezreg .ezreg-catalog-controls .ezreg-context-chip select,
+  .ezreg .ezreg-catalog-controls .ezreg-context-static{
+    padding-left:5px!important;
+    font-size:10px!important;
+  }
+  .ezreg .ezreg-catalog-controls .ezreg-search{
+    flex-basis:32px!important;width:32px!important;min-width:32px!important;max-width:32px!important;
+  }
+  .ezreg .ezreg-catalog-controls .ezreg-search-toggle{width:30px!important}
+}
+
