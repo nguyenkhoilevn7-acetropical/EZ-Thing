@@ -1080,3 +1080,29 @@ body[data-ez-workstation-active="true"] .ezreg .ezreg-catalog-controls .ezreg-se
     -webkit-overflow-scrolling:touch;
   }
 }
+
+
+/* Fold/tablet Order preview: fit both scrollable panels to space LEFT after
+   the responsive POS header, rather than subtracting a hardcoded toolbar size. */
+@media(min-width:700px) and (max-width:1080px){
+  body[data-ez-workstation-preview="true"][data-ez-workstation="order"] #ez-register{
+    display:flex!important;flex-direction:column!important;
+    height:calc(100dvh - 20px)!important;
+    max-height:calc(100dvh - 20px)!important;
+    min-height:0!important;
+  }
+  body[data-ez-workstation-preview="true"][data-ez-workstation="order"] .ezreg-header{
+    flex:0 0 auto!important;
+  }
+  body[data-ez-workstation-preview="true"][data-ez-workstation="order"] .ezreg-layout{
+    display:grid!important;flex:1 1 0!important;
+    min-height:0!important;height:auto!important;
+    align-items:stretch!important;
+  }
+  body[data-ez-workstation-preview="true"][data-ez-workstation="order"] .ezreg .ezreg-catalog,
+  body[data-ez-workstation-preview="true"][data-ez-workstation="order"] #ezreg-cart,
+  body[data-ez-workstation-preview="true"][data-ez-workstation="order"] #ezreg-cart.mobile-open{
+    height:100%!important;min-height:0!important;max-height:100%!important;
+    overflow:hidden!important;
+  }
+}
