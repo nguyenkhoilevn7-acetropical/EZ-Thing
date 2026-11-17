@@ -389,7 +389,7 @@ try:
   assert page.evaluate("document.body.dataset.ezWorkstationPreview")== "true"
   assert page.locator('.ezreg-product:not([disabled])').first.evaluate("(el)=>getComputedStyle(el).pointerEvents")=="auto"
   assert page.locator('#ez-register [data-ezreg="checkout"]').count()==1, "Owner preview should demonstrate checkout; actual staff duty remains restricted"
-  for width in (412,820,1000,1280):
+  for width in (412,720,820,1000,1280):
    page.set_viewport_size({"width":width,"height":860})
    # Changing viewport size can preserve the old document scroll offset.
    # Test initial workstation view from the top, not an intentionally scrolled queue.
@@ -415,16 +415,41 @@ try:
    }""")
    assert layout["documentWidth"]<=width+2,(width,layout)
    assert layout["headTop"]>=layout["barBottom"]-3,(width,layout)
-   if width<=860:
-    # Phone and narrow Fold: product catalog stays full-width; cart is a drawer.
+   if width<700:
+    # Narrow phones retain the sheet; left/right switch must not appear inert.
     assert layout["catWidth"]>=layout["contentWidth"]*.88,(width,layout)
     assert layout["cartDisplay"]=="none",(width,layout)
+    assert not page.locator('[data-ezreg="flip-ticket"]').is_visible()
    else:
-    # Landscape POS stations now keep the receipt visible at tablet widths too.
-    assert layout["catWidth"]>=layout["contentWidth"]*.52,(width,layout)
+    # Landscape Fold/tablet/terminal: both catalog and receipt are ALWAYS visible.
+    assert layout["catWidth"]>=layout["contentWidth"]*.48,(width,layout)
     assert layout["cartDisplay"]=="flex",(width,layout)
+    assert not page.locator('.ezreg-mobile-cartbar').is_visible(),(width,layout)
+    bounds=page.evaluate("""() => {
+      const a=document.querySelector('.ezreg-catalog').getBoundingClientRect();
+      const b=document.querySelector('.ezreg-cart').getBoundingClientRect();
+      return {catalog:{left:a.left,right:a.right},cart:{left:b.left,right:b.right}}
+    }""")
+    assert (bounds["cart"]["left"]>=bounds["catalog"]["right"]-3 or
+            bounds["cart"]["right"]<=bounds["catalog"]["left"]+3),(width,bounds)
+   if width==820:
+    # Verify DOM geometry, not only class state: the user-reported switch
+    # previously changed state without any visible rearrangement.
+    before=page.evaluate("""() => {
+      const cat=document.querySelector('.ezreg-catalog').getBoundingClientRect();
+      const cart=document.querySelector('.ezreg-cart').getBoundingClientRect();
+      return cart.left<cat.left
+    }""")
+    page.locator('[data-ezreg="flip-ticket"]').click()
+    after=page.evaluate("""() => {
+      const cat=document.querySelector('.ezreg-catalog').getBoundingClientRect();
+      const cart=document.querySelector('.ezreg-cart').getBoundingClientRect();
+      return cart.left<cat.left
+    }""")
+    assert before != after,"Đổi bên must change actual receipt side at 820px"
+    page.locator('[data-ezreg="flip-ticket"]').click()
   page.set_viewport_size({"width":1280,"height":850})
-  print("PASS POS workstation: drawer at 412/820, split catalog and ticket at 1000/1280, header visible",flush=True)
+  print("PASS POS workstation: phone sheet, split panels at 720/820/1000/1280, live receipt flip",flush=True)
   # In-sandbox clicks must trigger the normal product, modifier, cart and save
   # flows. The virtual API catches ALL writes before network I/O.
   preview_start=len(requests)
@@ -450,20 +475,31 @@ try:
   page.locator('.ezreg-cart-line').first.wait_for(timeout=10000)
   for width in (412,820):
    page.set_viewport_size({"width":width,"height":900})
-   page.locator('.ezreg-mobile-cartbar').click()
-   page.locator('#ezreg-cart.mobile-open').wait_for(timeout=8000)
+   if width<700:
+    page.locator('.ezreg-mobile-cartbar').click()
+    page.locator('#ezreg-cart.mobile-open').wait_for(timeout=8000)
+   else:
+    # At tablet width the receipt is visible without a popup.
+    assert not page.locator('.ezreg-mobile-cartbar').is_visible()
+    assert page.locator('#ezreg-cart').is_visible()
    layout=page.evaluate("""() => {
      const cart=document.querySelector('#ezreg-cart'),act=cart.querySelector('[data-ezreg="checkout"]'),
-       r=cart.getBoundingClientRect(),a=act.getBoundingClientRect();
+       r=cart.getBoundingClientRect(),a=act.getBoundingClientRect(),
+       footer=cart.querySelector('.ezreg-cart-footer').getBoundingClientRect();
      return {width:innerWidth,cartX:r.left,cartRight:r.right,cartBottom:r.bottom,
-       buttonBottom:a.bottom,buttonVisible:getComputedStyle(act).display!='none'};
+       buttonBottom:a.bottom,buttonVisible:getComputedStyle(act).display!='none',
+       footerBottom:footer.bottom};
    }""")
-   assert abs((layout["cartX"]+layout["cartRight"])/2-width/2)<4,layout
+   assert layout["cartX"]>=-2 and layout["cartRight"]<=width+2,layout
+   if width<700:
+    assert abs((layout["cartX"]+layout["cartRight"])/2-width/2)<4,layout
    assert layout["cartBottom"]<=901 and layout["buttonBottom"]<=901,layout
    assert layout["buttonVisible"],layout
-   page.locator('#ezreg-cart [data-ezreg="cart-close"]').click()
+   assert layout["footerBottom"]<=901,layout
+   if width<700:
+    page.locator('#ezreg-cart [data-ezreg="cart-close"]').click()
   page.set_viewport_size({"width":1280,"height":850})
-  print("PASS POS popup/cart: readable options, centered 412/820px drawer, visible checkout footer",flush=True)
+  print("PASS POS cart: phone popup at 412px, persistent ticket at 820px, checkout footer visible",flush=True)
   page.locator('.ezreg-cart [data-ezreg="create"]').click()
   page.locator('.ezreg-last').wait_for(timeout=10000)
   virtual_order=page.locator('.ezreg-last strong').first.inner_text()
