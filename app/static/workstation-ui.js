@@ -353,16 +353,19 @@
       }
       function previewNav(){
         if(!previewMode||!owner())return "";
-        return '<div class="ezws-preview-bar" role="toolbar" aria-label="Xem thử tác vụ">'+
-          '<span class="ezws-preview-label">👁 '+safe(choose("DÙNG THỬ TƯƠNG TÁC · KHÔNG LƯU","INTERACTIVE SANDBOX · NO SAVES"))+'</span>'+
+        const posEnglish=previewMode==="order";
+        const roles={order:"Order",kitchen:"Kitchen",bar:"Bar",cashier:"Cashier",host:"Host"};
+        return '<div class="ezws-preview-bar" role="toolbar" aria-label="Workstation preview">'+
+          '<span class="ezws-preview-label">👁 '+safe(posEnglish?"INTERACTIVE DEMO · NOT SAVED":
+            choose("DÙNG THỬ TƯƠNG TÁC · KHÔNG LƯU","INTERACTIVE SANDBOX · NO SAVES"))+'</span>'+
           '<div class="ezws-preview-tabs">'+Object.keys(MODES).filter(id=>id!=="manager").map(id=>
             '<button type="button" data-ezws="preview" data-value="'+id+'" class="'+
             (previewMode===id?"active":"")+'" aria-pressed="'+(previewMode===id)+'">'+
-            safe(modeLabel(id))+'</button>').join("")+'</div>'+
+            safe(posEnglish?roles[id]:modeLabel(id))+'</button>').join("")+'</div>'+
           '<button type="button" class="ezws-preview-fullscreen" data-ezws="fullscreen" title="'+
-          safe(choose("Toàn màn hình","Fullscreen"))+'">⛶</button>'+
+          safe(posEnglish?"Fullscreen":choose("Toàn màn hình","Fullscreen"))+'">⛶</button>'+
           '<button type="button" class="ezws-preview-exit" data-ezws="exit-preview">'+
-          safe(choose("Thoát xem thử","Back to Admin"))+'</button></div>';
+          safe(posEnglish?"Exit":choose("Thoát xem thử","Back to Admin"))+'</button></div>';
       }
       function openPreviewPicker(){
         if(!owner()||!active())return;
