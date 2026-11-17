@@ -557,7 +557,12 @@ def loyalty_earn_on_paid(db:Session,bid:str,order:SaleOrder):
         IndustryWorkItem.business_id==bid,IndustryWorkItem.kind=="loyalty",
         IndustryWorkItem.reference_id==ref))
     if old:return
-    points=order.total_vnd//10000  # 1 point / 10,000 VND; no cash value.
+    b=db.get(Business,bid)
+    setting=((b.setup or {}).get("paperless_loyalty") or {}) if b else {}
+    if not setting.get("loyalty_enabled", True):return
+    rate=int(setting.get("spend_vnd_per_point",10000))
+    if not 1000<=rate<=1000000:rate=10000
+    points=order.total_vnd//rate  # No cash value; merchant-configurable.
     if points<=0:return
     db.add(IndustryWorkItem(id=new_id(),business_id=bid,kind="loyalty",
         reference_id=ref,customer_id=order.customer_id,status="earned",
