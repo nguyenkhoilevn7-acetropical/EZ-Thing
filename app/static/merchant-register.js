@@ -231,9 +231,9 @@
         '</div>'+
         (orderOnly()?"":'<div class="ezreg-pay-methods" role="group" aria-label="'+
         t("Phương thức thanh toán nhanh","Quick payment method")+'">'+
-        '<button type="button" data-ezreg="checkout" data-method="cash" '+(disabled?"disabled":"")+
+        '<button type="button" data-ezreg="tender" data-method="cash" '+(disabled?"disabled":"")+
         '>💵 <span>'+t("Tiền mặt","Cash")+'</span></button>'+
-        '<button type="button" data-ezreg="checkout" data-method="bank_transfer" '+(disabled?"disabled":"")+
+        '<button type="button" data-ezreg="tender" data-method="bank_transfer" '+(disabled?"disabled":"")+
         '>▦ <span>'+t("Chuyển khoản","Transfer")+'</span></button>'+
         '<button type="button" disabled title="'+t("Chưa kết nối cổng thanh toán","Payment gateway not connected")+
         '">💳 <span>'+t("Thẻ","Card")+'</span></button></div>')+
@@ -623,7 +623,7 @@
       else if(action==="cart-close"){s.mobileCart=false;syncCart()}
       else if(action==="clear")closeDraft();
       else if(action==="create")create();
-      else if(action==="checkout"){
+      else if(action==="checkout"||action==="tender"){
         try{ensureValid();checkout?.begin(null,button.dataset.method||"cash")}catch(err){toast(err.message,true)}
       }
       else if(action==="orders")navigate("orders");
