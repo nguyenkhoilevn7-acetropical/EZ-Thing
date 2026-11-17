@@ -9,6 +9,7 @@
     const t=(vi,en)=>window.EZI18N?.language?.()==="en"?en:vi;
     const defaultState=()=>({
       bid:"",category:"all",search:"",branch:"",table:"",customer:"",note:"",
+      ticketSide:(()=>{try{return localStorage.getItem("ez_pos_ticket_side")==="left"?"left":"right"}catch{return "right"}})(),
       cart:[],mobileCart:false,optionProduct:"",optionId:"",optionQty:1,
       optionIds:[],busy:false,requestId:uid(),last:null
     });
@@ -91,6 +92,19 @@
       return '<span class="ezreg-visual" aria-hidden="true">'+
         (trusted?'<img src="'+E(url)+'" alt="" loading="lazy" decoding="async">':glyph(p))+'</span>';
     }
+    function categoryIcon(cat){
+      const name=String(cat||"").toLocaleLowerCase("vi");
+      if(cat==="all")return "▦";
+      if(/coffee|cafe|cà phê|espresso/.test(name))return "☕";
+      if(/milk|sữa|tea|trà|matcha/.test(name))return "🧋";
+      if(/beer|bia|rượu|wine|cocktail|soda|drink|nước|juice/.test(name))return "🥤";
+      if(/cake|bánh|dessert|sweet/.test(name))return "🍰";
+      if(/pizza/.test(name))return "🍕";
+      if(/food|món|main|rice|cơm|bếp|kitchen/.test(name))return "🍽";
+      if(/snack|side|ăn vặt/.test(name))return "🍟";
+      if(/spa|wellness|service|dịch vụ/.test(name))return "✳";
+      return "◈";
+    }
     function categoriesHtml(){
       return categoryList().map(cat=>{
         const count=cat==="all"?validProducts().length:
@@ -98,8 +112,9 @@
         return '<button type="button" data-ezreg="category" data-value="'+E(cat)+
           '" class="ezreg-category '+(s.category===cat?"active":"")+
           '" aria-pressed="'+(s.category===cat)+'">'+
-          (cat==="all"?t("Tất cả","All"):E(cat))+
-          '<span>'+count+'</span></button>';
+          '<span class="ezreg-category-glyph" aria-hidden="true">'+categoryIcon(cat)+'</span>'+
+          '<span class="ezreg-category-name">'+(cat==="all"?t("Tất cả","All"):E(cat))+'</span>'+
+          '<span class="ezreg-category-count">'+count+'</span></button>';
       }).join("");
     }
     function productHtml(p){
@@ -163,8 +178,8 @@
       const count=totalQty();
       const disabled=!s.cart.length||s.busy||!navigator.onLine;
       return '<div class="ezreg-cart-head"><div><span class="ezreg-kicker">'+
-        t("ĐƠN BÁN HÀNG","CURRENT CHECK")+'</span><h3>'+
-        t("Giỏ hàng","Cart")+' <span class="ezreg-count">'+count+'</span></h3>'+
+        t("PHIẾU BÁN HÀNG","CURRENT CHECK")+'</span><h3>'+
+        t("Đơn đang tạo","Current check")+' <span class="ezreg-count">'+count+'</span></h3>'+
         '<small class="ezreg-check-caption">'+s.cart.length+' '+
         t("dòng món","item lines")+' · '+count+' '+t("phần","units")+'</small></div>'+
         '<button type="button" class="ezreg-cart-close" data-ezreg="cart-close" aria-label="'+
@@ -214,6 +229,14 @@
         t("Đơn chưa lưu · Chưa thu tiền. Không tự cộng giảm giá, thuế hoặc phụ phí. Máy chủ xác nhận tổng tiền khi lưu.",
           "Not saved · Unpaid. Discounts, tax and surcharges are not automatically added. Server verifies the amount when saving.")+
         '</div>'+
+        (orderOnly()?"":'<div class="ezreg-pay-methods" role="group" aria-label="'+
+        t("Phương thức thanh toán nhanh","Quick payment method")+'">'+
+        '<button type="button" data-ezreg="tender" data-method="cash" '+(disabled?"disabled":"")+
+        '>💵 <span>'+t("Tiền mặt","Cash")+'</span></button>'+
+        '<button type="button" data-ezreg="tender" data-method="bank_transfer" '+(disabled?"disabled":"")+
+        '>▦ <span>'+t("Chuyển khoản","Transfer")+'</span></button>'+
+        '<button type="button" disabled title="'+t("Chưa kết nối cổng thanh toán","Payment gateway not connected")+
+        '">💳 <span>'+t("Thẻ","Card")+'</span></button></div>')+
         (orderOnly()?"":'<button type="button" class="ezreg-create ezreg-pay-primary" data-ezreg="checkout" '+
         (disabled?"disabled":"")+'>'+
         (s.busy?t("Đang xử lý...","Processing..."):
@@ -254,7 +277,7 @@
     function render(){
       initTenant();
       const stock=validProducts();
-      return '<section class="ezreg" id="ez-register" aria-label="'+
+      return '<section class="ezreg '+(s.ticketSide==="left"?"ezreg-ticket-left":"ezreg-ticket-right")+'" id="ez-register" aria-label="'+
         t("Màn hình bán hàng POS","POS register")+'">'+
         '<div class="ezreg-header"><div><span class="ezreg-kicker">EZ THING · POINT OF SALE</span>'+
         '<h2>'+t("Bán hàng nhanh","Quick sale")+'</h2><p>'+
@@ -262,6 +285,7 @@
           "Select items, customize and create checks in one workspace.")+'</p></div>'+
         '<div class="ezreg-header-actions"><span class="ezreg-online" role="status">'+
         (navigator.onLine?t("● Đang kết nối","● Online"):t("● Mất kết nối","● Offline"))+'</span>'+
+        '<button type="button" data-ezreg="flip-ticket" class="ezreg-layout-switch" aria-pressed="'+(s.ticketSide==="left")+'" title="'+t("Đổi vị trí hóa đơn","Switch check position")+'">⇄ '+t("Đổi bên","Switch")+'</button>'+ 
         '<button type="button" data-ezws="fullscreen" aria-label="'+t("Bật toàn màn hình","Fullscreen")+
         '" title="'+t("Toàn màn hình","Fullscreen")+'">⛶</button>'+
         (orderOnly()?"":'<button type="button" data-ezreg="orders">'+
@@ -573,6 +597,11 @@
       const action=button.dataset.ezreg,value=button.dataset.value;
       if(s.busy&&["product","increase","decrease","remove","edit","option-save","clear"].includes(action))return;
       if(action==="category"){s.category=value;paintCatalog()}
+      else if(action==="flip-ticket"){
+        s.ticketSide=s.ticketSide==="left"?"right":"left";
+        try{localStorage.setItem("ez_pos_ticket_side",s.ticketSide)}catch{}
+        paint();
+      }
       else if(action==="product"){
         const now=Date.now();
         // Variant choices open a dialog: allow immediate repeat so staff can add different sizes.
@@ -594,8 +623,8 @@
       else if(action==="cart-close"){s.mobileCart=false;syncCart()}
       else if(action==="clear")closeDraft();
       else if(action==="create")create();
-      else if(action==="checkout"){
-        try{ensureValid();checkout?.begin()}catch(err){toast(err.message,true)}
+      else if(action==="checkout"||action==="tender"){
+        try{ensureValid();checkout?.begin(null,button.dataset.method||"cash")}catch(err){toast(err.message,true)}
       }
       else if(action==="orders")navigate("orders");
       else if(action==="send-kitchen")sendKitchen();

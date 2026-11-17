@@ -415,13 +415,16 @@ try:
    }""")
    assert layout["documentWidth"]<=width+2,(width,layout)
    assert layout["headTop"]>=layout["barBottom"]-3,(width,layout)
-   if width<=1080:
+   if width<=860:
+    # Phone and narrow Fold: product catalog stays full-width; cart is a drawer.
     assert layout["catWidth"]>=layout["contentWidth"]*.88,(width,layout)
     assert layout["cartDisplay"]=="none",(width,layout)
    else:
+    # Landscape POS stations now keep the receipt visible at tablet widths too.
+    assert layout["catWidth"]>=layout["contentWidth"]*.52,(width,layout)
     assert layout["cartDisplay"]=="flex",(width,layout)
   page.set_viewport_size({"width":1280,"height":850})
-  print("PASS POS workstation: full-width catalog at 412/820/1000, desktop cart at 1280, header not clipped",flush=True)
+  print("PASS POS workstation: drawer at 412/820, split catalog and ticket at 1000/1280, header visible",flush=True)
   # In-sandbox clicks must trigger the normal product, modifier, cart and save
   # flows. The virtual API catches ALL writes before network I/O.
   preview_start=len(requests)
