@@ -63,6 +63,13 @@ assert.match(compact,/data-ezreg-select="table"/,"table selection must remain fu
 assert.match(compact,/data-ezreg-select="customer"/,"customer selection must remain functional");
 assert.match(compact,/Takeaway/);
 assert.match(compact,/Walk-in/);
+assert.ok(compact.indexOf('ezreg-cart-context')<compact.indexOf('id="ezreg-cart"'),
+  "service and customer selectors must live in the Products panel, not Ticket");
+assert.match(compact,/ezreg-ticket-inline/,"ticket heading should use a single row");
+assert.match(compact,/data-ezreg="search-toggle"/,
+  "search starts as a compact icon button");
+assert.doesNotMatch(compact,/data-ezreg-search/,
+  "search input must remain collapsed initially");
 assert.doesNotMatch(compact,/ezreg-cart-meta/,"old three-row metadata must be removed");
 assert.doesNotMatch(compact,/Main branch/,"single location must not consume ticket space");
 assert.doesNotMatch(compact,/data-ezreg-select="branch"/,
@@ -93,12 +100,30 @@ assert.match(cart.innerHTML,/Add-ons/);
 assert.match(cart.innerHTML,/35\.000đ/);
 assert.match(cart.innerHTML,/\>Pay\</);
 assert.match(cart.innerHTML,/\>Save\</);
-assert.match(cart.innerHTML,/data-method="cash"/,"cash shortcut must be visible");
-assert.match(cart.innerHTML,/data-method="bank_transfer"/,
-  "transfer shortcut must be visible");
-assert.match(cart.innerHTML,/Payment gateway not connected|Chưa kết nối cổng thanh toán/,
-  "unsupported card gateway must stay disabled");
+assert.doesNotMatch(cart.innerHTML,/data-method="cash"|data-method="bank_transfer"/,
+  "payment method shortcuts belong only in the Pay modal");
+assert.doesNotMatch(cart.innerHTML,/ezreg-pay-methods/,
+  "do not waste ticket height on redundant Cash / Bank / Card controls");
+assert.match(cart.innerHTML,/data-ezreg="checkout"/,
+  "Pay still opens the existing checkout modal");
+assert.match(cart.innerHTML,/data-ezreg="note-toggle"/,
+  "collapsed Add Note control must be accessible");
+assert.doesNotMatch(cart.innerHTML,/<textarea/,
+  "Note textarea must stay hidden until requested");
 assert.match(notice.textContent,/Added Pearl Milk Tea/);
+click("note-toggle","");
+assert.match(cart.innerHTML,/<textarea[^>]*data-ezreg-note/,
+  "Add Note opens its editor");
+listeners.input({target:{value:"Less ice",matches:s=>s==="[data-ezreg-note]"}});
+click("note-toggle","");
+assert.doesNotMatch(cart.innerHTML,/<textarea/,"Note collapses after editing");
+assert.match(register.render(),/Edit Note/,"existing notes remain discoverable");
+click("search-toggle","");
+assert.match(register.render(),/data-ezreg-search/,
+  "Search button expands a searchable field");
+click("search-close","");
+assert.doesNotMatch(register.render(),/data-ezreg-search/,
+  "Close Search returns catalog to icon mode");
 // A rapid unintended double tap must not produce a duplicate unit.
 click("product","tea");
 assert.match(grid.innerHTML,/In cart: 1/);
