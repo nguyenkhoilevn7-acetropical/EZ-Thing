@@ -231,7 +231,7 @@
         '<span class="ezreg-ticket-label">Ticket</span>'+
         '<strong class="ezreg-ticket-name">Order</strong>'+
         '<span class="ezreg-count">'+count+'</span>'+
-        '<small class="ezreg-check-caption">'+s.cart.length+' lines · '+count+' units</small></div>'+
+        '<small class="ezreg-check-caption">'+s.cart.length+' '+(s.cart.length===1?'line':'lines')+' · '+count+' '+(count===1?'unit':'units')+'</small></div>'+
         '<button type="button" class="ezreg-cart-close" data-ezreg="cart-close" aria-label="Close cart">✕</button></div>'+
         '<div class="ezreg-cart-scroll">'+
 
@@ -581,7 +581,7 @@
           method:"POST",body:JSON.stringify(body)
         });
         if(bid!==business().id)return;
-        s.cart=[];s.note="";s.optionProduct="";s.mobileCart=false;
+        s.cart=[];s.note="";s.noteOpen=false;s.optionProduct="";s.mobileCart=false;
         // A new check must not inherit the rapid-tap guard from the paid one.
         lastProductTap=null;
         paintCatalog();
@@ -625,7 +625,7 @@
     }
     function closeDraft(){
       if(!s.cart.length||confirm(t("Xóa toàn bộ món khỏi giỏ hiện tại?","Clear this cart?"))){
-        s.cart=[];s.requestId=uid();s.last=null;syncCart();paintCatalog();
+        s.cart=[];s.note="";s.noteOpen=false;s.requestId=uid();s.last=null;syncCart();paintCatalog();
       }
     }
     document.addEventListener("click",event=>{
