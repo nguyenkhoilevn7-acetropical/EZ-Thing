@@ -258,7 +258,22 @@ try:
   page.locator(".ezpay-modal").wait_for(state="detached",timeout=25000)
   assert page.locator(".ezreg-last").inner_text().strip()
   page.locator(".ezreg-last-actions [data-ezreg='paid']").wait_for(state="detached",timeout=15000)
-  print("PASS POS cash: saved check, tendered amount, change and manual confirmation",flush=True)
+  page.locator('#ez-paperless-layer .ez-paperless-qr').wait_for(timeout=15000)
+  receipt_link=page.locator('#ez-paperless-layer').get_attribute('data-url')
+  assert "/receipt#" in receipt_link
+  guest_context=browser.new_context(locale="en-US")
+  try:
+   guest=guest_context.new_page()
+   guest.goto(receipt_link,wait_until="domcontentloaded")
+   guest.locator('.wallet-receipt').first.wait_for(timeout=18000)
+   assert guest.locator('.wallet-receipt').count()==1
+   assert "Purchase History" in guest.locator('#wallet-content').inner_text()
+   assert "Iced" in guest.locator('.wallet-receipt').first.inner_text() or guest.locator('.wallet-receipt').count()>0
+   assert guest.locator('#wallet-content').locator('.wallet-field input').count()==0
+  finally:
+   guest_context.close()
+  page.locator('#ez-paperless-layer [data-paperless="close"]').last.click()
+  print("PASS POS cash: digital QR redeemed by anonymous guest wallet",flush=True)
 
   # A new order can be created and manually confirmed as bank transfer
   # from the same register, without claiming banking gateway verification.
@@ -273,6 +288,8 @@ try:
   page.locator('[data-ezpay-confirm]').check()
   page.locator("#ezpay-submit").click()
   page.locator(".ezpay-modal").wait_for(state="detached",timeout=25000)
+  page.locator('#ez-paperless-layer .ez-paperless-qr').wait_for(timeout=15000)
+  page.locator('#ez-paperless-layer [data-paperless="close"]').last.click()
   assert page.locator('.ezreg-cart-line').count()==0
   print("PASS POS bank: new order then explicit manually recorded transfer, no gateway",flush=True)
 
