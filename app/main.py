@@ -56,6 +56,7 @@ async def security_headers(request: Request, call_next):
     response.headers["Content-Security-Policy"] = (
         "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
         "font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://images.unsplash.com; "
+        "script-src-elem 'self' https://accounts.google.com/gsi/client; frame-src https://accounts.google.com; "
         "connect-src 'self'; " + ("frame-ancestors 'self'; " if same_origin_preview else "frame-ancestors 'none'; ") +
         "base-uri 'none'; form-action 'self'"
     )
@@ -837,6 +838,14 @@ def customer_frontend():
     return STATIC_ASSETS.page("customer.html")
 
 
+@app.get("/receipt")
+@app.get("/wallet")
+def paperless_wallet_page():
+    page = STATIC_ASSETS.page("receipt.html")
+    page.headers["Referrer-Policy"] = "no-referrer"
+    return page
+
+
 @app.get("/admin")
 def super_admin_frontend():
     return STATIC_ASSETS.page("admin.html")
@@ -942,6 +951,11 @@ app.include_router(pos_payments_router)
 # Cashier daily reconciliation reads the existing SaleOrder ledger only.
 from .cashier import router as cashier_router  # noqa: E402
 app.include_router(cashier_router)
+
+# Paperless customer receipts reuse existing paid orders and customer loyalty ledger.
+from .paperless import router as paperless_router  # noqa: E402
+Base.metadata.create_all(bind=engine)  # Staging additive; production migration 20261117_13.
+app.include_router(paperless_router)
 
 # F&B station-focused operating profiles; role authorization remains account-based.
 from .workstations import router as workstations_router  # noqa: E402
