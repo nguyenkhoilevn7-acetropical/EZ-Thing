@@ -846,6 +846,7 @@ body[data-ez-workstation-preview="true"] #page-content:has(>.ezreg){
  .ezws-preview-bar{padding:6px 9px!important;gap:5px!important}
  .ezws-preview-switcher>summary{padding:7px 8px;gap:5px;font-size:11px}
  .ezws-preview-switcher>summary strong{font-size:11px;max-width:66px}
+ .ezws-preview-switcher .ezws-preview-tabs{left:0!important;right:auto!important}
  .ezws-preview-bar>.ezws-preview-fullscreen{flex-basis:36px;width:36px;min-width:36px}
  .ezws-preview-bar>.ezws-preview-exit{padding:7px 8px}
 }
