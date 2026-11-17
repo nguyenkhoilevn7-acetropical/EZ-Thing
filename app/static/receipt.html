@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+ <meta charset="UTF-8">
+ <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+ <meta name="theme-color" content="#0b7b73">
+ <meta name="referrer" content="no-referrer">
+ <meta name="description" content="EZ Thing digital purchase receipts and optional member points.">
+ <title>My Receipts · EZ Thing</title>
+ <link rel="icon" href="/assets/icons/ez-mark-light.svg" type="image/svg+xml">
+ <link rel="stylesheet" href="/assets/receipt-wallet.css">
+</head>
+<body>
+ <main class="wallet-shell">
+   <header class="wallet-top">
+     <a href="/" class="wallet-logo" aria-label="EZ Thing Home">EZ<span>THING</span></a>
+     <span class="wallet-tag">PAPERLESS RECEIPTS</span>
+   </header>
+   <section class="wallet-hero">
+     <span class="wallet-icon" aria-hidden="true">🧾</span>
+     <h1>My Receipts</h1>
+     <p>Your purchase receipts, always within reach. No paper or app needed.</p>
+   </section>
+   <div id="wallet-status" role="status" aria-live="polite">Loading your receipts…</div>
+   <div id="wallet-content"></div>
+   <footer class="wallet-footer">
+     <p>Digital purchase receipt only — not a VAT tax invoice.</p>
+     <p>Guest receipts are kept on this browser. Clear your browser data and you may lose guest access.</p>
+   </footer>
+ </main>
+ <script defer src="/assets/receipt-wallet.js"></script>
+</body>
+</html>
