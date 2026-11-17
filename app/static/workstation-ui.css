@@ -856,3 +856,60 @@ body[data-ez-workstation-preview="true"] #page-content:has(>.ezreg){
   content:"DEMO";font-size:10px;font-weight:850;color:#8de6bd;
  }
 }
+
+
+/* POS owner preview: one header, one fullscreen button, no fixed blue demo bar. */
+body[data-ez-workstation-preview="true"][data-ez-workstation="order"] .app .content,
+body[data-ez-workstation-preview="true"][data-ez-workstation="order"] #page-content:has(>.ezreg){
+  padding-top:10px!important;
+}
+body[data-ez-workstation-preview="true"][data-ez-workstation="order"] .ezreg-header{
+  position:relative;z-index:80;overflow:visible;
+}
+body[data-ez-workstation-preview="true"][data-ez-workstation="order"] .ezreg-header-actions{
+  display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;
+  gap:6px;min-width:0;
+}
+body[data-ez-workstation-preview="true"][data-ez-workstation="order"] .ezreg-header-actions>.ezreg-online{order:0}
+body[data-ez-workstation-preview="true"][data-ez-workstation="order"] .ezreg-header-actions>[data-ezreg="flip-ticket"]{order:1}
+body[data-ez-workstation-preview="true"][data-ez-workstation="order"] .ezreg-header-actions>[data-ezreg="orders"]{order:2}
+body[data-ez-workstation-preview="true"][data-ez-workstation="order"] .ezreg-header-actions>.ezws-preview-switcher{order:3}
+body[data-ez-workstation-preview="true"][data-ez-workstation="order"] .ezreg-header-actions>.ez-language-switch{order:4}
+body[data-ez-workstation-preview="true"][data-ez-workstation="order"] .ezreg-header-actions>[data-ezws="fullscreen"]{order:5}
+body[data-ez-workstation-preview="true"][data-ez-workstation="order"] .ezreg-header-actions>.ezws-preview-exit{order:6}
+body[data-ez-workstation-preview="true"][data-ez-workstation="order"] .ezreg-header-actions .ezws-preview-switcher>summary{
+  background:var(--pos-subtle,#f3f6fa)!important;
+  color:var(--pos-ink,#152238)!important;
+  border:1px solid var(--pos-line,#dce4ed)!important;
+  min-height:39px;max-width:120px;padding:7px 9px;gap:6px;
+}
+body[data-ez-workstation-preview="true"][data-ez-workstation="order"] .ezreg-header-actions .ezws-switch-arrow{
+  color:var(--pos-muted,#718097);
+}
+body[data-ez-workstation-preview="true"][data-ez-workstation="order"] .ezreg-header-actions .ezws-preview-exit{
+  color:var(--pos-accent,#0878f9);background:var(--pos-surface,#fff);
+  min-height:39px;border:1px solid var(--pos-line,#dce4ed);font-size:12px;
+}
+body[data-ez-workstation-preview="true"][data-ez-workstation="order"] .ezreg-header-actions>.ez-language-switch{
+  position:static!important;inset:auto!important;transform:none!important;
+  margin:0!important;box-shadow:none!important;z-index:auto!important;
+  flex:0 0 auto;max-width:100%;
+}
+body[data-ez-workstation-preview="true"][data-ez-workstation="order"] .ezreg-header-actions .ezws-preview-tabs{
+  z-index:200!important;
+}
+@media(max-width:700px){
+  body[data-ez-workstation-preview="true"][data-ez-workstation="order"] .ezreg-header{
+    display:flex;flex-wrap:wrap;align-items:center;
+    gap:6px!important;padding:8px!important;
+  }
+  body[data-ez-workstation-preview="true"][data-ez-workstation="order"] .ezreg-header>div:first-child{
+    flex:1 1 110px;min-width:90px;
+  }
+  body[data-ez-workstation-preview="true"][data-ez-workstation="order"] .ezreg-header-actions{
+    flex:1 1 240px;min-width:0;gap:5px!important;
+  }
+  body[data-ez-workstation-preview="true"][data-ez-workstation="order"] .ezreg-header-actions .ezws-preview-switcher>summary{
+    max-width:110px;min-height:36px;padding:6px 8px;
+  }
+}
