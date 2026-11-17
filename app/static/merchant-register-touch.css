@@ -331,3 +331,103 @@ body[data-ez-workstation-active="true"] .ezreg .ezreg-cart{
 @media(prefers-reduced-motion:reduce){
  .ezreg .ezreg-product{transition:none}
 }
+
+
+/* POS workstation correction 2026-11-17:
+   700–860 CSS pixels is a landscape tablet/Fold on some browsers, not a phone.
+   Previous <=860 fallback forced a drawer, making "Đổi bên" appear broken.
+   Restore a permanent two-panel POS at usable landscape widths in the actual
+   workstation AND its interactive owner preview. Do not change compact phones
+   or the ordinary back-office POS where the sidebar consumes the space. */
+@media (min-width:700px) and (max-width:1080px){
+ body[data-ez-workstation-active="true"] .ezreg .ezreg-layout{
+  display:grid!important;
+  grid-template-columns:minmax(0,1fr) minmax(272px,39%)!important;
+  gap:9px!important;align-items:stretch!important;
+ }
+ body[data-ez-workstation-active="true"] .ezreg.ezreg-ticket-left .ezreg-layout{
+  grid-template-columns:minmax(272px,39%) minmax(0,1fr)!important;
+ }
+ body[data-ez-workstation-active="true"] .ezreg.ezreg-ticket-left .ezreg-cart{
+  grid-column:1!important;grid-row:1!important
+ }
+ body[data-ez-workstation-active="true"] .ezreg.ezreg-ticket-left .ezreg-catalog{
+  grid-column:2!important;grid-row:1!important
+ }
+ body[data-ez-workstation-active="true"] .ezreg.ezreg-ticket-right .ezreg-catalog{
+  grid-column:1!important;grid-row:1!important
+ }
+ body[data-ez-workstation-active="true"] .ezreg.ezreg-ticket-right .ezreg-cart{
+  grid-column:2!important;grid-row:1!important
+ }
+ body[data-ez-workstation-active="true"] .ezreg .ezreg-catalog{
+  min-width:0!important;min-height:430px!important;
+  height:calc(100dvh - 160px)!important;max-height:calc(100dvh - 160px)!important;
+  padding:12px!important;overflow:hidden!important;
+ }
+ body[data-ez-workstation-active="true"] .ezreg .ezreg-catalog-head{
+  flex-direction:column!important;align-items:stretch!important;
+  gap:7px!important;margin-bottom:8px!important;
+ }
+ body[data-ez-workstation-active="true"] .ezreg .ezreg-search{
+  max-width:none!important;width:100%!important;min-width:0!important;
+ }
+ body[data-ez-workstation-active="true"] .ezreg .ezreg-products{
+  display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;
+  min-height:0!important;overflow-y:auto!important;overflow-x:hidden!important;
+  flex:1!important;gap:8px!important;
+ }
+ body[data-ez-workstation-active="true"] .ezreg .ezreg-product{
+  min-height:146px!important;padding:10px!important;
+ }
+ body[data-ez-workstation-active="true"] .ezreg .ezreg-cart{
+  display:flex!important;position:sticky!important;top:8px!important;
+  left:auto!important;right:auto!important;bottom:auto!important;
+  transform:none!important;
+  width:100%!important;margin:0!important;min-width:0!important;
+  height:calc(100dvh - 160px)!important;
+  min-height:430px!important;max-height:calc(100dvh - 160px)!important;
+  border-radius:13px!important;box-shadow:0 2px 10px #15263c09!important;
+ }
+ /* Workstation sheet overrides for mobile-open are ID-specific; reset even
+    when the viewport grows from a phone while the drawer was open. */
+ body[data-ez-workstation-active="true"] #ezreg-cart.mobile-open,
+ body[data-ez-workstation-active="true"][data-ez-workstation-preview="true"] #ezreg-cart.mobile-open{
+  display:flex!important;position:sticky!important;
+  inset:auto!important;top:8px!important;
+  left:auto!important;right:auto!important;bottom:auto!important;
+  transform:none!important;margin:0!important;
+  width:100%!important;max-width:100%!important;
+  height:calc(100dvh - 160px)!important;
+  min-height:430px!important;max-height:calc(100dvh - 160px)!important;
+  border-radius:13px!important;
+ }
+ body[data-ez-workstation-active="true"] .ezreg .ezreg-cart-close{
+  display:none!important
+ }
+ body[data-ez-workstation-active="true"] .ezreg .ezreg-mobile-cartbar,
+ body[data-ez-workstation-active="true"] .ezreg .ezreg-cart-backdrop{
+  display:none!important
+ }
+ body[data-ez-workstation-active="true"] .ezreg .ezreg-cart-meta{
+  grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:6px!important;
+ }
+ body[data-ez-workstation-active="true"] .ezreg .ezreg-cart-footer{
+  padding:10px!important
+ }
+ body[data-ez-workstation-active="true"] #page-content:has(>.ezreg){
+  padding-bottom:24px!important
+ }
+ body[data-ez-workstation-preview="true"] .ezreg .ezreg-catalog,
+ body[data-ez-workstation-preview="true"] .ezreg .ezreg-cart,
+ body[data-ez-workstation-preview="true"] #ezreg-cart.mobile-open{
+  height:calc(100dvh - var(--ezws-preview-header-h,120px) - 112px)!important;
+  max-height:calc(100dvh - var(--ezws-preview-header-h,120px) - 112px)!important;
+  min-height:min(420px,calc(100dvh - var(--ezws-preview-header-h,120px) - 112px))!important;
+ }
+}
+@media(max-width:699px){
+ /* On genuinely narrow phones, the cart is a bottom sheet. No fake
+    left/right affordance when there are not two visible panels. */
+ .ezreg .ezreg-layout-switch{display:none!important}
+}
