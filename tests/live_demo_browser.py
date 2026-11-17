@@ -463,6 +463,24 @@ try:
     assert (bounds["cart"]["left"]>=bounds["catalog"]["right"]-3 or
             bounds["cart"]["right"]<=bounds["catalog"]["left"]+3),(width,bounds)
    if width==820:
+    assert page.locator(".ezreg-header h2").inner_text().strip()=="POS Order"
+    assert page.locator(".ezreg-cart-footer .ezreg-create").inner_text().strip().startswith("Pay")
+    assert page.locator(".ezreg-cart-footer .ezreg-save-check").inner_text().strip()=="Save"
+    assert page.locator(".ezws-preview-label").inner_text().startswith("👁 INTERACTIVE DEMO")
+    scrollers=page.evaluate("""() => {
+      const ticket=document.querySelector('.ezreg-cart-scroll'),
+        products=document.querySelector('.ezreg-products');
+      const c=getComputedStyle(ticket),p=getComputedStyle(products);
+      return {ticketOverflow:c.overflowY,productsOverflow:p.overflowY,
+        ticketTouch:c.touchAction,ticketHeight:ticket.clientHeight,
+        ticketScrollHeight:ticket.scrollHeight,productsHeight:products.clientHeight,
+        productsScrollHeight:products.scrollHeight};
+    }""")
+    assert scrollers["ticketOverflow"] in ("auto","scroll"),scrollers
+    assert scrollers["productsOverflow"] in ("auto","scroll"),scrollers
+    assert "pan-y" in scrollers["ticketTouch"],scrollers
+    assert scrollers["ticketHeight"]>90 and scrollers["productsHeight"]>100,scrollers
+   if width==820:
     # Verify DOM geometry, not only class state: the user-reported switch
     # previously changed state without any visible rearrangement.
     before=page.evaluate("""() => {
