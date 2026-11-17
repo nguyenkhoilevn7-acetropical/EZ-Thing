@@ -415,6 +415,36 @@ try:
    }""")
    assert layout["documentWidth"]<=width+2,(width,layout)
    assert layout["headTop"]>=layout["barBottom"]-3,(width,layout)
+   # Product title must not be vertically squeezed or painted under the category.
+   tile=page.locator('.ezreg-product:not([disabled])').first.evaluate("""el => {
+     const name=el.querySelector('.ezreg-product-name'),
+       sub=el.querySelector('.ezreg-product-sub'),bottom=el.querySelector('.ezreg-product-bottom');
+     const n=name.getBoundingClientRect(),s=sub.getBoundingClientRect(),
+       b=bottom.getBoundingClientRect(),p=el.getBoundingClientRect();
+     return {titleHeight:n.height,titleScroll:name.scrollHeight,
+       titleClient:name.clientHeight,titleBottom:n.bottom,subTop:s.top,
+       subBottom:s.bottom,priceTop:b.top,tileBottom:p.bottom};
+   }""")
+   assert tile["titleHeight"]>=30 and tile["titleScroll"]<=tile["titleClient"]+2,(width,tile)
+   assert tile["titleBottom"]<=tile["subTop"]+2,(width,tile)
+   assert tile["subBottom"]<=tile["priceTop"]+2,(width,tile)
+   assert tile["priceTop"]<tile["tileBottom"],(width,tile)
+   if width<700:
+    page.wait_for_function("""() =>
+      document.querySelector('.ezws-preview-bar > .ez-language-switch') !== null""",
+      timeout=8000)
+    overlaps=page.evaluate("""() => {
+      const b=document.querySelector('.ezreg-mobile-cartbar').getBoundingClientRect();
+      const l=document.querySelector('.ez-language-switch').getBoundingClientRect();
+      const visibleButton=document.querySelector('.ezreg-mobile-cartbar').textContent;
+      return {cartBottom:b.bottom,cartTop:b.top,langBottom:l.bottom,
+        langTop:l.top,langLeft:l.left,langRight:l.right,
+        cartLeft:b.left,cartRight:b.right,cartText:visibleButton,
+        overlapping:b.left<l.right&&b.right>l.left&&b.top<l.bottom&&b.bottom>l.top};
+    }""")
+    assert not overlaps["overlapping"],overlaps
+    assert overlaps["cartBottom"]<=861 and overlaps["cartBottom"]>810,overlaps
+    assert "Xem giỏ" in overlaps["cartText"] or "View cart" in overlaps["cartText"],overlaps
    if width<700:
     # Narrow phones retain the sheet; left/right switch must not appear inert.
     assert layout["catWidth"]>=layout["contentWidth"]*.88,(width,layout)

@@ -1038,7 +1038,11 @@ function refreshSwitcher(){
   const compact=window.matchMedia('(max-width:700px)').matches;
   // Customer mobile: use the opened hamburger menu, not a floating control over product cards.
   const mobileCustomerNav=compact?document.querySelector('body:has(#customer-root) .customer-primary-nav'):null;
-  const target=mobileCustomerNav||(compact?document.body:document.querySelector('.site-header-actions,.customer-h-actions,.topbar-right,.top-actions,.auth-card,.auth-side,.auth-main,.reservation-nav'))||document.body;
+  // Preview toolbar owns the language switch for the workstation UI.
+  // Keep the mobile cart CTA and all product tiles unobstructed.
+  const workstationBar=document.body?.dataset.ezWorkstationPreview==="true"
+    ?document.querySelector('.ezws-preview-bar'):null;
+  const target=mobileCustomerNav||workstationBar||(compact?document.body:document.querySelector('.site-header-actions,.customer-h-actions,.topbar-right,.top-actions,.auth-card,.auth-side,.auth-main,.reservation-nav'))||document.body;
   let box=document.querySelector('.ez-language-switch');
   if(!box)box=makeSwitcher();
   if(box.parentElement!==target)target.appendChild(box);
