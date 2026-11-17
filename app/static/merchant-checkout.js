@@ -25,11 +25,11 @@
         confirmed:false,requestId:uid(),busy:false,previewTotal:0};
       paint();
     }
-    function begin(order=null){
+    function begin(order=null,preferred="cash"){
       if(state.busy)return;
       state.open=true;state.order=order?{id:order.id,total_vnd:order.total_vnd}:null;
       state.previewTotal=order?Number(order.total_vnd):getTotal();
-      state.method="cash";state.cash=String(state.previewTotal);
+      state.method=preferred==="bank_transfer"?"bank_transfer":"cash";state.cash=String(state.previewTotal);
       state.reference="";state.confirmed=false;state.requestId=uid();
       paint();
     }
