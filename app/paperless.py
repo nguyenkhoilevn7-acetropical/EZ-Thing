@@ -124,8 +124,14 @@ class PolicyInput(BaseModel):
 def safe_origin(request: Request):
     # Same-origin mutation only; Lax cookies alone do not defend login CSRF.
     source = request.headers.get("origin", "")
-    expected = str(request.base_url).rstrip("/")
-    if not source or not hmac.compare_digest(source.encode(), expected.encode()):
+    host = request.headers.get("host", "")
+    # Render terminates HTTPS in a reverse proxy; ASGI scope may report HTTP.
+    # Match the actual Host, never the caller-supplied X-Forwarded-Host.
+    # A browser's cross-origin JSON request still requires a CORS preflight,
+    # which is not permitted by this application.
+    allowed = ("https://" + host, "http://" + host)
+    if not host or not source or not any(
+            hmac.compare_digest(source.encode(), val.encode()) for val in allowed):
         deny(403, "Invalid request origin")
 
 
