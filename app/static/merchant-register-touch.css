@@ -250,6 +250,20 @@ body[data-ez-workstation-active="true"] .ezreg .ezreg-cart{
  body:not([data-ez-workstation-active="true"]) .ezreg .ezreg-products{
   overflow:visible;
  }
+ /* Merchant back-office uses a drawer at 861-1080px; only assigned POS
+    workstations keep the persistent two-column receipt at this width. */
+ body:not([data-ez-workstation-active="true"]) .ezreg .ezreg-cart{
+  display:none!important;position:fixed!important;z-index:75;
+  inset:auto 0 0 0!important;top:auto!important;
+  width:min(560px,100%)!important;height:min(85dvh,790px)!important;
+  min-height:0!important;max-height:85dvh!important;
+  margin-left:auto!important;margin-right:0!important;
+  border-radius:18px 18px 0 0!important;
+  box-shadow:0 -15px 55px #1425413b;
+ }
+ body:not([data-ez-workstation-active="true"]) .ezreg .ezreg-cart.mobile-open{
+  display:flex!important;
+ }
 }
 @media(max-width:860px){
  .ezreg .ezreg-header{padding:10px;min-height:0}
