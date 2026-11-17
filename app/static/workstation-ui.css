@@ -864,7 +864,8 @@ body[data-ez-workstation-preview="true"][data-ez-workstation="order"] #page-cont
   padding-top:10px!important;
 }
 body[data-ez-workstation-preview="true"][data-ez-workstation="order"] .ezreg-header{
-  position:relative;z-index:80;overflow:visible;
+  /* Stays above product tiles but below mobile cart sheets and option dialogs. */
+  position:relative;z-index:40;overflow:visible;
 }
 body[data-ez-workstation-preview="true"][data-ez-workstation="order"] .ezreg-header-actions{
   display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;
