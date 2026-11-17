@@ -444,7 +444,7 @@ try:
     }""")
     assert not overlaps["overlapping"],overlaps
     assert overlaps["cartBottom"]<=861 and overlaps["cartBottom"]>810,overlaps
-    assert "Xem giỏ" in overlaps["cartText"] or "View cart" in overlaps["cartText"],overlaps
+    assert "Cart" in overlaps["cartText"],overlaps
    if width<700:
     # Narrow phones retain the sheet; left/right switch must not appear inert.
     assert layout["catWidth"]>=layout["contentWidth"]*.88,(width,layout)
