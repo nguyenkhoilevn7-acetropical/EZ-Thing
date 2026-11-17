@@ -52,6 +52,11 @@ const register=context.window.EZRegisterUI({
   getState:()=>state,navigate(){},
 });
 assert.match(register.render(),/data-ezreg="product"/);
+assert.match(register.render(),/data-ezreg="flip-ticket"/,
+  "POS must let operators switch the receipt panel left or right");
+assert.match(register.render(),/ezreg-ticket-right/);
+assert.match(register.render(),/ezreg-category-glyph/,
+  "category rail must be touch-first and icon-led");
 function click(action,value,button=productButton){
   button.dataset={ezreg:action,value};
   listeners.click({target:button,preventDefault(){},stopPropagation(){}});
@@ -63,7 +68,12 @@ assert.match(cart.innerHTML,/Đơn giá/);
 assert.match(cart.innerHTML,/TRA-01/);
 assert.match(cart.innerHTML,/Tiền món/);
 assert.match(cart.innerHTML,/Size \/ topping/);
-assert.match(cart.innerHTML,/35\.000đ/);
+assert.match(cart.innerHTML,/35\\.000đ/);
+assert.match(cart.innerHTML,/data-method="cash"/,"cash shortcut must be visible");
+assert.match(cart.innerHTML,/data-method="bank_transfer"/,
+  "transfer shortcut must be visible");
+assert.match(cart.innerHTML,/Payment gateway not connected|Chưa kết nối cổng thanh toán/,
+  "unsupported card gateway must stay disabled");
 assert.match(notice.textContent,/Đã thêm Trà sữa trân châu/);
 // A rapid unintended double tap must not produce a duplicate unit.
 click("product","tea");
@@ -78,4 +88,8 @@ assert.match(grid.innerHTML,/Trong giỏ: 1/);
 click("remove",lineId);
 assert.doesNotMatch(grid.innerHTML,/Trong giỏ: 1/);
 assert.match(cart.innerHTML,/Chưa có món nào/);
+click("flip-ticket","");
+assert.match(nodes["ez-register"].outerHTML,/ezreg-ticket-left/,
+  "layout toggle must put ticket on left without clearing draft");
+assert.match(register.render(),/35\\.000đ|Đơn đang tạo/);
 console.log("PASS: POS add-to-cart feedback, rapid tap guard, quantity, remove, and detailed totals");
