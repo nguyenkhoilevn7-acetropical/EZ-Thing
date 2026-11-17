@@ -554,6 +554,13 @@ try:
    assert layout["buttonVisible"],layout
    assert layout["footerBottom"]<=901,layout
    if width<700:
+    # Header controls must never intercept the mobile cart close button.
+    close_hit=page.locator('#ezreg-cart [data-ezreg="cart-close"]').evaluate("""el => {
+      const r=el.getBoundingClientRect();
+      const top=document.elementFromPoint(r.left+r.width/2,r.top+r.height/2);
+      return top===el || el.contains(top);
+    }""")
+    assert close_hit, "POS header overlaps mobile cart close button"
     page.locator('#ezreg-cart [data-ezreg="cart-close"]').click()
   page.set_viewport_size({"width":1280,"height":850})
   print("PASS POS cart: phone popup at 412px, persistent ticket at 820px, checkout footer visible",flush=True)
