@@ -146,23 +146,24 @@ function setup(){const a=s.answers;root.innerHTML=`<div class="setup-wrap"><div 
 <div class="feature-row">✓ <strong>Dữ liệu được giữ nguyên khi trial hết hạn</strong></div>
 </div></div><p class="subtle">Sản phẩm đang thử nghiệm; thanh toán chỉ kích hoạt khi cổng thanh toán được cấu hình và xác minh.</p>`:'' }
  <div class="setup-footer"><button class="btn ghost" data-action="setup-back">${I('back','sm')} ${s.setupStep===1?'Đăng xuất':'Quay lại'}</button><button class="btn" data-action="setup-next">${s.setupStep===3?(s.trialEnabled?'Bắt đầu thử 7 ngày':'Tạo không gian làm việc'):'Tiếp tục'} ${I('arrow','sm')}</button></div></div></div>`}
-const navItems=[['overview','home','Tổng quan'],['pos','store','Bán hàng POS'],['orders','orders','Đơn hàng'],['products','box','Sản phẩm'],['tables','tables','Sơ đồ bàn'],['reservations','calendar','Đặt bàn trước'],['operations','warehouse','Lễ tân & xếp bàn'],['kitchen','coffee','Bếp & pha chế'],['inventory','warehouse','Sổ kho'],['delivery','globe','Giao hàng'],['appointments','calendar','Lịch hẹn'],['customers','users','Khách hàng'],['insights','sparkle','Phân tích'],['billing','wallet','Gói & thanh toán'],['account_lock','lock','Chờ gia hạn'],['team','users','Nhân sự'],['settings','settings','Cài đặt']];
+const navItems=[['overview','home','Tổng quan'],['pos','store','Bán hàng POS'],['orders','orders','Đơn hàng'],['products','box','Sản phẩm'],['tables','tables','Sơ đồ bàn'],['reservations','calendar','Đặt bàn trước'],['operations','warehouse','Lễ tân & xếp bàn'],['kitchen','coffee','Bếp & pha chế'],['inventory','warehouse','Sổ kho'],['delivery','globe','Giao hàng'],['appointments','calendar','Lịch hẹn'],['customers','users','Khách hàng'],['members','users','Members & Loyalty'],['insights','sparkle','Phân tích'],['billing','wallet','Gói & thanh toán'],['account_lock','lock','Chờ gia hạn'],['team','users','Nhân sự'],['settings','settings','Cài đặt']];
 const industryFeatures={fnb:['kitchen','kitchen'],retail:['inventory','stock_ledger'],online:['delivery','fulfillment'],services:['appointments','appointments']};
 const activeIndustry=()=>industryFeatures[s.business?.industry]||[];
 const menuItems=()=>s.business?.billing_required?navItems.filter(([id])=>id===(s.business?.role==='owner'?'billing':'account_lock')):navItems.filter(([id])=>{
  if(id==='account_lock')return false;
  if(id==='pos')return has('orders');
  if(id==='team'||id==='billing')return s.business?.role==='owner';
+  if(id==='members')return ['owner','manager'].includes(s.business?.role);
  if(id==='insights'&&s.business?.role==='staff')return false;
  return id==='reservations'?(s.business?.industry==='fnb'&&has('tables')):
  !(['tables','insights','kitchen','inventory','delivery','appointments'].includes(id))||
  (id==='tables'?has('tables'):id==='insights'?has('insights'):id===activeIndustry()[0]&&has(activeIndustry()[1]));
 });
 const industryNavOrder={
- fnb:['overview','pos','orders','reservations','tables','kitchen','operations','products','customers','inventory','insights','team','billing','settings'],
- retail:['overview','pos','orders','products','customers','inventory','operations','insights','team','billing','settings'],
- online:['overview','pos','orders','products','delivery','customers','operations','insights','team','billing','settings'],
- services:['overview','pos','appointments','products','customers','operations','insights','team','billing','settings']
+ fnb:['overview','pos','orders','reservations','tables','kitchen','operations','products','customers','members','inventory','insights','team','billing','settings'],
+ retail:['overview','pos','orders','products','customers','members','inventory','operations','insights','team','billing','settings'],
+ online:['overview','pos','orders','products','delivery','customers','members','operations','insights','team','billing','settings'],
+ services:['overview','pos','appointments','products','customers','members','operations','insights','team','billing','settings']
 };
 const navLabel=id=>id==='operations'&&s.business?.industry!=='fnb'?'Công cụ quản lý':navItems.find(x=>x[0]===id)?.[2]||'Tổng quan';
 const orderedNav=()=>{
@@ -224,13 +225,14 @@ async function loadData(){const bid=s.business.id;const tasks={overview:`/busine
 const section=(title,sub,right='')=>`<div class="section-header"><div><h2>${title}</h2><p>${sub}</p></div>${right}</div>`;
 const kpi=(title,value,sub,icon,tint='')=>`<article class="surface kpi"><div class="kpi-top"><span>${title}</span><div class="kpi-icon ${tint}">${I(icon)}</div></div><h3>${value}</h3><p>${sub}</p></article>`;
 function renderTab(){const el=document.getElementById('page-content');if(!el)return;const label=navLabel(s.tab);document.getElementById('page-title').textContent=label;
- el.innerHTML=({overview:overviewTab,pos:()=>cashRegister?.render()||cardEmpty('orders','POS','Không tải được màn hình bán hàng.'),orders:()=>workstationUI?.focused()&&workstationUI?.mode()==='cashier'?cashierTaskTab():ordersTab(),products:productsTab,tables:()=>restaurantSuite?.renderFloorplan()||tablesTab(),reservations:()=>restaurantSuite?.renderReservations()||cardEmpty("calendar","Đặt bàn","Không tải được giao diện đặt bàn."),operations:()=>workstationUI?.focused()&&workstationUI?.mode()==='host'?hostWorkstation?.render()||hostTaskTab():operationsV5?.render()||cardEmpty('warehouse','Lễ tân & xếp bàn','Không tải được giao diện.'),customers:customersTab,kitchen:()=>kdsUI?.render()||industryTab(),inventory:industryTab,delivery:industryTab,appointments:industryTab,insights:insightsTab,settings:settingsTab,billing:billingTab,team:teamTab,account_lock:lockedAccountTab}[s.tab]||overviewTab)();
+ el.innerHTML=({overview:overviewTab,pos:()=>cashRegister?.render()||cardEmpty('orders','POS','Không tải được màn hình bán hàng.'),orders:()=>workstationUI?.focused()&&workstationUI?.mode()==='cashier'?cashierTaskTab():ordersTab(),products:productsTab,tables:()=>restaurantSuite?.renderFloorplan()||tablesTab(),reservations:()=>restaurantSuite?.renderReservations()||cardEmpty("calendar","Đặt bàn","Không tải được giao diện đặt bàn."),operations:()=>workstationUI?.focused()&&workstationUI?.mode()==='host'?hostWorkstation?.render()||hostTaskTab():operationsV5?.render()||cardEmpty('warehouse','Lễ tân & xếp bàn','Không tải được giao diện.'),customers:customersTab,members:()=>window.EZPaperlessPOS?.renderAdmin()||cardEmpty('users','Members','Unavailable'),kitchen:()=>kdsUI?.render()||industryTab(),inventory:industryTab,delivery:industryTab,appointments:industryTab,insights:insightsTab,settings:settingsTab,billing:billingTab,team:teamTab,account_lock:lockedAccountTab}[s.tab]||overviewTab)();
  if(["tables","reservations"].includes(s.tab))restaurantSuite?.mount();
  if(s.tab==='operations'&&workstationUI?.focused()&&workstationUI?.mode()==='host')hostWorkstation?.mount();
  else if(s.tab==='operations')operationsV5?.mount();
  if(s.tab==='kitchen')kdsUI?.mount();
  if(s.tab==='settings')printerUI?.mount();
  if(s.tab==='pos')cashRegister?.mount();
+  if(s.tab==='members')window.EZPaperlessPOS?.loadAdmin({api,bid:s.business.id,toast});
  if(s.tab==='orders'&&!workstationUI?.focused()&&!s.cache.orderDashboard)loadOrdersDashboard().catch(err=>toast(err.message,true));}
 function overviewTab(){const o=s.cache.overview||{};const orders=s.cache.orders||[];return `<div class="dashboard-welcome"><div style="z-index:2"><span class="pill" style="background:#ffffff21;color:#fff;border-color:#ffffff30">${I('sparkle','sm')} BUSINESS HUB</span><h2>Quản lý dễ dàng.<br/>Kinh doanh hiệu quả hơn.</h2><p>Tất cả đơn hàng, sản phẩm và số liệu của bạn ở một nơi.</p><button class="btn" data-action="new-order">${I('plus','sm')} Tạo đơn hàng</button></div><div class="hero-art">✳</div></div>
  <div class="kpi-grid">${kpi('Doanh thu hôm nay',o.today_revenue_vnd==null?'—':V(o.today_revenue_vnd),'Từ đơn đã xác nhận nhận tiền','wallet')}${kpi('Đơn hàng',o.order_count||0,`${o.open_count||0} đơn đang xử lý`,'orders','blue')}${kpi('Sản phẩm',o.product_count||0,'Sản phẩm trong danh mục','box','orange')}${kpi('Cảnh báo tồn kho',o.low_stock||0,'Còn tối đa 5 sản phẩm','warning','red')}</div>
