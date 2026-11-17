@@ -466,7 +466,7 @@ try:
     assert page.locator(".ezreg-header h2").inner_text().strip()=="POS Order"
     assert page.locator(".ezreg-cart-footer .ezreg-create").inner_text().strip().startswith("Pay")
     assert page.locator(".ezreg-cart-footer .ezreg-save-check").inner_text().strip()=="Save"
-    assert page.locator(".ezws-preview-label").inner_text().startswith("👁 INTERACTIVE DEMO")
+    assert any(x in page.locator(".ezws-preview-label").inner_text() for x in ("INTERACTIVE DEMO","DEMO · NOT SAVED"))
     scrollers=page.evaluate("""() => {
       const ticket=document.querySelector('.ezreg-cart-scroll'),
         products=document.querySelector('.ezreg-products');
@@ -558,6 +558,8 @@ try:
     ("cashier",".ezrole-task"),("host","#ezhost-workspace"),
     ("order","#ez-register")
   ):
+   if page.locator(".ezws-preview-switcher > summary").count():
+    page.locator(".ezws-preview-switcher > summary").click()
    page.locator('.ezws-preview-tabs [data-value="'+task+'"]').click()
    page.locator(selector).wait_for(timeout=15000)
    assert page.locator('.ezws-preview-tabs [data-value="'+task+'"]').get_attribute("aria-pressed")=="true"
