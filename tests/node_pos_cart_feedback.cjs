@@ -68,7 +68,7 @@ assert.match(cart.innerHTML,/Đơn giá/);
 assert.match(cart.innerHTML,/TRA-01/);
 assert.match(cart.innerHTML,/Tiền món/);
 assert.match(cart.innerHTML,/Size \/ topping/);
-assert.match(cart.innerHTML,/35\\.000đ/);
+assert.match(cart.innerHTML,/35\.000đ/);
 assert.match(cart.innerHTML,/data-method="cash"/,"cash shortcut must be visible");
 assert.match(cart.innerHTML,/data-method="bank_transfer"/,
   "transfer shortcut must be visible");
@@ -91,5 +91,5 @@ assert.match(cart.innerHTML,/Chưa có món nào/);
 click("flip-ticket","");
 assert.match(nodes["ez-register"].outerHTML,/ezreg-ticket-left/,
   "layout toggle must put ticket on left without clearing draft");
-assert.match(register.render(),/35\\.000đ|Đơn đang tạo/);
+assert.match(register.render(),/35\.000đ|Đơn đang tạo/);
 console.log("PASS: POS add-to-cart feedback, rapid tap guard, quantity, remove, and detailed totals");
