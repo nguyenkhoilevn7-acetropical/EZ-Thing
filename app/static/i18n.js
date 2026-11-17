@@ -1041,7 +1041,7 @@ function refreshSwitcher(){
   // Preview toolbar owns the language switch for the workstation UI.
   // Keep the mobile cart CTA and all product tiles unobstructed.
   const workstationBar=document.body?.dataset.ezWorkstationPreview==="true"
-    ?document.querySelector('.ezws-preview-bar'):null;
+    ?document.querySelector('.ezreg-header-actions,.ezws-preview-bar'):null;
   const target=mobileCustomerNav||workstationBar||(compact?document.body:document.querySelector('.site-header-actions,.customer-h-actions,.topbar-right,.top-actions,.auth-card,.auth-side,.auth-main,.reservation-nav'))||document.body;
   let box=document.querySelector('.ez-language-switch');
   if(!box)box=makeSwitcher();
