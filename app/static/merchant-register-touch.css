@@ -618,3 +618,15 @@ body[data-ez-workstation-active="true"] .ezreg .ezreg-product{
  }
  .ezreg .ezreg-create,.ezreg .ezreg-save-check{min-height:45px!important}
 }
+
+/* Narrow phones still use a closed drawer until the cashier explicitly opens it. */
+@media(max-width:699px){
+ .ezreg .ezreg-cart,
+ body[data-ez-workstation-active="true"] .ezreg .ezreg-cart{
+  display:none!important;position:fixed!important
+ }
+ .ezreg .ezreg-cart.mobile-open,
+ body[data-ez-workstation-active="true"] .ezreg .ezreg-cart.mobile-open{
+  display:flex!important
+ }
+}
