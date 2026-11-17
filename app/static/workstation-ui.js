@@ -351,28 +351,35 @@
         state().cache.tables=clone(sb.tables);
         return true;
       }
-      function previewNav(){
-        if(!previewMode||!owner())return "";
-        const posEnglish=previewMode==="order";
+      // POS demo uses an inline task menu to avoid wasting a full toolbar row.
+      function previewMenu(english=false){
         const roles={order:"Order",kitchen:"Kitchen",bar:"Bar",cashier:"Cashier",host:"Host"};
-        const modeName=id=>safe(posEnglish?roles[id]:modeLabel(id));
-        return '<div class="ezws-preview-bar" role="toolbar" aria-label="Workstation preview">'+
-          '<span class="ezws-preview-label">👁 '+safe(posEnglish?"DEMO · NOT SAVED":
-            choose("BẢN THỬ · KHÔNG LƯU","INTERACTIVE SANDBOX · NO SAVES"))+'</span>'+
-          '<details class="ezws-preview-switcher">'+
-          '<summary aria-label="'+safe(posEnglish?"Switch workstation":choose("Chọn tác vụ","Switch workstation"))+
-          '" title="'+safe(posEnglish?"Switch workstation":choose("Chọn tác vụ","Switch workstation"))+'">'+
-          '<span aria-hidden="true">☰</span><strong>'+modeName(previewMode)+
+        const name=id=>safe(english?roles[id]:modeLabel(id));
+        return '<details class="ezws-preview-switcher">'+
+          '<summary aria-label="Switch workstation" title="Switch workstation">'+
+          '<span aria-hidden="true">☰</span><strong>'+name(previewMode)+
           '</strong><span aria-hidden="true" class="ezws-switch-arrow">⌄</span></summary>'+
           '<div class="ezws-preview-tabs" role="group" aria-label="Workstation modes">'+
           Object.keys(MODES).filter(id=>id!=="manager").map(id=>
             '<button type="button" data-ezws="preview" data-value="'+id+'" class="'+
             (previewMode===id?"active":"")+'" aria-pressed="'+(previewMode===id)+'">'+
-            modeName(id)+'</button>').join("")+'</div></details>'+
+            name(id)+'</button>').join("")+'</div></details>';
+      }
+      function previewInline(){
+        if(previewMode!=="order"||!owner())return "";
+        return previewMenu(true)+
+          '<button type="button" class="ezws-preview-exit" data-ezws="exit-preview">Exit</button>';
+      }
+      function previewNav(){
+        if(!previewMode||!owner()||previewMode==="order")return "";
+        return '<div class="ezws-preview-bar" role="toolbar" aria-label="Workstation preview">'+
+          '<span class="ezws-preview-label">👁 '+
+          safe(choose("BẢN THỬ · KHÔNG LƯU","INTERACTIVE SANDBOX · NO SAVES"))+'</span>'+
+          previewMenu(false)+
           '<button type="button" class="ezws-preview-fullscreen" data-ezws="fullscreen" title="'+
-          safe(posEnglish?"Fullscreen":choose("Toàn màn hình","Fullscreen"))+'">⛶</button>'+
+          safe(choose("Toàn màn hình","Fullscreen"))+'">⛶</button>'+
           '<button type="button" class="ezws-preview-exit" data-ezws="exit-preview">'+
-          safe(posEnglish?"Exit":choose("Thoát xem thử","Back to Admin"))+'</button></div>';
+          safe(choose("Thoát xem thử","Back to Admin"))+'</button></div>';
       }
       function openPreviewPicker(){
         if(!owner()||!active())return;
@@ -617,7 +624,7 @@
       document.addEventListener("keydown",event=>{
         if(event.key==="Escape"&&drawerOpen){switchDrawer(false)}
       });
-      return {load,mode,focused,home,drawer,previewNav,openPreviewPicker,
+      return {load,mode,focused,home,drawer,previewNav,previewInline,openPreviewPicker,
               previewOnly,previewResponse,previewRead,togglePreviewTable,exitPreview,
               fullscreen,syncPreviewLayout,modeLabel,isTemporary:()=>temporary,
               current:()=>current,owner,showSettings,
