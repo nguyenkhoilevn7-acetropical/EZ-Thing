@@ -1,0 +1,48 @@
+/* Paperless receipt QR + merchant loyalty management. */
+.ez-paperless-backdrop{position:fixed;inset:0;z-index:20000;background:rgba(8,24,37,.67);
+  display:flex;align-items:center;justify-content:center;padding:15px}
+.ez-paperless-dialog{display:flex;flex-direction:column;align-items:center;text-align:center;
+  gap:9px;max-width:430px;width:100%;max-height:95dvh;overflow:auto;background:#fff;color:#173045;
+  border-radius:18px;padding:18px 20px 22px;box-shadow:0 22px 80px #0004}
+.ez-paperless-dialog h2{font-size:23px;margin:4px 0 0;letter-spacing:-.035em}
+.ez-paperless-dialog p{font-size:12px;margin:0;color:#687987}
+.ez-paperless-dialog small{font-size:11px;color:#687987}
+.ez-paperless-dialog>strong{font-size:15px;color:#087b72}
+.ez-paperless-head{width:100%;display:flex;align-items:center;justify-content:space-between}
+.ez-paperless-head span{font-size:11px;color:#10805b;font-weight:850}
+.ez-paperless-head button{border:0;background:#eef4f2;border-radius:8px;padding:7px 10px;cursor:pointer}
+.ez-paperless-qr{width:min(220px,65vw);height:auto;aspect-ratio:1;border:7px solid #f2f7f5;border-radius:11px}
+.ez-paperless-actions{display:flex;gap:9px;margin-top:7px;width:100%}
+.ez-paperless-actions button{flex:1;border-radius:9px;padding:11px 9px;border:1px solid #dae5e1;
+  font-weight:750;font-size:13px;background:#fff;color:#1d3a47;cursor:pointer}
+.ez-paperless-actions .ez-paperless-primary{color:#fff;background:#087b72;border-color:#087b72}
+.ezreg .ezreg-digital-receipt{background:#087b72;color:#fff;border:0;border-radius:8px;padding:8px 11px;
+  font-weight:800;min-height:38px;font-size:12px}
+.ezreg .ezreg-demo-hint{font-size:10px;font-weight:800;color:#af6b13}
+.ez-paperless-admin{padding:16px 0}
+.ez-paperless-admin-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:16px}
+.ez-paperless-admin-head>div>span{font-size:10px;color:var(--merchant-accent,#087b72);font-weight:850}
+.ez-paperless-admin-head h2{margin:4px 0;font-size:24px}
+.ez-paperless-admin-head p{margin:0;color:var(--merchant-muted,#66788b);font-size:12px}
+.ez-paperless-admin-head a{color:var(--merchant-accent,#087b72);font-weight:750}
+.ez-paperless-admin-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.ez-paperless-box{background:var(--merchant-panel,#fff);color:var(--merchant-ink,#1c2e40);
+  border:1px solid var(--merchant-line,#dce6e9);border-radius:14px;padding:16px}
+.ez-paperless-box h3{font-size:16px;margin:0 0 13px}
+.ez-paperless-box h3 span{font-size:11px;border-radius:30px;background:#dff2eb;padding:4px 8px;color:#137258}
+.ez-paperless-setting{display:flex;justify-content:space-between;align-items:center;gap:10px;
+  padding:11px 0;border-top:1px solid var(--merchant-line,#e2e9ea);font-size:13px;font-weight:750}
+.ez-paperless-setting small{display:block;font-size:11px;font-weight:450;color:var(--merchant-muted,#708093)}
+.ez-paperless-setting input{height:20px;width:20px;flex:none;accent-color:#087b72}
+.ez-paperless-rate{display:grid;gap:6px;margin-top:12px;font-size:12px;font-weight:700}
+.ez-paperless-rate input{padding:10px;border-radius:9px;border:1px solid var(--merchant-line,#dce6e9);
+ background:var(--merchant-panel,#fff);color:var(--merchant-ink,#1c2e40);width:100%}
+.ez-paperless-box button[type=submit]{padding:11px 15px;border:0;background:#087b72;color:#fff;
+  border-radius:9px;font-weight:750;cursor:pointer;margin-top:12px}
+.ez-paperless-member-list{display:grid;gap:8px;max-height:360px;overflow:auto}
+.ez-paperless-member-list article{display:flex;justify-content:space-between;gap:8px;
+  border-bottom:1px solid var(--merchant-line,#dce6e9);padding:8px 0}
+.ez-paperless-member-list small{display:block;color:var(--merchant-muted,#708093);font-size:11px}
+.ez-paperless-member-list article strong{color:#087b72;white-space:nowrap}
+.ez-paperless-error{color:#af3434}
+@media(max-width:700px){.ez-paperless-admin-grid{grid-template-columns:1fr}.ez-paperless-dialog{padding:14px}}
