@@ -358,7 +358,7 @@
         const modeName=id=>safe(posEnglish?roles[id]:modeLabel(id));
         return '<div class="ezws-preview-bar" role="toolbar" aria-label="Workstation preview">'+
           '<span class="ezws-preview-label">👁 '+safe(posEnglish?"DEMO · NOT SAVED":
-            choose("BẢN THỬ · KHÔNG LƯU","DEMO · NOT SAVED"))+'</span>'+
+            choose("BẢN THỬ · KHÔNG LƯU","INTERACTIVE SANDBOX · NO SAVES"))+'</span>'+
           '<details class="ezws-preview-switcher">'+
           '<summary aria-label="'+safe(posEnglish?"Switch workstation":choose("Chọn tác vụ","Switch workstation"))+
           '" title="'+safe(posEnglish?"Switch workstation":choose("Chọn tác vụ","Switch workstation"))+'">'+
