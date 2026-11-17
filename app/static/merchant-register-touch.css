@@ -850,3 +850,16 @@ body[data-ez-workstation-active="true"] .ezreg .ezreg-product{
   .ezreg .ezreg-ticket-inline{gap:5px}
   .ezreg .ezreg-ticket-inline .ezreg-check-caption{font-size:9px!important}
 }
+
+/* Product density follows available catalog width; fewer empty gaps on POS tablets. */
+@media(min-width:1081px){
+  .ezreg .ezreg-products,
+  body[data-ez-workstation-active="true"] .ezreg .ezreg-products{
+    grid-template-columns:repeat(auto-fill,minmax(min(165px,100%),1fr))!important;
+    align-content:start!important;
+  }
+  .ezreg .ezreg-product,
+  body[data-ez-workstation-active="true"] .ezreg .ezreg-product{
+    min-height:150px!important;
+  }
+}
