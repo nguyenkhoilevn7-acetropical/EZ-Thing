@@ -1042,7 +1042,7 @@ function refreshSwitcher(){
   // Keep the mobile cart CTA and all product tiles unobstructed.
   const workstationBar=document.body?.dataset.ezWorkstationPreview==="true"
     ?document.querySelector('.ezws-preview-bar'):null;
-  const target=workstationBar||mobileCustomerNav||(compact?document.body:document.querySelector('.site-header-actions,.customer-h-actions,.topbar-right,.top-actions,.auth-card,.auth-side,.auth-main,.reservation-nav'))||document.body;
+  const target=mobileCustomerNav||workstationBar||(compact?document.body:document.querySelector('.site-header-actions,.customer-h-actions,.topbar-right,.top-actions,.auth-card,.auth-side,.auth-main,.reservation-nav'))||document.body;
   let box=document.querySelector('.ez-language-switch');
   if(!box)box=makeSwitcher();
   if(box.parentElement!==target)target.appendChild(box);
