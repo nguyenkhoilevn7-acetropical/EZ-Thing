@@ -57,7 +57,7 @@ async def security_headers(request: Request, call_next):
         "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
         "font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://images.unsplash.com; "
         "script-src-elem 'self' https://accounts.google.com/gsi/client; frame-src https://accounts.google.com; "
-        "connect-src 'self'; " + ("frame-ancestors 'self'; " if same_origin_preview else "frame-ancestors 'none'; ") +
+        "connect-src 'self' https://accounts.google.com; " + ("frame-ancestors 'self'; " if same_origin_preview else "frame-ancestors 'none'; ") +
         "base-uri 'none'; form-action 'self'"
     )
     return response
