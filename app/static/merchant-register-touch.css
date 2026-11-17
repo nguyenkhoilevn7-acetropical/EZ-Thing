@@ -641,3 +641,123 @@ body[data-ez-workstation-active="true"] .ezreg .ezreg-product{
   display:flex!important;
  }
 }
+
+
+/* POS workspace space recovery — 2026-11-17.
+   Service/table + customer move out of the scrolling item list into one
+   compact context row. Single-location merchants no longer see "Main branch".
+   Multiple locations retain branch selection behind a small settings control. */
+.ezreg .ezreg-visually-hidden{
+ position:absolute!important;width:1px!important;height:1px!important;
+ padding:0!important;margin:-1px!important;overflow:hidden!important;
+ clip:rect(0 0 0 0)!important;white-space:nowrap!important;border:0!important;
+}
+.ezreg .ezreg-cart-context{
+ position:relative;z-index:3;display:flex;align-items:center;gap:7px;
+ padding:7px 10px;min-height:50px;flex:0 0 auto;
+ border-bottom:1px solid var(--pos-line);background:var(--pos-surface);
+}
+.ezreg .ezreg-context-chip{position:relative;min-width:0;flex:1 1 0;display:block}
+.ezreg .ezreg-context-chip select{
+ display:block;appearance:none;-webkit-appearance:none;
+ width:100%;min-width:0;height:36px;min-height:36px!important;
+ padding:6px 23px 6px 9px;border:1px solid var(--pos-line);
+ border-radius:8px;background:var(--pos-subtle);color:var(--pos-ink);
+ font-size:12px;font-weight:760;line-height:1.2;cursor:pointer;
+ overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.ezreg .ezreg-context-chip::after{
+ content:"⌄";position:absolute;right:8px;top:50%;transform:translateY(-50%);
+ pointer-events:none;color:var(--pos-muted);font-size:14px;font-weight:800;
+}
+.ezreg .ezreg-context-static{
+ display:flex;align-items:center;flex:1 1 0;min-width:0;
+ border:1px solid var(--pos-line);background:var(--pos-subtle);
+ border-radius:8px;padding:6px 9px;min-height:36px;
+ color:var(--pos-ink);font-size:12px;font-weight:760;
+}
+.ezreg .ezreg-branch-picker{position:relative;flex:0 0 auto}
+.ezreg .ezreg-branch-picker>summary{
+ list-style:none;display:grid;place-items:center;
+ width:36px;height:36px;cursor:pointer;user-select:none;
+ background:var(--pos-subtle);color:var(--pos-ink);
+ border:1px solid var(--pos-line);border-radius:8px;font-size:17px;
+}
+.ezreg .ezreg-branch-picker>summary::-webkit-details-marker{display:none}
+.ezreg .ezreg-context-chip select:focus-visible,
+.ezreg .ezreg-branch-picker>summary:focus-visible{
+ outline:2px solid var(--pos-accent);outline-offset:2px;
+}
+.ezreg .ezreg-branch-picker>label{
+ display:grid;gap:5px;position:absolute;right:0;top:calc(100% + 6px);
+ min-width:185px;padding:10px;border:1px solid var(--pos-line);
+ border-radius:10px;background:var(--pos-surface);color:var(--pos-ink);
+ box-shadow:0 12px 28px rgba(12,34,63,.15);
+ font-size:11px;font-weight:750;
+}
+.ezreg .ezreg-branch-picker:not([open])>label{display:none}
+.ezreg .ezreg-branch-picker select{
+ height:38px;min-width:0;width:100%;border-radius:8px;
+ border:1px solid var(--pos-line);background:var(--pos-subtle);
+ color:var(--pos-ink);padding:6px 7px;font-size:12px;
+}
+.ezreg .ezreg-cart-head{padding:9px 11px 7px!important}
+.ezreg .ezreg-cart-head h3{margin-top:2px!important}
+.ezreg .ezreg-cart-scroll{
+ flex:1 1 0!important;min-height:0!important;overflow-y:auto!important;
+ touch-action:pan-y;-webkit-overflow-scrolling:touch;overscroll-behavior-y:contain;
+}
+.ezreg .ezreg-cart-scroll .ezreg-cart-items{padding-top:3px!important}
+.ezreg .ezreg-cart-list-heading{padding:5px 10px!important}
+.ezreg .ezreg-cart-footer{padding:7px 10px 9px!important}
+.ezreg .ezreg-summary-row{font-size:11px!important;line-height:1.25!important}
+.ezreg .ezreg-subtotal{margin-top:2px!important;padding-top:5px!important}
+.ezreg .ezreg-finance-hint{max-height:15px!important;line-height:1.3!important}
+.ezreg .ezreg-pay-methods{margin:2px 0!important;gap:5px!important}
+.ezreg .ezreg-pay-methods button{min-height:38px!important}
+.ezreg .ezreg-secondary-actions{margin-top:1px!important}
+.ezreg .ezreg-catalog{min-width:0}
+.ezreg .ezreg-products{
+ min-height:0;overflow-y:auto!important;overflow-x:hidden!important;
+ touch-action:pan-y;-webkit-overflow-scrolling:touch;
+ overscroll-behavior-y:contain;scroll-behavior:auto!important;
+}
+@media(min-width:1081px){
+ body[data-ez-workstation-active="true"] .ezreg.ezreg-ticket-left .ezreg-layout{
+  grid-template-columns:minmax(360px,38%) minmax(0,1fr)!important;
+ }
+ body[data-ez-workstation-active="true"] .ezreg.ezreg-ticket-right .ezreg-layout{
+  grid-template-columns:minmax(0,1fr) minmax(360px,38%)!important;
+ }
+}
+@media(min-width:700px){
+ body[data-ez-workstation-active="true"]:not([data-ez-workstation-preview="true"])
+ .ezreg .ezreg-catalog,
+ body[data-ez-workstation-active="true"]:not([data-ez-workstation-preview="true"])
+ .ezreg .ezreg-cart{
+  height:calc(100dvh - 128px)!important;
+  max-height:calc(100dvh - 128px)!important;
+  min-height:min(390px,calc(100dvh - 128px))!important;
+ }
+ body[data-ez-workstation-preview="true"] .ezreg .ezreg-catalog,
+ body[data-ez-workstation-preview="true"] .ezreg .ezreg-cart,
+ body[data-ez-workstation-preview="true"] #ezreg-cart.mobile-open{
+  height:calc(100dvh - var(--ezws-preview-header-h,52px) - 82px)!important;
+  max-height:calc(100dvh - var(--ezws-preview-header-h,52px) - 82px)!important;
+  min-height:min(390px,calc(100dvh - var(--ezws-preview-header-h,52px) - 82px))!important;
+ }
+}
+@media(max-width:699px){
+ .ezreg .ezreg-cart-context{padding:6px 10px;min-height:48px}
+ .ezreg .ezreg-context-chip select{font-size:12px}
+ .ezreg .ezreg-branch-picker>label{right:0}
+ .ezreg .ezreg-cart-footer{
+  padding:8px 10px calc(10px + env(safe-area-inset-bottom))!important;
+ }
+}
+@media(max-height:560px) and (min-width:700px){
+ body[data-ez-workstation-active="true"] .ezreg .ezreg-cart,
+ body[data-ez-workstation-active="true"] .ezreg .ezreg-catalog{
+  min-height:0!important;
+ }
+}
