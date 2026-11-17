@@ -329,9 +329,19 @@
       if(!node||!belongs())return;
       const focusedSearch=document.activeElement?.matches("[data-ezreg-search]");
       const start=focusedSearch?document.activeElement.selectionStart:null;
+      const catalogY=node.querySelector?.(".ezreg-products")?.scrollTop||0;
+      const ticketY=node.querySelector?.(".ezreg-cart-scroll")?.scrollTop||0;
+      const categoryX=node.querySelector?.(".ezreg-categories")?.scrollLeft||0;
       node.outerHTML=render();
+      const fresh=document.getElementById("ez-register");
+      const catalog=fresh?.querySelector?.(".ezreg-products");
+      const ticket=fresh?.querySelector?.(".ezreg-cart-scroll");
+      const categories=fresh?.querySelector?.(".ezreg-categories");
+      if(catalog)catalog.scrollTop=catalogY;
+      if(ticket)ticket.scrollTop=ticketY;
+      if(categories)categories.scrollLeft=categoryX;
       if(focusedSearch){
-        const field=document.querySelector("#ez-register [data-ezreg-search]");
+        const field=fresh?.querySelector?.("[data-ezreg-search]");
         if(field){field.focus();if(start!==null)field.setSelectionRange(start,start)}
       }
       if(s.optionProduct)paintOptions();
@@ -339,8 +349,9 @@
     function paintCatalog(){
       const categories=document.getElementById("ezreg-categories");
       const grid=document.getElementById("ezreg-products");
-      if(categories)categories.innerHTML=categoriesHtml();
-      if(grid)grid.innerHTML=catalogHtml();
+      const y=grid?.scrollTop||0,x=categories?.scrollLeft||0;
+      if(categories){categories.innerHTML=categoriesHtml();categories.scrollLeft=x}
+      if(grid){grid.innerHTML=catalogHtml();grid.scrollTop=y}
     }
     function syncCart(){
       const element=document.getElementById("ezreg-cart");
