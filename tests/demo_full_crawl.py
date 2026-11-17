@@ -363,7 +363,7 @@ def crawl_preview(page, label):
         page.evaluate("m=>{const b=document.createElement('button');b.dataset.ezws='preview';"
                       "b.dataset.value=m;document.body.append(b);b.click();b.remove()}", mode)
         settle(page, 1200)
-        if not page.locator(".ezws-preview-bar").count():
+        if not page.locator(".ezws-preview-bar,.ezreg-header-actions .ezws-preview-switcher").count():
             raise AssertionError("preview toolbar missing for " + mode)
         if not page.locator("#page-content").inner_text(timeout=5000).strip():
             raise AssertionError("preview screen empty for " + mode)
