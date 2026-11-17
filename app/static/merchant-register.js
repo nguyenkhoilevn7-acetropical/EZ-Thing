@@ -6,7 +6,21 @@
   window.EZRegisterUI = function init({api,E,V,toast,getState,navigate,onCreated,onPaid,onPrint}) {
     const uid=()=>globalThis.crypto?.randomUUID?.()||
       "pos-"+Date.now().toString(36)+"-"+Math.random().toString(36).slice(2);
-    const t=(vi,en)=>window.EZI18N?.language?.()==="en"?en:vi;
+    const t=(_vi,en)=>en;
+    // Common demo catalog aliases are for display only; stored order values remain unchanged.
+    const demoNames=new Map(Object.entries({
+      "trà vải":"Lychee Tea","nước ép cam":"Orange Juice",
+      "trà đào cam sả":"Peach Citrus Tea","cà phê sữa":"Milk Coffee",
+      "trà sữa trân châu":"Pearl Milk Tea"
+    }));
+    const categoryNames=new Map(Object.entries({
+      "đồ uống":"Drinks","đồ ăn":"Food","món ăn":"Food",
+      "khác":"Other","tráng miệng":"Desserts","cà phê":"Coffee",
+      "trà":"Tea","bánh":"Bakery"
+    }));
+    const lookup=(dict,value)=>dict.get(String(value||"").trim().toLocaleLowerCase("vi"))||String(value||"");
+    const displayName=p=>lookup(demoNames,p?.name);
+    const displayBranch=name=>String(name||"").trim().toLocaleLowerCase("vi")==="chi nhánh chính"?"Main branch":String(name||"");
     const defaultState=()=>({
       bid:"",category:"all",search:"",branch:"",table:"",customer:"",note:"",
       ticketSide:(()=>{try{return localStorage.getItem("ez_pos_ticket_side")==="left"?"left":"right"}catch{return "right"}})(),
@@ -38,7 +52,7 @@
     const option=p=>((p?.modifier_groups||[]).flatMap(g=>g.options||[]));
     const modifierPrice=(p,ids)=>option(p).filter(o=>ids.includes(o.id))
       .reduce((sum,o)=>sum+(Number(o.price_vnd)||0),0);
-    const category=p=>String(p.category||t("Khác","Other")).trim()||t("Khác","Other");
+    const category=p=>lookup(categoryNames,String(p?.category||"Other").trim()||"Other");
     const belongs=()=>s.bid===business().id;
     const checkout=window.EZCashierCheckout?.({api,E,V,toast,getBusiness:business,
       getTotal:total,createOrder:create,onPaid:async result=>{
@@ -124,13 +138,13 @@
       const recentlyAdded=s.recentProduct===p.id&&Date.now()-s.recentAt<1100;
       return '<button type="button" class="ezreg-product '+(soldOut?"sold-out":"")+
         '" data-ezreg="product" data-value="'+E(p.id)+'" '+(soldOut?"disabled":"")+
-        ' aria-label="'+E(p.name+" "+fmt(price(p))+
+        ' aria-label="'+E(displayName(p)+" "+fmt(price(p))+
           (inCart?" · "+inCart+" "+t("trong giỏ","in cart"):""))+'">'+
         '<span class="ezreg-product-top">'+iconBlock(p)+
         (p.track_stock?'<span class="ezreg-stock '+(Number(p.stock)<=5?"low":"")+
         '">'+(soldOut?t("Hết hàng","Out of stock"):t("Còn ","Stock ")+E(p.stock))+'</span>':
         '<span class="ezreg-stock neutral">'+t("Sẵn bán","Available")+'</span>')+
-        '</span><span class="ezreg-product-name">'+E(p.name)+'</span>'+
+        '</span><span class="ezreg-product-name">'+E(displayName(p))+'</span>'+
         '<span class="ezreg-product-sub">'+E(category(p))+'</span>'+
         (inCart?'<span class="ezreg-product-in-cart">'+
           t("✓ Trong giỏ: ","✓ In cart: ")+inCart+'</span>':'')+
@@ -151,7 +165,7 @@
       const unit=price(p),extra=modifierPrice(p,line.optionIds);
       return '<article class="ezreg-cart-line" data-line-id="'+E(line.id)+'">'+
         '<div class="ezreg-cart-icon">'+glyph(p)+'</div>'+
-        '<div class="ezreg-cart-description"><strong>'+E(p.name)+'</strong>'+
+        '<div class="ezreg-cart-description"><strong>'+E(displayName(p))+'</strong>'+
         '<small>'+E(category(p))+(p.sku?' · '+E(p.sku):"")+'</small>'+
         (line.optionIds.length?'<span class="ezreg-line-mods">'+E(optionText(p,line.optionIds))+'</span>':"")+
         '<small class="ezreg-line-price">'+t("Đơn giá ","Unit ")+fmt(unit)+
@@ -178,10 +192,10 @@
       const count=totalQty();
       const disabled=!s.cart.length||s.busy||!navigator.onLine;
       return '<div class="ezreg-cart-head"><div><span class="ezreg-kicker">'+
-        t("PHIẾU BÁN HÀNG","CURRENT CHECK")+'</span><h3>'+
-        t("Đơn đang tạo","Current check")+' <span class="ezreg-count">'+count+'</span></h3>'+
+        t("PHIẾU BÁN HÀNG","TICKET")+'</span><h3>'+
+        t("Đơn đang tạo","Order")+' <span class="ezreg-count">'+count+'</span></h3>'+
         '<small class="ezreg-check-caption">'+s.cart.length+' '+
-        t("dòng món","item lines")+' · '+count+' '+t("phần","units")+'</small></div>'+
+        t("dòng món","lines")+' · '+count+' '+t("phần","units")+'</small></div>'+
         '<button type="button" class="ezreg-cart-close" data-ezreg="cart-close" aria-label="'+
         t("Đóng giỏ hàng","Close cart")+'">✕</button></div>'+
         '<div class="ezreg-cart-scroll"><div class="ezreg-cart-meta"><label>'+t("Chi nhánh","Branch")+
@@ -190,11 +204,11 @@
         branches().filter(b=>!getState().workstation?.branch_id||
           getState().workstation.branch_id===b.id).map(b=>
           '<option value="'+E(b.id)+'"'+(b.id===s.branch?" selected":"")+">"+
-          E(b.name)+'</option>').join("")+'</select></label>'+
-        (hasTables?'<label>'+t("Hình thức / bàn","Service / table")+
+          E(displayBranch(b.name))+'</option>').join("")+'</select></label>'+
+        (hasTables?'<label>'+t("Hình thức / bàn","Table")+
           '<select data-ezreg-select="table" '+(s.busy?"disabled":"")+
           ' aria-label="'+t("Chọn bàn","Select table")+'">'+
-          '<option value="">'+t("Không chọn bàn · mang đi / giao hàng","No table · takeaway / delivery")+'</option>'+
+          '<option value="">'+t("Không chọn bàn · mang đi / giao hàng","Takeaway")+'</option>'+
           activeTables.map(tab=>'<option value="'+E(tab.id)+'"'+
           (s.table===tab.id?" selected":"")+">"+E(tab.label)+
           (tab.occupied?" · "+t("Đang dùng","Occupied"):"")+"</option>").join("")+
@@ -205,7 +219,7 @@
         customers().map(c=>'<option value="'+E(c.id)+'"'+
           (s.customer===c.id?" selected":"")+">"+E(c.name)+"</option>").join("")+
         '</select></label></div>'+
-        '<div class="ezreg-cart-list-heading"><strong>'+t("Chi tiết món","Order items")+
+        '<div class="ezreg-cart-list-heading"><strong>'+t("Chi tiết món","Items")+
         '</strong><span>'+count+' '+t("phần","units")+'</span></div>'+
         '<div class="ezreg-cart-items">'+(s.cart.length?s.cart.map(cartLineHtml).join(""):
           '<div class="ezreg-cart-empty"><span>🧾</span><strong>'+
@@ -213,41 +227,41 @@
           t("Chạm dấu + trên món để thêm. Số lượng sẽ hiển thị ngay trên món và giỏ.",
             "Tap + to add an item. Its quantity appears immediately on the item and cart.")+
           '</p></div>')+'</div>'+
-        '<label class="ezreg-note-label">'+t("Ghi chú cho đơn","Order note")+
+        '<label class="ezreg-note-label">'+t("Ghi chú cho đơn","Note")+
         '<textarea data-ezreg-note maxlength="300" rows="2" '+(s.busy?"disabled":"")+
         ' placeholder="'+t("Ví dụ: Ít đá, giao trước 15:00...",
           "For example: Less ice, pickup at 3 PM...")+'">'+
         E(s.note)+'</textarea></label></div>'+
         '<div class="ezreg-cart-footer">'+
-        '<div class="ezreg-summary-row"><span>'+t("Tiền món","Menu items")+
+        '<div class="ezreg-summary-row"><span>'+t("Tiền món","Items")+
         '</span><strong>'+fmt(baseTotal)+'</strong></div>'+
-        '<div class="ezreg-summary-row"><span>'+t("Size / topping","Size / add-ons")+
+        '<div class="ezreg-summary-row"><span>'+t("Size / topping","Add-ons")+
         '</span><strong>'+fmt(extrasTotal)+'</strong></div>'+
-        '<div class="ezreg-subtotal"><span>'+t("Tạm tính · "+count+" phần","Subtotal · "+count+" units")+
+        '<div class="ezreg-subtotal"><span>'+t("Tạm tính · "+count+" phần","Total · "+count+" items")+
         '</span><strong>'+fmt(total())+'</strong></div>'+
         '<div class="ezreg-finance-hint">'+
         t("Đơn chưa lưu · Chưa thu tiền. Không tự cộng giảm giá, thuế hoặc phụ phí. Máy chủ xác nhận tổng tiền khi lưu.",
-          "Not saved · Unpaid. Discounts, tax and surcharges are not automatically added. Server verifies the amount when saving.")+
+          "Unpaid · Total verified on save.")+
         '</div>'+
         (orderOnly()?"":'<div class="ezreg-pay-methods" role="group" aria-label="'+
         t("Phương thức thanh toán nhanh","Quick payment method")+'">'+
         '<button type="button" data-ezreg="tender" data-method="cash" '+(disabled?"disabled":"")+
         '>💵 <span>'+t("Tiền mặt","Cash")+'</span></button>'+
         '<button type="button" data-ezreg="tender" data-method="bank_transfer" '+(disabled?"disabled":"")+
-        '>▦ <span>'+t("Chuyển khoản","Transfer")+'</span></button>'+
+        '>▦ <span>'+t("Chuyển khoản","Bank")+'</span></button>'+
         '<button type="button" disabled title="'+t("Chưa kết nối cổng thanh toán","Payment gateway not connected")+
         '">💳 <span>'+t("Thẻ","Card")+'</span></button></div>')+
         (orderOnly()?"":'<button type="button" class="ezreg-create ezreg-pay-primary" data-ezreg="checkout" '+
         (disabled?"disabled":"")+'>'+
         (s.busy?t("Đang xử lý...","Processing..."):
-          t("Thanh toán","Checkout"))+
+          t("Thanh toán","Pay"))+
         '<span>'+fmt(total())+'</span></button>')+
         '<button type="button" class="ezreg-save-check" data-ezreg="create" '+
-        (disabled?"disabled":"")+'>'+t("Lưu đơn · Chưa thu tiền","Save check · Unpaid")+'</button>'+
+        (disabled?"disabled":"")+'>'+t("Lưu đơn · Chưa thu tiền","Save")+'</button>'+
         '<div class="ezreg-secondary-actions"><button type="button" data-ezreg="clear" '+
-        (!s.cart.length||s.busy?"disabled":"")+'>'+t("Xóa giỏ hàng","Clear cart")+'</button>'+
+        (!s.cart.length||s.busy?"disabled":"")+'>'+t("Xóa giỏ hàng","Clear")+'</button>'+
         (!orderOnly()?'<button type="button" data-ezreg="orders">'+
-        t("Xem đơn đã tạo","View orders")+'</button>':"")+'</div></div>';
+        t("Xem đơn đã tạo","Orders")+'</button>':"")+'</div></div>';
     }
     function lastHtml(){
       const o=s.last;
@@ -277,22 +291,22 @@
     function render(){
       initTenant();
       const stock=validProducts();
-      return '<section class="ezreg '+(s.ticketSide==="left"?"ezreg-ticket-left":"ezreg-ticket-right")+'" id="ez-register" aria-label="'+
+      return '<section class="ezreg '+(s.ticketSide==="left"?"ezreg-ticket-left":"ezreg-ticket-right")+'" data-ez-lang-ignore id="ez-register" aria-label="'+
         t("Màn hình bán hàng POS","POS register")+'">'+
         '<div class="ezreg-header"><div><span class="ezreg-kicker">EZ THING · POINT OF SALE</span>'+
-        '<h2>'+t("Bán hàng nhanh","Quick sale")+'</h2><p>'+
+        '<h2>'+t("Bán hàng nhanh","POS Order")+'</h2><p>'+
         t("Chọn món, tùy chỉnh, tạo đơn trong một màn hình.",
-          "Select items, customize and create checks in one workspace.")+'</p></div>'+
+          "Select items and send the order.")+'</p></div>'+
         '<div class="ezreg-header-actions"><span class="ezreg-online" role="status">'+
         (navigator.onLine?t("● Đang kết nối","● Online"):t("● Mất kết nối","● Offline"))+'</span>'+
-        '<button type="button" data-ezreg="flip-ticket" class="ezreg-layout-switch" aria-pressed="'+(s.ticketSide==="left")+'" title="'+t("Đổi vị trí hóa đơn","Switch check position")+'">⇄ '+t("Đổi bên","Switch")+'</button>'+ 
+        '<button type="button" data-ezreg="flip-ticket" class="ezreg-layout-switch" aria-pressed="'+(s.ticketSide==="left")+'" title="'+t("Đổi vị trí hóa đơn","Switch check position")+'">⇄ '+t("Đổi bên","Flip")+'</button>'+ 
         '<button type="button" data-ezws="fullscreen" aria-label="'+t("Bật toàn màn hình","Fullscreen")+
         '" title="'+t("Toàn màn hình","Fullscreen")+'">⛶</button>'+
         (orderOnly()?"":'<button type="button" data-ezreg="orders">'+
           t("Đơn hàng →","Orders →")+'</button>')+'</div></div>'+lastHtml()+
         '<div class="ezreg-layout"><section class="ezreg-catalog">'+
-        '<div class="ezreg-catalog-head"><div><h3>'+t("Thực đơn & sản phẩm","Menu & products")+
-        '</h3><span>'+stock.length+' '+t("mặt hàng","items")+'</span></div>'+
+        '<div class="ezreg-catalog-head"><div><h3>'+t("Thực đơn & sản phẩm","Products")+
+        '</h3><span>'+stock.length+' '+t("mặt hàng","products")+'</span></div>'+
         '<label class="ezreg-search"><span>⌕</span><input type="search" data-ezreg-search '+
         'placeholder="'+t("Tìm tên món, mã SKU...","Search items or SKU...")+
         '" value="'+E(s.search)+'" aria-label="'+t("Tìm sản phẩm","Search products")+
@@ -304,7 +318,7 @@
         cartInnerHtml()+'</aside></div>'+
         '<button class="ezreg-mobile-cartbar" data-ezreg="cart-toggle" type="button">'+
         '<span>🛒 '+totalQty()+' '+t("món","items")+'</span><strong>'+fmt(total())+
-        '</strong><span>'+t("Xem giỏ ↑","View cart ↑")+'</span></button>'+
+        '</strong><span>'+t("Xem giỏ ↑","Cart ↑")+'</span></button>'+
         '<div class="ezreg-added-live" id="ezreg-added-live" role="status" aria-live="polite" aria-atomic="true"></div>'+
         '<div class="ezreg-cart-backdrop '+(s.mobileCart?"visible":"")+
         '" data-ezreg="cart-close"></div>'+
@@ -338,7 +352,7 @@
       element.classList.toggle("mobile-open",s.mobileCart);
       const bar=document.querySelector(".ezreg-mobile-cartbar");
       if(bar)bar.innerHTML='<span>🛒 '+totalQty()+' '+t("món","items")+'</span>'+
-        '<strong>'+fmt(total())+'</strong><span>'+t("Xem giỏ ↑","View cart ↑")+'</span>';
+        '<strong>'+fmt(total())+'</strong><span>'+t("Xem giỏ ↑","Cart ↑")+'</span>';
       document.querySelector(".ezreg-cart-backdrop")?.classList.toggle("visible",s.mobileCart);
     }
     function animateIntoCart(source,product){
@@ -400,7 +414,7 @@
         '<div class="ezreg-option-dialog" role="dialog" aria-modal="true" aria-labelledby="ezreg-option-title">'+
         '<div class="ezreg-option-title"><div>'+iconBlock(p)+
         '<div><span class="ezreg-kicker">'+E(category(p))+'</span><h3 id="ezreg-option-title">'+
-        E(p.name)+'</h3><strong>'+fmt(price(p))+'</strong></div></div>'+
+        E(displayName(p))+'</h3><strong>'+fmt(price(p))+'</strong></div></div>'+
         '<button type="button" data-ezreg="option-close" aria-label="'+t("Đóng","Close")+'">✕</button></div>'+
         '<div class="ezreg-options-body">'+groups.map(g=>{
           const max=Number(g.max_select)||1;
