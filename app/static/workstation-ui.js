@@ -413,10 +413,25 @@
           window.scrollTo(0,0);
         });
       }
+      let observedPreviewBar=null,previewBarResizeObserver=null;
       function syncPreviewLayout(){
         const bar=document.querySelector(".ezws-preview-bar");
         const height=bar?Math.ceil(bar.getBoundingClientRect().height):0;
-        document.body.style.setProperty("--ezws-preview-header-h",height+"px");
+        const previous=document.body.style.getPropertyValue("--ezws-preview-header-h");
+        if(previous!==height+"px")
+          document.body.style.setProperty("--ezws-preview-header-h",height+"px");
+        // The language control can move into the toolbar *after* the first
+        // render. Its wrap height must always be measured, even without resize.
+        if(bar!==observedPreviewBar){
+          previewBarResizeObserver?.disconnect();
+          observedPreviewBar=bar;
+          if(bar&&typeof ResizeObserver!=="undefined"){
+            previewBarResizeObserver=new ResizeObserver(()=>{
+              if(document.querySelector(".ezws-preview-bar")===bar)syncPreviewLayout();
+            });
+            previewBarResizeObserver.observe(bar);
+          }
+        }
       }
       window.addEventListener("resize",()=>{if(previewMode)syncPreviewLayout()},{passive:true});
       async function fullscreen(){
