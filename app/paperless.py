@@ -407,6 +407,33 @@ def save_profile(body: ProfileInput, request: Request,
     return {"member": member_public(member)}
 
 
+@router.get("/api/wallet/member-qr")
+def member_qr(request: Request, db: Session = Depends(db_session)):
+    from fastapi.responses import Response as RawResponse
+    member = signed_member(request, db)
+    if not member or not member.name.strip() or not member.phone.strip():
+        deny(401, "Complete member registration first")
+    # Membership QR carries a public code only, never a session or account secret.
+    img = qrcode.make("EZMEMBER:" + member.member_code)
+    out = io.BytesIO()
+    img.save(out, format="PNG")
+    return RawResponse(out.getvalue(), media_type="image/png",
+                       headers={"Cache-Control": "no-store"})
+
+
+@router.post("/api/wallet/forget-device")
+def forget_device(request: Request, response: Response,
+                  db: Session = Depends(db_session)):
+    safe_origin(request)
+    wallet = guest_wallet(request, db)
+    if wallet:
+        # Revokes this device key without deleting paid receipts linked to members.
+        wallet.secret_hash = digest(fresh())
+        db.commit()
+    response.delete_cookie(COOKIE_GUEST, path="/", samesite="lax")
+    return {"ok": True}
+
+
 @router.post("/api/wallet/logout")
 def member_logout(request: Request, response: Response,
                   db: Session = Depends(db_session)):
