@@ -63,6 +63,8 @@
         paint();
         if(onPaid)await onPaid();
         paint();
+        if(document.body.dataset.ezWorkstationPreview!=="true"&&result?.order?.id)
+          window.EZPaperlessPOS?.open({api,bid:business().id,orderId:result.order.id,toast});
       }});
     const available=p=>p?.active!==false&&(!p?.track_stock||Number(p.stock)>0);
     const selectionsValid=(p,ids)=>{
@@ -294,6 +296,7 @@
           '<button type="button" data-ezreg="send-kitchen">'+
           t("Gửi bếp thủ công","Send manually")+'</button>':"")+
         (!orderOnly()?(o.paid?
+          '<button type="button" class="ezreg-digital-receipt" data-ezreg="digital-receipt">▦ Digital Receipt</button>'+
           '<button type="button" data-ezreg="print">'+t("🖨 In phiếu thanh toán","🖨 Print receipt")+'</button>':
           '<button type="button" data-ezreg="paid">'+t("Thanh toán đơn này","Take payment")+'</button>'):"")+
         (!orderOnly()?'<button type="button" data-ezreg="orders">'+t("Danh sách đơn","Order list")+'</button>':"")+
@@ -682,6 +685,8 @@
       else if(action==="send-kitchen")sendKitchen();
       else if(action==="paid")markPaid();
       else if(action==="print"&&s.last?.paid)onPrint?.(s.last.id);
+       else if(action==="digital-receipt"&&s.last?.paid)
+         window.EZPaperlessPOS?.open({api,bid:business().id,orderId:s.last.id,toast});
     },true);
     document.addEventListener("input",event=>{
       if(!document.getElementById("ez-register"))return;

@@ -24,7 +24,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Mapped, Session, mapped_column
 
 from .database import Base, db_session
-from .models import Branch, DiningTable, Product, SaleOrder, now
+from .models import Business, Branch, DiningTable, Product, SaleOrder, now
 from .main import audit, current_user, order_out, tenant
 from .team import MANAGE_ROLES, ROLES, allow
 
@@ -261,6 +261,11 @@ def pos_breakdown(db: Session, order: SaleOrder) -> dict | None:
 
 
 def enqueue_receipt(db: Session, bid: str, order: SaleOrder) -> None:
+    # Paperless is tenant opt-in. Kitchen, packing and label printing are unchanged.
+    business = db.get(Business, bid)
+    policy = ((business.setup or {}).get("paperless_loyalty") or {}) if business else {}
+    if policy.get("paperless_enabled", False):
+        return
     devices = active_devices(db, bid, order.branch_id, {"receipt"})
     if not devices:
         return
