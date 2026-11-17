@@ -761,3 +761,105 @@ body[data-ez-workstation-active="true"] .ezreg .ezreg-product{
   min-height:0!important;
  }
 }
+
+/* POS progressive disclosure — compact tablet/desktop order workspace. */
+.ezreg .ezreg-catalog-head{
+  display:flex!important;flex-direction:row!important;align-items:center!important;
+  flex-wrap:wrap!important;gap:7px!important;margin-bottom:8px!important;
+}
+.ezreg .ezreg-catalog-heading{display:flex;flex-direction:column;gap:2px;min-width:90px;flex:0 0 auto}
+.ezreg .ezreg-catalog-heading h3{margin:0!important}
+.ezreg .ezreg-catalog-heading>span{font-size:10px;color:var(--pos-muted)}
+.ezreg .ezreg-catalog-controls{
+  display:flex;align-items:center;justify-content:flex-end;flex:1 1 auto;
+  min-width:0;gap:6px;margin-left:auto;
+}
+.ezreg .ezreg-catalog-controls .ezreg-cart-context{
+  display:flex;align-items:center;flex:0 1 auto;max-width:min(100%,390px);
+  min-width:0;min-height:0!important;padding:0!important;gap:5px!important;
+  border:0!important;background:transparent!important;
+}
+.ezreg .ezreg-catalog-controls .ezreg-context-chip{flex:1 1 125px;min-width:90px;max-width:190px}
+.ezreg .ezreg-catalog-controls .ezreg-context-chip select{
+  height:36px!important;min-height:36px!important;font-size:11px!important;
+  padding:5px 21px 5px 8px!important;
+}
+.ezreg .ezreg-catalog-controls .ezreg-context-static{
+  flex:0 1 120px;min-height:36px!important;padding:6px 9px!important;
+  font-size:11px!important;white-space:nowrap;
+}
+.ezreg .ezreg-search{
+  display:flex!important;align-items:center!important;flex:0 0 38px!important;
+  width:38px!important;max-width:none!important;min-width:0!important;
+  height:36px!important;min-height:36px!important;padding:0 2px!important;
+  border-radius:9px!important;background:var(--pos-subtle);
+}
+.ezreg .ezreg-search.is-open{
+  flex:0 1 220px!important;width:min(220px,42vw)!important;min-width:120px!important;
+}
+.ezreg .ezreg-search-toggle,
+.ezreg .ezreg-search-close{
+  flex:0 0 auto;width:32px;height:32px;border:0;background:transparent;
+  color:var(--pos-ink);cursor:pointer;font-size:22px;line-height:1;
+  display:grid;place-items:center;padding:0;
+}
+.ezreg .ezreg-search-close{width:24px;height:28px;font-size:13px;color:var(--pos-muted)}
+.ezreg .ezreg-search input{
+  flex:1 1 0!important;min-width:0!important;width:100%!important;
+  padding:0 3px!important;height:32px!important;font-size:12px!important;
+}
+.ezreg .ezreg-cart-head{min-height:43px!important;padding:7px 10px!important;flex:0 0 auto!important}
+.ezreg .ezreg-ticket-inline{display:flex;align-items:center;gap:7px;min-width:0;white-space:nowrap;overflow:hidden}
+.ezreg .ezreg-ticket-label{
+  font-size:10px;font-weight:850;letter-spacing:.065em;text-transform:uppercase;color:var(--pos-accent)
+}
+.ezreg .ezreg-ticket-name{font-size:15px;letter-spacing:-.02em;color:var(--pos-ink)}
+.ezreg .ezreg-ticket-inline .ezreg-count{margin:0!important;padding:2px 6px!important;font-size:11px!important}
+.ezreg .ezreg-ticket-inline .ezreg-check-caption{
+  display:block!important;margin:0!important;min-width:0;overflow:hidden;
+  text-overflow:ellipsis;font-size:10px!important;white-space:nowrap
+}
+.ezreg .ezreg-note-wrap{padding:5px 10px 8px;border-top:1px solid var(--pos-line)}
+.ezreg .ezreg-note-toggle{
+  display:flex;align-items:center;gap:6px;border:1px solid var(--pos-line);
+  background:var(--pos-subtle);color:var(--pos-ink);border-radius:8px;
+  padding:5px 10px;min-height:33px;font-size:11px;font-weight:750;cursor:pointer;
+}
+.ezreg .ezreg-note-dot{font-size:10px;color:var(--pos-accent)}
+.ezreg .ezreg-note-wrap .ezreg-note-label{
+  display:block!important;margin-top:6px!important;padding:0!important;
+  border:0!important;
+}
+.ezreg .ezreg-note-wrap .ezreg-note-label textarea{
+  display:block;width:100%;min-height:54px!important;max-height:90px!important;
+  font-size:12px!important;resize:vertical;
+}
+@media(max-width:980px){
+  .ezreg .ezreg-catalog-controls{flex-wrap:wrap;justify-content:flex-end}
+  .ezreg .ezreg-catalog-controls .ezreg-cart-context{flex:1 1 220px;max-width:100%}
+}
+@media(max-width:699px){
+  .ezreg .ezreg-catalog-head{align-items:flex-start!important}
+  .ezreg .ezreg-catalog-heading{flex:1 0 100%}
+  .ezreg .ezreg-catalog-controls{flex:1 1 100%;width:100%;flex-wrap:nowrap}
+  .ezreg .ezreg-catalog-controls .ezreg-cart-context{flex:1 1 auto}
+  .ezreg .ezreg-catalog-controls .ezreg-context-chip{min-width:0}
+  .ezreg .ezreg-search.is-open{
+    flex:1 1 160px!important;width:min(180px,48vw)!important;min-width:105px!important;
+  }
+  .ezreg .ezreg-ticket-inline{gap:5px}
+  .ezreg .ezreg-ticket-inline .ezreg-check-caption{font-size:9px!important}
+}
+
+/* Product density follows available catalog width; fewer empty gaps on POS tablets. */
+@media(min-width:1081px){
+  .ezreg .ezreg-products,
+  body[data-ez-workstation-active="true"] .ezreg .ezreg-products{
+    grid-template-columns:repeat(auto-fill,minmax(min(165px,100%),1fr))!important;
+    align-content:start!important;
+  }
+  .ezreg .ezreg-product,
+  body[data-ez-workstation-active="true"] .ezreg .ezreg-product{
+    min-height:150px!important;
+  }
+}
